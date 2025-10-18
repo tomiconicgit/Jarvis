@@ -3,16 +3,19 @@
 
 const config = {
     appName: 'Jarvis',
-    version: '1.0.0',
+    version: '1.1.0',
     scripts: [
         // The debugger should be loaded first to catch errors in subsequent scripts.
         'debugger.js',
-        // LeafletJS for maps (needed by dashboard)
+        // Core libraries
         'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-        // The main dashboard script.
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+        // App modules
         'dashboard.js',
+        'bus-tool.js' // The Bus Times tool is now a separate module
     ]
 };
 
 export default config;
+
 
