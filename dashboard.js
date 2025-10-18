@@ -3,7 +3,6 @@
 
 window.Jarvis = (function() {
     let appContainer = null;
-    let cardAnimationId;
 
     // --- RENDER FUNCTION ---
     function renderDashboard() {
@@ -16,9 +15,24 @@ window.Jarvis = (function() {
                 
                 <div id="tool-cards-container" class="grid grid-cols-2 gap-4 my-8" style="perspective: 1000px;">
                     <div class="tool-card aspect-square">
-                         <button id="bus-tool-btn" class="w-full h-full bg-white/10 backdrop-blur-md rounded-2xl flex flex-col items-center justify-end p-4 border border-white/20 overflow-hidden relative">
-                            <canvas class="absolute inset-0 w-full h-full"></canvas>
-                            <span class="text-white font-medium z-10">Bus Times</span>
+                         <button id="bus-tool-btn" class="w-full h-full bg-gray-900 rounded-2xl flex flex-col items-center justify-end p-4 border border-white/10 overflow-hidden relative shadow-lg">
+                            <!-- SVG Poster for Bus Times -->
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <svg width="100%" height="100%" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" class="opacity-80">
+                                    <!-- Abstract map background -->
+                                    <path d="M 10 10 L 80 10 L 140 40 L 140 110 L 70 140 L 10 110 Z" fill="rgba(192, 132, 252, 0.1)"/>
+                                    <!-- Route line -->
+                                    <path d="M 30 80 Q 75 120, 120 70" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round"/>
+                                    <!-- Bus Icon -->
+                                    <g transform="translate(15, 65) scale(1.5)">
+                                        <rect x="2" y="5" width="16" height="8" rx="2" stroke="white" stroke-width="1.2" fill="none"/>
+                                        <rect x="0" y="3" width="20" height="4" rx="2" fill="#c084fc"/>
+                                        <circle cx="5" cy="15" r="2" fill="white"/>
+                                        <circle cx="15" cy="15" r="2" fill="white"/>
+                                    </g>
+                                </svg>
+                            </div>
+                            <span class="text-white font-medium z-10 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full">Bus Times</span>
                         </button>
                     </div>
                     <!-- Add more cards here -->
@@ -37,17 +51,15 @@ window.Jarvis = (function() {
         // Add event listeners
         document.getElementById('bus-tool-btn').addEventListener('click', launchBusTool);
         
-        // Initialize animations and effects
+        // Initialize effects
         initParallax();
-        initCardAnimation(document.querySelector('#bus-tool-btn canvas'));
     }
 
     // --- LAUNCHERS ---
     function launchBusTool() {
         if (window.Jarvis.BusTool && typeof window.Jarvis.BusTool.show === 'function') {
             window.Jarvis.BusTool.show(appContainer);
-            // Stop animations when leaving dashboard
-            cancelAnimationFrame(cardAnimationId);
+            // Stop parallax effect when leaving dashboard
             window.removeEventListener('deviceorientation', handleOrientation);
         } else {
             console.error('Bus Tool module not found!');
@@ -55,50 +67,13 @@ window.Jarvis = (function() {
     }
 
     // --- VISUAL EFFECTS ---
-    function initCardAnimation(canvas) {
-        if (!canvas || typeof THREE === 'undefined') return;
-        
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-
-        const geometry = new THREE.TorusGeometry(2, 0.5, 16, 100);
-        const material = new THREE.MeshStandardMaterial({ 
-            color: 0x9333ea, // Purple
-            roughness: 0.5,
-            metalness: 0.8,
-            emissive: 0x9333ea,
-            emissiveIntensity: 0.3
-        });
-        const torus = new THREE.Mesh(geometry, material);
-        scene.add(torus);
-
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(5, 5, 5);
-        scene.add(light);
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-        scene.add(ambientLight);
-
-        camera.position.z = 5;
-
-        function animate() {
-            cardAnimationId = requestAnimationFrame(animate);
-            torus.rotation.x += 0.01;
-            torus.rotation.y += 0.005;
-            renderer.render(scene, camera);
-        }
-        animate();
-    }
-
     let handleOrientation; // To store the function for removal
 
     function initParallax() {
         const cards = document.querySelectorAll('.tool-card');
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            // iOS 13+ requires permission
-            // For simplicity, we'll attach to the window and assume permission is granted or not required.
-            // A real app would have a button to request permission.
+           // On a real device, you'd have a UI element to trigger this permission request.
+           // For now, we proceed assuming it's granted or not needed.
         }
 
         handleOrientation = function(event) {
@@ -106,8 +81,8 @@ window.Jarvis = (function() {
             const gamma = event.gamma; // left-right tilt (-90 to 90)
 
             cards.forEach(card => {
-                const rotateX = (beta / 180) * 30; // Max rotation 30deg
-                const rotateY = (gamma / 90) * 30; // Max rotation 30deg
+                const rotateX = (beta / 180) * 20; // Reduced max rotation
+                const rotateY = (gamma / 90) * 20; // Reduced max rotation
                 card.style.transform = `rotateX(${-rotateX}deg) rotateY(${rotateY}deg)`;
             });
         }
