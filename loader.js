@@ -4,9 +4,10 @@
 (function() {
     const appContainer = document.getElementById('app');
     let animationFrameId;
+    let scene, camera, renderer, particleSystem;
+    const mouse = new THREE.Vector2();
 
     function showLoadingScreen() {
-        // Create spans for each letter for animation
         const title = 'JARVIS'.split('').map((char, i) => 
             `<span style="--i: ${i+1}">${char}</span>`
         ).join('');
@@ -48,67 +49,96 @@
         const canvas = document.getElementById('loader-canvas');
         if (!canvas) return;
 
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
 
         const particleCount = 7000;
         const particles = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
 
-        for (let i = 0; i < particleCount * 3; i++) {
-            positions[i] = (Math.random() - 0.5) * 15;
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 10;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
         }
 
         particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
         const particleMaterial = new THREE.PointsMaterial({
-            color: 0x8257E5, // A nice purple
+            color: 0x8257E5,
             size: 0.02,
             transparent: true,
             blending: THREE.AdditiveBlending,
-            opacity: 0.7
+            opacity: 0.8
         });
 
-        const particleSystem = new THREE.Points(particles, particleMaterial);
+        particleSystem = new THREE.Points(particles, particleMaterial);
         scene.add(particleSystem);
         
         camera.position.z = 5;
 
-        const clock = new THREE.Clock();
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('mousemove', onMouseMove, false);
 
-        function animate() {
-            animationFrameId = requestAnimationFrame(animate);
-            const elapsedTime = clock.getElapsedTime();
-
-            particleSystem.rotation.y = elapsedTime * 0.1;
-            particleSystem.rotation.x = elapsedTime * 0.05;
-
-            renderer.render(scene, camera);
-        }
-        
         animate();
     }
 
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    }
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        animationFrameId = requestAnimationFrame(animate);
+        const elapsedTime = clock.getElapsedTime();
+
+        // Animate particles
+        particleSystem.rotation.y = elapsedTime * 0.1;
+        particleSystem.rotation.x = elapsedTime * 0.05;
+
+        // Mouse interaction
+        camera.position.x += (mouse.x * 0.5 - camera.position.x) * 0.02;
+        camera.position.y += (-mouse.y * 0.5 - camera.position.y) * 0.02;
+        camera.lookAt(scene.position);
+
+        renderer.render(scene, camera);
+    }
 
     function hideLoadingScreen() {
         const loader = document.getElementById('loader');
         if (loader) {
             loader.style.opacity = '0';
             setTimeout(() => {
-                cancelAnimationFrame(animationFrameId); // Stop animation
+                cancelAnimationFrame(animationFrameId);
+                document.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('resize', onWindowResize);
                 loader.remove();
             }, 1000);
         }
     }
 
     async function loadScripts() {
+        // We'll dynamically import main.js to get the list of scripts
         const mainModule = await import('./src/main.js');
         const scriptsToLoad = mainModule.default.scripts;
 
         const scriptPromises = scriptsToLoad.map(src => {
             return new Promise((resolve, reject) => {
+                // Skip loading scripts that might already be on the page
+                if (document.querySelector(`script[src="${src}"]`)) {
+                    resolve();
+                    return;
+                }
                 const script = document.createElement('script');
                 script.src = src;
                 script.async = false;
@@ -142,9 +172,13 @@
         showLoadingScreen();
         registerServiceWorker();
 
+        // Since Three.js is already in index.html, we can wait a bit for it to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         const scriptsLoaded = await loadScripts();
 
         if (scriptsLoaded) {
+            // A delay to enjoy the animation
             setTimeout(() => {
                 hideLoadingScreen();
                 if (window.Jarvis && typeof window.Jarvis.initDashboard === 'function') {
@@ -154,10 +188,10 @@
                     appContainer.innerHTML = `<div class="p-4 text-red-500">Error: Application failed to initialize.</div>`;
                 }
             }, 3500);
+        } else {
+            document.getElementById('loader-content').innerHTML = `<p class="text-red-500">Failed to load essential scripts.</p>`;
         }
     }
 
     initialize();
 })();
-
-
