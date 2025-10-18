@@ -1,8 +1,9 @@
-// --- DASHBOARD.JS ---
+// --- SRC/DASHBOARD.JS ---
 // Renders the main dashboard, handles card parallax effects, and launches tools.
 
 window.Jarvis = (function() {
     let appContainer = null;
+    let handleOrientation; // To store the function for removal
 
     // --- RENDER FUNCTION ---
     function renderDashboard() {
@@ -16,14 +17,10 @@ window.Jarvis = (function() {
                 <div id="tool-cards-container" class="grid grid-cols-2 gap-4 my-8" style="perspective: 1000px;">
                     <div class="tool-card aspect-square">
                          <button id="bus-tool-btn" class="w-full h-full bg-gray-900 rounded-2xl flex flex-col items-center justify-end p-4 border border-white/10 overflow-hidden relative shadow-lg">
-                            <!-- SVG Poster for Bus Times -->
                             <div class="absolute inset-0 flex items-center justify-center">
                                 <svg width="100%" height="100%" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" class="opacity-80">
-                                    <!-- Abstract map background -->
                                     <path d="M 10 10 L 80 10 L 140 40 L 140 110 L 70 140 L 10 110 Z" fill="rgba(192, 132, 252, 0.1)"/>
-                                    <!-- Route line -->
                                     <path d="M 30 80 Q 75 120, 120 70" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round"/>
-                                    <!-- Bus Icon -->
                                     <g transform="translate(15, 65) scale(1.5)">
                                         <rect x="2" y="5" width="16" height="8" rx="2" stroke="white" stroke-width="1.2" fill="none"/>
                                         <rect x="0" y="3" width="20" height="4" rx="2" fill="#c084fc"/>
@@ -35,7 +32,20 @@ window.Jarvis = (function() {
                             <span class="text-white font-medium z-10 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full">Bus Times</span>
                         </button>
                     </div>
-                    <!-- Add more cards here -->
+                    
+                    <div class="tool-card aspect-square">
+                         <button id="video-tool-btn" class="w-full h-full bg-gray-900 rounded-2xl flex flex-col items-center justify-end p-4 border border-white/10 overflow-hidden relative shadow-lg">
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <svg width="100%" height="100%" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" class="opacity-80">
+                                     <path d="M 10 40 L 10 110 L 140 110 L 140 40 Z" fill="rgba(34, 197, 94, 0.1)"/>
+                                     <polyline points="50,70 75,95 100,70" stroke="#22c55e" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                                     <line x1="75" y1="50" x2="75" y2="95" stroke="#22c55e" stroke-width="6" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <span class="text-white font-medium z-10 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full">Video Downloader</span>
+                        </button>
+                    </div>
+
                 </div>
 
                 <div class="relative w-full">
@@ -50,43 +60,55 @@ window.Jarvis = (function() {
         
         // Add event listeners
         document.getElementById('bus-tool-btn').addEventListener('click', launchBusTool);
+        document.getElementById('video-tool-btn').addEventListener('click', launchVideoDownloader);
         
         // Initialize effects
         initParallax();
     }
 
     // --- LAUNCHERS ---
+    function stopParallax() {
+        if (handleOrientation) {
+            window.removeEventListener('deviceorientation', handleOrientation);
+        }
+    }
+
     function launchBusTool() {
         if (window.Jarvis.BusTool && typeof window.Jarvis.BusTool.show === 'function') {
+            stopParallax();
             window.Jarvis.BusTool.show(appContainer);
-            // Stop parallax effect when leaving dashboard
-            window.removeEventListener('deviceorientation', handleOrientation);
         } else {
             console.error('Bus Tool module not found!');
         }
     }
+    
+    function launchVideoDownloader() {
+        if (window.Jarvis.VideoDownloader && typeof window.Jarvis.VideoDownloader.show === 'function') {
+            stopParallax();
+            window.Jarvis.VideoDownloader.show(appContainer);
+        } else {
+            console.error('Video Downloader module not found!');
+        }
+    }
 
     // --- VISUAL EFFECTS ---
-    let handleOrientation; // To store the function for removal
-
     function initParallax() {
         const cards = document.querySelectorAll('.tool-card');
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-           // On a real device, you'd have a UI element to trigger this permission request.
-           // For now, we proceed assuming it's granted or not needed.
-        }
+        if ('DeviceOrientationEvent' in window) {
+            handleOrientation = function(event) {
+                const beta = event.beta;  // front-back tilt
+                const gamma = event.gamma; // left-right tilt
 
-        handleOrientation = function(event) {
-            const beta = event.beta;  // front-back tilt (-180 to 180)
-            const gamma = event.gamma; // left-right tilt (-90 to 90)
+                // Normalize and cap the values for a subtle effect
+                const rotX = Math.min(Math.max(beta, -45), 45) / 45 * 10;
+                const rotY = Math.min(Math.max(gamma, -45), 45) / 45 * 10;
 
-            cards.forEach(card => {
-                const rotateX = (beta / 180) * 20; // Reduced max rotation
-                const rotateY = (gamma / 90) * 20; // Reduced max rotation
-                card.style.transform = `rotateX(${-rotateX}deg) rotateY(${rotateY}deg)`;
-            });
+                cards.forEach(card => {
+                    card.style.transform = `rotateX(${-rotX}deg) rotateY(${rotY}deg)`;
+                });
+            }
+            window.addEventListener('deviceorientation', handleOrientation);
         }
-        window.addEventListener('deviceorientation', handleOrientation);
     }
 
     // --- PUBLIC API ---
@@ -97,5 +119,3 @@ window.Jarvis = (function() {
         },
     };
 })();
-
-
