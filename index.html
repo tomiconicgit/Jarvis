@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Jarvis</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons for Apple devices -->
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/000000/FFFFFF?text=J">
+
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- LeafletJS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <style>
+        /* Basic styles for a full-screen app experience */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+        #app {
+            height: 100%;
+            width: 100%;
+        }
+        /* Style for the map */
+        #map { 
+            height: 100%; 
+            width: 100%;
+        }
+        .leaflet-control-attribution { display: none !important; }
+        .leaflet-tile-pane {
+             filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+        }
+    </style>
+</head>
+<body>
+    <!-- Main application container -->
+    <div id="app"></div>
+
+    <!-- The loader will be initiated first -->
+    <script src="loader.js"></script>
+</body>
+</html>
+
