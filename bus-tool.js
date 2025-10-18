@@ -25,20 +25,22 @@ window.Jarvis.BusTool = (function() {
                 }
             </style>
             <div id="bus-tool" class="h-full w-full flex flex-col bg-black transition-opacity duration-500 opacity-0">
-                <header class="bg-black/30 backdrop-blur-md flex items-center p-4 h-24 z-20 safe-area-inset-top flex-shrink-0">
+                <header class="bg-black/30 backdrop-blur-md flex items-center p-4 h-24 z-30 safe-area-inset-top flex-shrink-0">
                     <button id="back-to-dashboard" class="text-white p-2 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
                     <h1 class="text-2xl font-bold text-white ml-4">Bus Times</h1>
                 </header>
                 
                 <main class="flex-grow relative">
-                    <div id="map" class="absolute inset-0"></div>
+                    <!-- Map container: explicitly set to a lower z-index -->
+                    <div id="map" class="absolute inset-0 z-10"></div>
                     
-                    <button id="find-local-buses" class="absolute bottom-10 right-5 z-10 p-4 rounded-full">
+                    <!-- UI elements: explicitly set to a higher z-index -->
+                    <button id="find-local-buses" class="absolute bottom-10 right-5 z-20 p-4 rounded-full">
                         <div class="absolute -inset-1.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-md opacity-75 animate-pulse"></div>
                         <div class="relative text-white"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
                     </button>
 
-                     <div id="bus-info-panel" class="bg-gray-900/80 backdrop-blur-xl p-4 rounded-t-3xl absolute bottom-0 left-0 right-0 transform translate-y-full transition-transform duration-500 ease-in-out max-h-[60%] overflow-y-auto safe-area-inset-bottom">
+                     <div id="bus-info-panel" class="absolute bottom-0 left-0 right-0 z-20 bg-gray-900/80 backdrop-blur-xl p-4 rounded-t-3xl transform translate-y-full transition-transform duration-500 ease-in-out max-h-[60%] overflow-y-auto safe-area-inset-bottom">
                         <div class="w-10 h-1.5 bg-gray-600 rounded-full mx-auto mb-4"></div>
                         <div id="bus-info-content">
                             <p class="text-gray-400 text-center py-4">Tap the location button to find nearby bus stops.</p>
