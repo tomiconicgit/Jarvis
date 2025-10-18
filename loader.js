@@ -6,22 +6,35 @@
     let animationFrameId;
 
     function showLoadingScreen() {
+        // Create spans for each letter for animation
+        const title = 'JARVIS'.split('').map((char, i) => 
+            `<span style="--i: ${i+1}">${char}</span>`
+        ).join('');
+
         const loaderHTML = `
+            <style>
+                .jarvis-title span {
+                    display: inline-block;
+                    opacity: 0;
+                    transform: scale(0.8) translateY(20px);
+                    animation: fadeInChar 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+                    animation-delay: calc(var(--i) * 100ms + 0.5s);
+                }
+                @keyframes fadeInChar {
+                    to {
+                        opacity: 1;
+                        transform: scale(1) translateY(0);
+                    }
+                }
+            </style>
             <div id="loader" class="fixed inset-0 bg-black flex flex-col items-center justify-center transition-opacity duration-1000 z-50">
                 <canvas id="loader-canvas"></canvas>
-                <div id="loader-content" class="z-50 text-center transition-opacity duration-1000 opacity-0">
-                    <h1 class="text-white text-5xl font-thin tracking-[0.3em] ml-2">JARVIS</h1>
-                    <p class="text-gray-400 mt-2 text-sm tracking-widest">INITIALISING...</p>
+                <div id="loader-content" class="z-50 text-center transition-opacity duration-1000 opacity-100">
+                    <h1 class="jarvis-title text-white text-5xl font-semibold tracking-[0.4em] ml-3">${title}</h1>
                 </div>
             </div>
         `;
         appContainer.innerHTML = loaderHTML;
-
-        // Animate text fade-in after a short delay
-        setTimeout(() => {
-            const content = document.getElementById('loader-content');
-            if(content) content.style.opacity = '1';
-        }, 500);
 
         initThreeJSAnimation();
     }
@@ -91,7 +104,6 @@
     }
 
     async function loadScripts() {
-        // Dynamically import the main.js module to get the list of files
         const mainModule = await import('./src/main.js');
         const scriptsToLoad = mainModule.default.scripts;
 
@@ -99,22 +111,16 @@
             return new Promise((resolve, reject) => {
                 const script = document.createElement('script');
                 script.src = src;
-                script.async = false; // Load scripts in order
-                script.onload = () => {
-                    console.log(`Loaded: ${src}`);
-                    resolve();
-                };
-                script.onerror = () => {
-                    console.error(`Failed to load: ${src}`);
-                    reject(new Error(`Script load error for ${src}`));
-                };
+                script.async = false;
+                script.onload = () => { console.log(`Loaded: ${src}`); resolve(); };
+                script.onerror = () => { console.error(`Failed to load: ${src}`); reject(new Error(`Script load error for ${src}`)); };
                 document.head.appendChild(script);
             });
         });
 
         try {
             await Promise.all(scriptPromises);
-            console.log('All scripts loaded successfully.');
+            console.log('All modules loaded successfully.');
             return true;
         } catch (error) {
             console.error('Core script loading failed:', error);
@@ -126,12 +132,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(err => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
+                    .then(reg => console.log('ServiceWorker registration successful'))
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
             });
         }
     }
@@ -151,7 +153,7 @@
                     console.error('Jarvis.initDashboard function not found!');
                     appContainer.innerHTML = `<div class="p-4 text-red-500">Error: Application failed to initialize.</div>`;
                 }
-            }, 3500); // Increased time to appreciate the new loader
+            }, 3500);
         }
     }
 
