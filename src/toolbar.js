@@ -1,4 +1,4 @@
-// toolbar.js — top bar menus (File, Edit, Add, View)
+// toolbar.js — top bar menus (File, Edit, Add, View, Tools)
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
@@ -20,6 +20,7 @@ export default {
       <div class="menu" data-m="edit">Edit</div>
       <div class="menu" data-m="add">Add</div>
       <div class="menu" data-m="view">View</div>
+      <div class="menu" data-m="tools">Tools</div>
       <div style="margin-left:auto;opacity:.8">CAMERA ▼</div>
       <div style="opacity:.8">SOLID ▼</div>
     `;
@@ -30,6 +31,7 @@ export default {
       if (m==='view') showViewMenu(e.target);
       if (m==='edit') showEditMenu(e.target);
       if (m==='file') showFileMenu(e.target);
+      if (m==='tools') showToolsMenu(e.target);
     });
 
     function showAddMenu(anchor){
@@ -65,9 +67,19 @@ export default {
         ['Import GLB', importGLB]
       ]);
     }
+    function showToolsMenu(anchor){
+      popup(anchor, [
+        ['Cut Out', startCutOut]
+      ]);
+    }
+
+    /* ---------- Tools ---------- */
+    async function startCutOut(){
+      const { default: CutOut } = await import('./cutout.js');
+      CutOut.start(bus, editor);
+    }
 
     /* ---------- File actions ---------- */
-
     function newProject(){
       const ui = modal(`
         <h3 style="margin:0 0 10px 0">New Project</h3>
@@ -103,7 +115,7 @@ export default {
 
         const ui = modal(`
           <h3 style="margin:0 0 10px 0">Load Project</h3>
-          <p style="margin:0 0 12px 0;color:var(--muted)">Replace current scene? Unsaved changes will be lost.</p>
+          <p style="margin:0 0 12px 0;color:var(--muted)">Replace current scene?</p>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button id="loadCancel">Cancel</button>
             <button id="loadGo" class="primary">Load Project</button>
@@ -176,7 +188,6 @@ export default {
 /* ---- anchored popup ---- */
 function popup(anchor, items){
   closeActiveMenu();
-
   const r = anchor.getBoundingClientRect();
   const m = document.createElement('div');
   m.style.cssText = `
@@ -185,28 +196,20 @@ function popup(anchor, items){
     border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4);
     color: var(--text);
   `;
-
   items.forEach(([label,fn])=>{
     const it = document.createElement('div');
     it.textContent = label;
     it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
     it.addEventListener('pointerdown', e=>{
-      e.stopPropagation();
-      fn();
-      closeActiveMenu();
+      e.stopPropagation(); fn(); closeActiveMenu();
     });
     it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     m.appendChild(it);
   });
   if (m.lastChild) m.lastChild.style.borderBottom='0';
-
   document.body.appendChild(m);
-
-  const closer = (ev) => {
-    if (!m.contains(ev.target)) closeActiveMenu();
-  };
-
+  const closer = (ev) => { if (!m.contains(ev.target)) closeActiveMenu(); };
   activeMenu = { element: m, closer };
   setTimeout(()=> document.addEventListener('pointerdown', closer, true), 0);
 }
@@ -242,9 +245,7 @@ function modal(html){
   document.body.appendChild(wrap);
   return wrap;
 }
-function filePick(accept){
-  const i = document.createElement('input'); i.type='file'; i.accept = accept; return i;
-}
+function filePick(accept){ const i = document.createElement('input'); i.type='file'; i.accept = accept; return i; }
 function downloadBlob(blob, name){
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'), { href:url, download:name });
