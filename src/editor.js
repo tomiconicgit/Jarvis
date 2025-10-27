@@ -39,39 +39,37 @@ const Editor = {
     // selection
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
     let selected = null; let boxHelper = null;
-    
-    // --- (FIX #1) Updated setSelected function ---
+
+    // --- (CAMERA TARGET FIX #1) Updated setSelected function ---
     function setSelected(mesh){
       if (selected === mesh) return;
       selected = mesh;
-      
-      if (boxHelper) { 
-        scene.remove(boxHelper); 
-        boxHelper.geometry.dispose(); 
-        boxHelper = null; 
+
+      if (boxHelper) {
+        scene.remove(boxHelper);
+        boxHelper.geometry.dispose();
+        boxHelper = null;
       }
-      
-      if (mesh) { 
-        boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff); 
+
+      if (mesh) {
+        boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff);
         scene.add(boxHelper);
-        
-        // --- THIS IS THE FIX ---
+
         // Update orbit target to the center of the new selection
         const box = new THREE.Box3().setFromObject(mesh);
         const center = box.getCenter(new THREE.Vector3());
-        controls.target.copy(center);
-        // --- END FIX ---
+        controls.target.copy(center); // <-- This line updates the target
       }
       bus.emit('selection-changed', selected);
     }
-    
+
     container.addEventListener('pointerdown', e=>{
       const rect=renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
       pointer.y = -((e.clientY-rect.top)/rect.height)*2+1;
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObjects(world.children, true);
-      
+
       let hitObject = hits[0]?.object;
       if (hitObject) {
         // Traverse up to find the direct child of 'world'
@@ -148,11 +146,11 @@ const Editor = {
         else { selected.scale.set(t.scale.x, t.scale.y, t.scale.z); }
       }
       if (boxHelper) boxHelper.update();
-      // --- (FIX) Update target on transform change ---
+      // --- (CAMERA TARGET FIX #2) Update target on transform change ---
       if (selected) {
           const box = new THREE.Box3().setFromObject(selected);
           const center = box.getCenter(new THREE.Vector3());
-          controls.target.copy(center);
+          controls.target.copy(center); // <-- This line updates the target
       }
       gizmo.attach(selected);
       // --- End Fix ---
@@ -163,7 +161,7 @@ const Editor = {
     bus.on('rebuild-geometry', payload => {
       if (!selected) return;
       const { base, deform } = payload;
-      
+
       try {
         const baseGeometry = createBaseGeometry(base);
         const deformedGeometry = applyDeformers(baseGeometry, deform);
@@ -172,7 +170,7 @@ const Editor = {
         selected.geometry = deformedGeometry;
         selected.userData.geometryParams = base; // Save new base params
         selected.userData.deformParams = deform; // Save new deform params
-        
+
         selected.geometry.computeVertexNormals();
         bus.emit('attach-selected'); // Update gizmo and box helper
       } catch (err) {
@@ -228,11 +226,11 @@ const Editor = {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
-      // --- (FIX #2) Finer zoom speed ---
-      controls.zoomSpeed = 0.2; 
+      // --- (SMOOTHER ZOOM FIX) Finer zoom speed ---
+      controls.zoomSpeed = 0.2;
       // --- End Fix ---
       controls.target.set(0, 2, 0);
-      controls.minDistance = 1;      
+      controls.minDistance = 1;
       controls.maxDistance = 500;
       controls.maxPolarAngle = Math.PI * 0.499;
 
@@ -241,9 +239,9 @@ const Editor = {
       gizmo.setSize(0.9);
       gizmo.addEventListener('change', ()=> safeRender());
       gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
-      gizmo.addEventListener('objectChange', ()=> { 
-        if (boxHelper) boxHelper.update(); 
-        bus.emit('transform-changed', selected); 
+      gizmo.addEventListener('objectChange', ()=> {
+        if (boxHelper) boxHelper.update();
+        bus.emit('transform-changed', selected);
       });
       scene.add(gizmo);
     }
@@ -289,7 +287,7 @@ function createRenderer(container){
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
   let mesh, geo, params;
-  
+
   if (type==='sphere') {
     params = { radius: 1, widthSegments: 48, heightSegments: 32 };
     geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
@@ -311,7 +309,7 @@ function makePrimitive(type='box'){
     geo = new THREE.BoxGeometry(params.width, params.height, params.depth);
     mesh = new THREE.Mesh(geo, mat);
   }
-  
+
   mesh.userData.geometryParams = { type, ...params };
   mesh.userData.deformParams = { twist: 0, taper: 1, noise: 0 };
   mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
@@ -352,7 +350,7 @@ function applyDeformers(geometry, deforms) {
   const positions = geometry.attributes.position;
   const vertex = new THREE.Vector3();
   const axis = new THREE.Vector3(0, 1, 0); // Deform along Y
-  
+
   // Get bounds
   geometry.computeBoundingBox();
   const box = geometry.boundingBox;
@@ -369,18 +367,18 @@ function applyDeformers(geometry, deforms) {
 
     // Get Y-axis percentage (from -0.5 to +0.5)
     const yPercent = (height > 0.01) ? ((vertex.y - center) / height) : 0;
-    
+
     // 1. Apply Taper
     // Taper scale goes from 1.0 (at -0.5) to taper (at +0.5)
     const taperScale = 1.0 - (yPercent + 0.5) * (1.0 - deforms.taper);
     vertex.x *= taperScale;
     vertex.z *= taperScale;
-    
+
     // 2. Apply Twist
     const twistAmount = THREE.MathUtils.degToRad(deforms.twist);
     const twistAngle = yPercent * twistAmount;
     vertex.applyAxisAngle(axis, twistAngle);
-    
+
     // 3. Apply Noise
     const noise = deforms.noise;
     if (noise > 0) {
@@ -388,10 +386,10 @@ function applyDeformers(geometry, deforms) {
       vertex.y += (Math.random() - 0.5) * noise;
       vertex.z += (Math.random() - 0.5) * noise;
     }
-    
+
     positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
   }
-  
+
   geometry.attributes.position.needsUpdate = true;
   return geometry;
 }
