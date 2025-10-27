@@ -1,4 +1,4 @@
-// main.js — app boot (single-pass loader, robust error reporting)
+// main.js — robust boot; no double-imports; defensive init checks
 import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
@@ -7,7 +7,6 @@ const App = {
   env: { isTouch: 'ontouchstart' in window, isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) }
 };
 
-// Build module URLs RELATIVE to this file
 const MANIFEST = [
   { id: 'editor',    path: new URL('./editor.js',    import.meta.url).href },
   { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
@@ -20,20 +19,23 @@ const MANIFEST = [
   try {
     showLoader();
 
-    // SINGLE import pass with progress (no duplicate imports)
     const mods = await loadManifest(MANIFEST, reportProgress);
 
-    // Pull defaults
-    const Editor      = mods.editor.default;
-    const Toolbar     = mods.toolbar.default;
-    const Panel       = mods.panel.default;
-    const SceneTab    = mods.scene.default;
-    const MaterialTab = mods.materials.default;
+    const Editor      = mods.editor?.default;
+    const Toolbar     = mods.toolbar?.default;
+    const Panel       = mods.panel?.default;
+    const SceneTab    = mods.scene?.default;
+    const MaterialTab = mods.materials?.default;
 
-    // Sanity-check exports early so we fail with a clear message instead of hanging under the loader.
-    if (!Editor?.init || !Toolbar?.init || !Panel?.init || !SceneTab?.init || !MaterialTab?.init) {
-      throw new Error('One or more modules missing default .init export');
-    }
+    // Catch TDZ/missing default early with a precise message
+    const missing = [
+      ['editor', Editor?.init],
+      ['toolbar', Toolbar?.init],
+      ['panel', Panel?.init],
+      ['scene', SceneTab?.init],
+      ['materials', MaterialTab?.init]
+    ].find(([name, ok]) => !ok);
+    if (missing) throw new Error(`Module "${missing[0]}" missing default .init`);
 
     const viewport = document.getElementById('viewport');
     const appRoot  = document.getElementById('app');
@@ -50,8 +52,10 @@ const MANIFEST = [
       }
     });
 
-    function applyClass(){ document.body.classList.toggle('touch', App.env.isTouch); }
-    applyClass(); window.addEventListener('orientationchange', applyClass, { passive:true });
+    document.body.classList.toggle('touch', App.env.isTouch);
+    window.addEventListener('orientationchange', ()=> {
+      document.body.classList.toggle('touch', App.env.isTouch);
+    }, { passive:true });
 
     window.addEventListener('keydown', e=>{
       if (e.key === 'g') App.bus.emit('toggle-grid');
@@ -64,12 +68,10 @@ const MANIFEST = [
     hideLoader();
     appRoot.hidden = false;
 
-    // Seed scene
     App.bus.emit('add-primitive', { type:'box' });
   } catch (err) {
     console.error('BOOT FAILED:', err);
     setStatus('Error: ' + (err?.message || err));
-    // keep loader visible with error text so you can see what went wrong on device
   }
 })();
 
