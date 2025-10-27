@@ -1,7 +1,19 @@
-// toolbar.js — top bar menus (File, Edit, Add, View)
+// toolbar.js â top bar menus (File, Edit, Add, View)
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+
+// --- (FIX) Module-level state for the active popup ---
+let activeMenu = null;
+
+function closeActiveMenu() {
+  if (activeMenu) {
+    activeMenu.element.remove();
+    document.removeEventListener('pointerdown', activeMenu.closer, true);
+    activeMenu = null;
+  }
+}
+// --- End Fix ---
 
 export default {
   init(root, bus, editor){
@@ -10,8 +22,8 @@ export default {
       <div class="menu" data-m="edit">Edit</div>
       <div class="menu" data-m="add">Add</div>
       <div class="menu" data-m="view">View</div>
-      <div style="margin-left:auto;opacity:.8">CAMERA ▾</div>
-      <div style="opacity:.8">SOLID ▾</div>
+      <div style="margin-left:auto;opacity:.8">CAMERA â¾</div>
+      <div style="opacity:.8">SOLID â¾</div>
     `;
 
     // Click anywhere on the label triggers (desktop & iOS)
@@ -52,7 +64,7 @@ export default {
         ['New', newProject],
         ['Save', saveProject],
         ['Load', loadProject],
-        ['Export…', exportDialog],
+        ['Exportâ¦', exportDialog],
         ['Import GLB', importGLB]
       ]);
     }
@@ -100,7 +112,7 @@ export default {
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
           <button id="exCancel">Cancel</button>
-          <button id="exGo">Export</button>
+          <button id="exGo" class="primary">Export</button>
         </div>
       `);
       ui.querySelector('#exCancel').onclick = () => ui.remove();
@@ -137,27 +149,47 @@ export default {
   }
 };
 
-/* ---- anchored popup that always opens ---- */
+/* ---- (FIX) REPLACED faulty popup function ---- */
 function popup(anchor, items){
-  closeAll();
+  closeActiveMenu(); // Close any menu that's already open
+
   const r = anchor.getBoundingClientRect();
   const m = document.createElement('div');
   m.style.cssText = `
     position:fixed;top:${Math.round(r.bottom+6)}px;left:${Math.round(r.left)}px;
     z-index:200;background:#15171d;border:1px solid rgba(255,255,255,.12);
-    border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)
+    border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4);
+    color: var(--text);
   `;
+  
   items.forEach(([label,fn])=>{
     const it = document.createElement('div');
     it.textContent = label;
     it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
-    it.addEventListener('pointerdown', e=>{ e.stopPropagation(); fn(); closeAll(); });
+    it.addEventListener('pointerdown', e=>{ 
+      e.stopPropagation(); 
+      fn(); 
+      closeActiveMenu(); // Use the new closer function
+    });
+    // Add hover effect
+    it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
+    it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     m.appendChild(it);
   });
   if (m.lastChild) m.lastChild.style.borderBottom='0';
+  
   document.body.appendChild(m);
-  function closeAll(){ m.remove(); document.removeEventListener('pointerdown', closer, true); }
-  function closer(ev){ if (!m.contains(ev.target)) closeAll(); }
+
+  const closer = (ev) => {
+    if (!m.contains(ev.target)) {
+      closeActiveMenu();
+    }
+  };
+
+  // Store new menu state
+  activeMenu = { element: m, closer: closer };
+
+  // Add the closing listener *after* the current event loop, using capture
   setTimeout(()=> document.addEventListener('pointerdown', closer, true), 0);
 }
 
@@ -184,7 +216,7 @@ function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
-  card.style.cssText = 'background:#12141a;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:#eaeef5';
+  card.style.cssText = 'background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:var(--text)';
   card.innerHTML = html;
   wrap.appendChild(card);
   document.body.appendChild(wrap);
