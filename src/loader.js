@@ -10,14 +10,20 @@ export function hideLoader(){
 }
 export function reportProgress(done, total){
   const pct = total ? Math.round((done/total)*100) : 0;
-  const bar = document.querySelector('#bar > span'); bar.style.width = pct + '%';
+  const bar = document.querySelector('#bar > span'); if (bar) bar.style.width = pct + '%';
   setStatus(`loading ${done}/${total}`);
 }
 export async function loadManifest(list, onProgress){
   let done = 0; const total = list.length;
   for (const item of list){
-    await import(item.path);
-    done++; onProgress?.(done, total);
+    try{
+      await import(/* @vite-ignore */ item.path);
+      done++; onProgress?.(done, total);
+    }catch(err){
+      console.error('Failed to load module:', item.path, err);
+      setStatus(`failed: ${item.id}`);
+      throw err;
+    }
   }
 }
 function setStatus(msg){ const s=document.getElementById('status'); if(s) s.textContent = msg; }
