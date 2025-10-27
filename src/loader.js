@@ -1,4 +1,8 @@
-// loader.js — dynamic loader + progress bar + logo
+// loader.js — single-pass module loader with clear error reporting
+export function setStatus(msg){
+  const s = document.getElementById('status');
+  if (s) s.textContent = String(msg);
+}
 export function showLoader(){
   const el = document.getElementById('loader');
   if (el) el.style.display = 'flex';
@@ -15,26 +19,24 @@ export function reportProgress(done, total){
 }
 
 /**
- * Import each module ONCE (with progress) and return a map of { id: module }
- * This avoids a second round of imports that can surface eval-time errors before we show the UI.
+ * Import each module ONCE (with progress) and return { id: module }.
+ * If a module throws while evaluating, we surface which one did it.
  */
 export async function loadManifest(list, onProgress){
   const mods = Object.create(null);
   let done = 0; const total = list.length;
+
   for (const item of list){
     try{
       const mod = await import(/* @vite-ignore */ item.path);
       mods[item.id] = mod;
       done++; onProgress?.(done, total);
     }catch(err){
-      console.error('Failed to load module:', item.path, err);
-      setStatus(`failed: ${item.id}`);
-      throw err;
+      console.error('[Loader] Failed while importing:', item.id, item.path, err);
+      const firstStackLine = (err?.stack || '').split('\n')[1]?.trim() || '';
+      setStatus(`Error in "${item.id}": ${err?.message || err} ${firstStackLine}`);
+      throw err; // let boot catch so the loader stays visible w/ message
     }
   }
   return mods;
-}
-
-export function setStatus(msg){
-  const s=document.getElementById('status'); if(s) s.textContent = msg;
 }
