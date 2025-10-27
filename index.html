@@ -30,7 +30,7 @@
       --accent:#4da3ff;
       --toolbar:#1E1E1E;
       --input-bg:#252525;
-      --panel-w:380px; /* desktop width */
+      --panel-w:380px;
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
@@ -69,7 +69,6 @@
     .row{display:grid;grid-template-columns:90px 1fr 70px;gap:8px;align-items:center;margin:8px 0}
     .row label{color:var(--muted);font-size:12px;white-space:nowrap;}
     .row output{display:none;}
-
     .row input[type="number"]{width:100%;padding: 8px 6px;text-align:right;}
     .row.simple{grid-template-columns:90px 1fr;}
     .row.simple > input, .row.simple > select { grid-column: 2 / span 2; }
@@ -85,12 +84,7 @@
       border:1px solid rgba(77,163,255,.3);color:var(--text);border-radius:10px;
       padding:10px 12px;font-weight:800;cursor:pointer;transition:background .15s}
     button:hover{background:rgba(77,163,255,.25)}
-    button.primary{
-      background:var(--accent);
-      border-color:var(--accent);
-      color:var(--bg);
-      font-weight:700;
-    }
+    button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
     button.primary:hover{ background: #6ab5ff; }
 
     .list{border:1px solid var(--panel-border);border-radius:10px;overflow:hidden}
