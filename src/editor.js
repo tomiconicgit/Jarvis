@@ -14,7 +14,12 @@ const Editor = {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b0c0f);
 
-    const camera = new THREE.PerspectiveCamera(50, Math.max(1,container.clientWidth)/Math.max(1,container.clientHeight), 0.1, 5000);
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      Math.max(1,container.clientWidth)/Math.max(1,container.clientHeight),
+      0.1,
+      5000
+    );
     camera.position.set(12, 10, 16);
 
     // controls/gizmo are rebuilt whenever renderer is recreated
@@ -30,7 +35,10 @@ const Editor = {
     // grid + ground
     const grid = new THREE.GridHelper(400, 400, 0x334, 0x223);
     grid.position.y = 0; scene.add(grid);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), new THREE.MeshStandardMaterial({ color:0x111315, roughness:1 }));
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(400,400),
+      new THREE.MeshStandardMaterial({ color:0x111315, roughness:1 })
+    );
     ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
 
     // world root
@@ -40,33 +48,26 @@ const Editor = {
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
     let selected = null; let boxHelper = null;
 
-    // --- (CAMERA TARGET FIX #1) Updated setSelected function ---
     function setSelected(mesh){
       if (selected === mesh) return;
       selected = mesh;
 
-      if (boxHelper) {
-        scene.remove(boxHelper);
-        boxHelper.geometry.dispose();
-        boxHelper = null;
-      }
+      if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry?.dispose?.(); boxHelper = null; }
 
       if (mesh) {
         boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff);
         scene.add(boxHelper);
 
-        // Update orbit target to the center of the new selection
-        const box = new THREE.Box3().setFromObject(mesh);
-        const center = box.getCenter(new THREE.Vector3());
-        controls.target.copy(center); // <-- Fixes target on selection
+        // center controls on selection and update distance limits
+        const { center, radius } = boundsOf(mesh);
+        controls.target.copy(center);
+        clampZoomToRadius(radius);
       }
       bus.emit('selection-changed', selected);
     }
 
     container.addEventListener('pointerdown', e=>{
-      // Prevent selection changes if interacting with gizmo
       if (gizmo.dragging) return;
-
       const rect=renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
       pointer.y = -((e.clientY-rect.top)/rect.height)*2+1;
@@ -75,18 +76,10 @@ const Editor = {
 
       let hitObject = hits[0]?.object;
       if (hitObject) {
-        // Traverse up to find the direct child of 'world'
-        while (hitObject.parent && hitObject.parent !== world) {
-          hitObject = hitObject.parent;
-        }
-        // Only select if the ancestor is a direct child of 'world'
-        if (hitObject.parent === world) {
-          setSelected(hitObject);
-        } else {
-          setSelected(null); // Hit something, but not a selectable object
-        }
+        while (hitObject.parent && hitObject.parent !== world) hitObject = hitObject.parent;
+        setSelected(hitObject.parent === world ? hitObject : null);
       } else {
-        setSelected(null); // Clicked empty space
+        setSelected(null);
       }
     });
 
@@ -108,14 +101,7 @@ const Editor = {
     bus.on('set-background', c=> { scene.background = new THREE.Color(c); });
     bus.on('set-lighting', name=> applyLightingPreset(name, { hemi, key, rim, scene }));
     bus.on('set-gizmo', mode=> gizmo.setMode(mode));
-    bus.on('attach-selected', ()=> {
-        if (selected) {
-            gizmo.attach(selected);
-            if(boxHelper) boxHelper.update();
-        } else {
-            gizmo.detach();
-        }
-    });
+    bus.on('attach-selected', ()=> selected ? gizmo.attach(selected) : gizmo.detach());
     bus.on('detach-gizmo', ()=> gizmo.detach());
 
     // material updates
@@ -143,39 +129,45 @@ const Editor = {
     bus.on('transform-update', t=>{
       if (!selected) return;
       if (t.position){ selected.position.set(t.position.x, t.position.y, t.position.z); }
-      if (t.rotation){ selected.rotation.set(THREE.MathUtils.degToRad(t.rotation.x), THREE.MathUtils.degToRad(t.rotation.y), THREE.MathUtils.degToRad(t.rotation.z)); }
+      if (t.rotation){ selected.rotation.set(
+        THREE.MathUtils.degToRad(t.rotation.x),
+        THREE.MathUtils.degToRad(t.rotation.y),
+        THREE.MathUtils.degToRad(t.rotation.z)
+      ); }
       if (t.scale){
         if (t.scale.uniform != null){ selected.scale.setScalar(t.scale.uniform); }
         else { selected.scale.set(t.scale.x, t.scale.y, t.scale.z); }
       }
       if (boxHelper) boxHelper.update();
-      // --- (CAMERA TARGET FIX #2) Update target on transform change ---
-      if (selected) {
-          const box = new THREE.Box3().setFromObject(selected);
-          const center = box.getCenter(new THREE.Vector3());
-          controls.target.copy(center); // <-- Fixes target on UI transform
-      }
+
+      // keep orbit target and distance sane as the object changes
+      const { center, radius } = boundsOf(selected);
+      controls.target.copy(center);
+      clampZoomToRadius(radius);
+
       gizmo.attach(selected);
-      // --- End Fix ---
       bus.emit('transform-changed', selected);
     });
 
-    // Rebuild Geometry + Deformers
+    // geometry & deformers
     bus.on('rebuild-geometry', payload => {
-      if (!selected) return;
+      if (!selected || !selected.geometry) return;
       const { base, deform } = payload;
-
       try {
         const baseGeometry = createBaseGeometry(base);
-        const deformedGeometry = applyDeformers(baseGeometry, deform);
-
+        const afterDeform  = applyDeformers(baseGeometry, deform);
         selected.geometry.dispose();
-        selected.geometry = deformedGeometry;
-        selected.userData.geometryParams = base; // Save new base params
-        selected.userData.deformParams = deform; // Save new deform params
-
+        selected.geometry = afterDeform;
+        selected.userData.geometryParams = base;
+        selected.userData.deformParams   = deform;
         selected.geometry.computeVertexNormals();
-        bus.emit('attach-selected'); // Update gizmo and box helper
+
+        if (boxHelper) boxHelper.update();
+        const { center, radius } = boundsOf(selected);
+        controls.target.copy(center);
+        clampZoomToRadius(radius);
+
+        bus.emit('attach-selected');
       } catch (err) {
         console.error("Error rebuilding geometry:", err);
       }
@@ -195,10 +187,9 @@ const Editor = {
     window.addEventListener('orientationchange', onResize, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
 
-    // context-loss: rebuild renderer + controls instantly (fixes “blank after zoom”)
+    // context-loss: rebuild renderer + controls (protects against “blank after zoom”)
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
       e.preventDefault();
-      console.warn('WebGL context lost — rebuilding renderer');
       rebuildRenderer();
     }, false);
 
@@ -211,16 +202,16 @@ const Editor = {
 
     // helpers
     function frame(obj){
-      const box = new THREE.Box3().setFromObject(obj);
-      const sizeVec = box.getSize(new THREE.Vector3());
-      const size = Math.max(sizeVec.x, sizeVec.y, sizeVec.z) || 1;
-      const center = box.getCenter(new THREE.Vector3());
+      const { center, radius } = boundsOf(obj);
       controls.target.copy(center);
-      const dist = Math.max(1, size * 1.2 / Math.tan((camera.fov * Math.PI/180)/2));
+
+      const dist = Math.max(1, radius * 2.2 / Math.tan((camera.fov * Math.PI/180)/2));
       camera.position.copy(center).add(new THREE.Vector3(dist, dist*0.6, dist));
-      camera.near = 0.1;
-      camera.far  = Math.max(2000, dist*10);
+      camera.near = Math.max(0.01, radius * 0.02);
+      camera.far  = Math.max(2000, radius * 200);
       camera.updateProjectionMatrix();
+
+      clampZoomToRadius(radius);
       if (boxHelper) boxHelper.update();
     }
 
@@ -228,22 +219,30 @@ const Editor = {
       controls?.dispose();
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.1;
-      // --- (SMOOTHER ZOOM FIX) Finer zoom speed ---
-      controls.zoomSpeed = 0.2;
-      // --- End Fix ---
-      controls.target.set(0, 2, 0);
-      controls.minDistance = 1;
-      controls.maxDistance = 500;
+      controls.dampingFactor = 0.08;
+
+      // Smooth, predictable zoom:
+      controls.zoomSpeed = 0.35;
+      controls.zoomToCursor = true;      // desktop: dolly toward cursor
+      controls.enablePan = true;
+      controls.panSpeed = 0.6;
+      controls.rotateSpeed = 0.9;
       controls.maxPolarAngle = Math.PI * 0.499;
+
+      // sensible defaults (will be clamped to selection on select/transform)
+      controls.minDistance = 0.5;
+      controls.maxDistance = 500;
 
       if (gizmo){ scene.remove(gizmo); }
       gizmo = new TransformControls(camera, renderer.domElement);
       gizmo.setSize(0.9);
       gizmo.addEventListener('change', ()=> safeRender());
       gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
-      gizmo.addEventListener('objectChange', ()=> {
+      gizmo.addEventListener('objectChange', ()=>{
         if (boxHelper) boxHelper.update();
+        const { center, radius } = boundsOf(gizmo.object);
+        controls.target.copy(center);
+        clampZoomToRadius(radius);
         bus.emit('transform-changed', selected);
       });
       scene.add(gizmo);
@@ -259,6 +258,17 @@ const Editor = {
       buildControls();
       if (attached) gizmo.attach(attached);
       onResize();
+    }
+
+    function clampZoomToRadius(radius){
+      // Keep dolly distance outside the object; give room to orbit.
+      const min = Math.max(0.25, radius * 0.6);
+      const max = Math.max(min + 5, radius * 40);
+      controls.minDistance = min;
+      controls.maxDistance = max;
+      camera.near = Math.max(0.01, radius * 0.02);
+      camera.far  = Math.max(2000, radius * 200);
+      camera.updateProjectionMatrix();
     }
 
     return {
@@ -286,44 +296,44 @@ function createRenderer(container){
   return r;
 }
 
-// --- Store geometry parameters in userData ---
+function boundsOf(obj){
+  const box = new THREE.Box3().setFromObject(obj);
+  const center = box.getCenter(new THREE.Vector3());
+  const radius = box.getBoundingSphere(new THREE.Sphere()).radius || 1;
+  return { center, radius };
+}
+
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
   let mesh, geo, params;
 
   if (type==='sphere') {
-    params = { radius: 1, widthSegments: 48, heightSegments: 32 };
+    params = { type:'sphere', radius: 1, widthSegments: 48, heightSegments: 32 };
     geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-    mesh = new THREE.Mesh(geo, mat);
-  }
-  else if (type==='cylinder') {
-    params = { radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
-    geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments);
-    mesh = new THREE.Mesh(geo, mat);
-  }
-  else if (type==='plane') {
-    params = { width: 4, height: 4 };
+  } else if (type==='cylinder') {
+    params = { type:'cylinder', radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
+    geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, 1, false);
+  } else if (type==='plane') {
+    params = { type:'plane', width: 4, height: 4 };
     geo = new THREE.PlaneGeometry(params.width, params.height, 1, 1);
-    mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI/2;
-  }
-  else { // box
-    params = { width: 2, height: 2, depth: 2 };
-    geo = new THREE.BoxGeometry(params.width, params.height, params.depth);
-    mesh = new THREE.Mesh(geo, mat);
+  } else { // box
+    params = { type:'box', width: 2, height: 2, depth: 2 };
+    geo = new THREE.BoxGeometry(params.width, params.height, params.depth, 2, 2, 2);
   }
 
-  mesh.userData.geometryParams = { type, ...params };
-  mesh.userData.deformParams = { twist: 0, taper: 1, noise: 0 };
+  mesh = new THREE.Mesh(geo, mat);
+  if (type==='plane') mesh.rotation.x = -Math.PI/2;
+
+  mesh.userData.geometryParams = params;
+  mesh.userData.deformParams = { twist: 0, taper: 1, noise: 0, shearX: 0, shearZ: 0, hollow: 0 };
   mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
-  mesh.name = type.charAt(0).toUpperCase() + type.slice(1);
+  mesh.name = params.type.charAt(0).toUpperCase() + params.type.slice(1);
   return mesh;
 }
 
 function ensureStandard(mat){
   if (mat && mat.isMeshStandardMaterial) return mat;
-  const m = new THREE.MeshStandardMaterial({ color: (mat?.color||0xffffff) });
-  return m;
+  return new THREE.MeshStandardMaterial({ color: (mat?.color||0xffffff) });
 }
 
 function applyLightingPreset(name, {hemi, key, rim, scene}){
@@ -332,67 +342,124 @@ function applyLightingPreset(name, {hemi, key, rim, scene}){
   else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
 }
 
-// --- Geometry Generation Helpers ---
-
-function createBaseGeometry(params) {
-  const p = params; // alias
-  if (p.type === 'box') {
-    return new THREE.BoxGeometry(p.width, p.height, p.depth, 1, 1, 1);
-  } else if (p.type === 'sphere') {
-    return new THREE.SphereGeometry(p.radius, p.widthSegments, p.heightSegments);
-  } else if (p.type === 'cylinder') {
-    return new THREE.CylinderGeometry(p.radiusTop, p.radiusBottom, p.height, p.radialSegments);
-  } else if (p.type === 'plane') {
-    return new THREE.PlaneGeometry(p.width, p.height);
-  }
-  // Fallback
-  return new THREE.BoxGeometry(2, 2, 2);
+/* ---- Geometry builders / deformers ---- */
+function createBaseGeometry(p) {
+  if (p.type === 'box')      return new THREE.BoxGeometry(p.width, p.height, p.depth, 6, 6, 6);
+  if (p.type === 'sphere')   return new THREE.SphereGeometry(p.radius, p.widthSegments, p.heightSegments);
+  if (p.type === 'cylinder') return new THREE.CylinderGeometry(p.radiusTop, p.radiusBottom, p.height, p.radialSegments, 8, false);
+  if (p.type === 'plane')    return new THREE.PlaneGeometry(p.width, p.height, 8, 8);
+  return new THREE.BoxGeometry(2, 2, 2, 4, 4, 4);
 }
 
 function applyDeformers(geometry, deforms) {
-  const positions = geometry.attributes.position;
-  const vertex = new THREE.Vector3();
-  const axis = new THREE.Vector3(0, 1, 0); // Deform along Y
+  // 1) Hollow (thickness) -> add an inner shell with flipped winding
+  const hollow = Math.max(0, +deforms.hollow || 0);
+  let g = geometry;
+  if (hollow > 0) g = thickenGeometry(g, hollow);
 
-  // Get bounds
-  geometry.computeBoundingBox();
-  const box = geometry.boundingBox;
-  const height = box.max.y - box.min.y;
-  const center = box.min.y + height / 2;
+  // 2) Vertex-space edits: shear/slant, taper, twist, noise
+  g.computeBoundingBox();
+  const box = g.boundingBox.clone();
+  const height = Math.max(1e-6, box.max.y - box.min.y);
+  const centerY = (box.min.y + box.max.y) / 2;
 
-  // Nothing to do if no deforms
-  if (deforms.twist === 0 && deforms.taper === 1 && deforms.noise === 0) {
-    return geometry;
-  }
+  const pos = g.attributes.position;
+  const nor = (()=>{ g.computeVertexNormals(); return g.attributes.normal; })();
 
-  for (let i = 0; i < positions.count; i++) {
-    vertex.fromBufferAttribute(positions, i);
+  const tmp = new THREE.Vector3();
+  const axisY = new THREE.Vector3(0,1,0);
 
-    // Get Y-axis percentage (from -0.5 to +0.5)
-    const yPercent = (height > 0.01) ? ((vertex.y - center) / height) : 0;
+  const shearX = +deforms.shearX || 0;
+  const shearZ = +deforms.shearZ || 0;
+  const taper  = (deforms.taper==null) ? 1 : +deforms.taper;
+  const twist  = THREE.MathUtils.degToRad(+deforms.twist || 0);
+  const noise  = +deforms.noise || 0;
 
-    // 1. Apply Taper
-    // Taper scale goes from 1.0 (at -0.5) to taper (at +0.5)
-    const taperScale = 1.0 - (yPercent + 0.5) * (1.0 - deforms.taper);
-    vertex.x *= taperScale;
-    vertex.z *= taperScale;
+  for (let i=0;i<pos.count;i++){
+    tmp.fromBufferAttribute(pos, i);
 
-    // 2. Apply Twist
-    const twistAmount = THREE.MathUtils.degToRad(deforms.twist);
-    const twistAngle = yPercent * twistAmount;
-    vertex.applyAxisAngle(axis, twistAngle);
+    const yPct = (tmp.y - centerY) / height; // -0.5 .. +0.5 approximately
 
-    // 3. Apply Noise
-    const noise = deforms.noise;
-    if (noise > 0) {
-      vertex.x += (Math.random() - 0.5) * noise;
-      vertex.y += (Math.random() - 0.5) * noise;
-      vertex.z += (Math.random() - 0.5) * noise;
+    // Shear/slant
+    tmp.x += shearX * (tmp.y - centerY);
+    tmp.z += shearZ * (tmp.y - centerY);
+
+    // Taper (about Y)
+    const tScale = 1.0 - (yPct + 0.5) * (1.0 - taper);
+    tmp.x *= tScale; tmp.z *= tScale;
+
+    // Twist
+    if (twist !== 0) tmp.applyAxisAngle(axisY, yPct * twist);
+
+    // Noise
+    if (noise > 0){
+      tmp.x += (Math.random()-0.5)*noise;
+      tmp.y += (Math.random()-0.5)*noise;
+      tmp.z += (Math.random()-0.5)*noise;
     }
 
-    positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+    pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
+  }
+  pos.needsUpdate = true;
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
+}
+
+/* make a thick shell by offsetting along vertex normals
+   returns a single BufferGeometry that contains outer + inner (flipped) */
+function thickenGeometry(geometry, thickness){
+  const g = geometry.clone();
+  g.computeVertexNormals();
+  const pos = g.attributes.position;
+  const nor = g.attributes.normal;
+  const count = pos.count;
+
+  const innerPos = new Float32Array(count*3);
+  for (let i=0;i<count;i++){
+    const x = pos.getX(i) - nor.getX(i)*thickness;
+    const y = pos.getY(i) - nor.getY(i)*thickness;
+    const z = pos.getZ(i) - nor.getZ(i)*thickness;
+    innerPos[i*3+0]=x; innerPos[i*3+1]=y; innerPos[i*3+2]=z;
   }
 
-  geometry.attributes.position.needsUpdate = true;
-  return geometry;
+  // merge outer + inner
+  const outerPos = pos.array;
+  const mergedPos = new Float32Array(outerPos.length + innerPos.length);
+  mergedPos.set(outerPos, 0);
+  mergedPos.set(innerPos, outerPos.length);
+
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
+
+  // build indices: keep original faces, plus flipped inner faces
+  const srcIndex = g.getIndex();
+  const hasIndex = !!srcIndex;
+  let outerIdx;
+  if (hasIndex){
+    outerIdx = srcIndex.array;
+  } else {
+    // build a trivial index for triangles
+    const triCount = (pos.count/3)|0;
+    outerIdx = new Uint32Array(triCount*3);
+    for (let i=0;i<outerIdx.length;i++) outerIdx[i]=i;
+  }
+
+  const innerBase = pos.count;
+  const innerIdx = new (outerIdx.constructor)(outerIdx.length);
+  for (let i=0;i<outerIdx.length;i+=3){
+    // flip winding for inner
+    innerIdx[i+0] = innerBase + outerIdx[i+0];
+    innerIdx[i+1] = innerBase + outerIdx[i+2];
+    innerIdx[i+2] = innerBase + outerIdx[i+1];
+  }
+
+  const allIdx = new (outerIdx.constructor)(outerIdx.length + innerIdx.length);
+  allIdx.set(outerIdx, 0);
+  allIdx.set(innerIdx, outerIdx.length);
+
+  out.setIndex(new THREE.BufferAttribute(allIdx, 1));
+  out.computeVertexNormals();
+  out.computeBoundingBox(); out.computeBoundingSphere();
+  return out;
 }
