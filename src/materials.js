@@ -1,4 +1,4 @@
-// materials.js — full transform + material controls; texture upload + procedural choices
+// materials.js â full transform + material controls; texture upload + procedural choices
 import * as THREE from 'three';
 
 export default {
@@ -9,9 +9,9 @@ export default {
         <div class="row"><label>Pos X</label><input id="tx" type="number" step="0.1" value="0"/></div>
         <div class="row"><label>Pos Y</label><input id="ty" type="number" step="0.1" value="0"/></div>
         <div class="row"><label>Pos Z</label><input id="tz" type="number" step="0.1" value="0"/></div>
-        <div class="row"><label>Rot X°</label><input id="rx" type="number" step="1" value="0"/></div>
-        <div class="row"><label>Rot Y°</label><input id="ry" type="number" step="1" value="0"/></div>
-        <div class="row"><label>Rot Z°</label><input id="rz" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Rot XÂ°</label><input id="rx" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Rot YÂ°</label><input id="ry" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Rot ZÂ°</label><input id="rz" type="number" step="1" value="0"/></div>
         <div class="row"><label>Scale X</label><input id="sx" type="number" step="0.01" value="1"/></div>
         <div class="row"><label>Scale Y</label><input id="sy" type="number" step="0.01" value="1"/></div>
         <div class="row"><label>Scale Z</label><input id="sz" type="number" step="0.01" value="1"/></div>
@@ -19,7 +19,7 @@ export default {
         <div class="row"><label>Gizmo Mode</label>
           <select id="gmode"><option value="translate">Translate</option><option value="rotate">Rotate</option><option value="scale">Scale</option></select>
         </div>
-        <div style="display:flex;gap:8px;margin-top:6px;"><button id="applyXform">Apply</button><button id="frame">Frame</button></div>
+        <div style="display:flex;gap:8px;margin-top:6px;"><button id="applyXform" class="primary">Apply</button><button id="frame">Frame</button></div>
       </div>
 
       <div class="group">
