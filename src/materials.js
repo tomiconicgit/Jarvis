@@ -153,7 +153,7 @@ export default {
       return {
         position: { x: +val('tx'), y: +val('ty'), z: +val('tz') },
         rotation: { x: +val('rx'), y: +val('ry'), z: +val('rz') },
-        scale:    byUniform() ? { uniform:+val('su') } : { x:+val('sx'), y:+val('sy'), z:+val_('sz') }
+        scale:    byUniform() ? { uniform:+val('su') } : { x:+val('sx'), y:+val('sy'), z:+val('sz') } // <-- (BUG FIX) Was val_('sz')
       };
     }
     function val(id){ return root.querySelector('#'+id).value; }
@@ -251,7 +251,7 @@ function makeChecker(w,h,size=16){
   for(let y=0;y<h;y+=size){
     for(let x=0;x<w;x+=size){
       const on = ((x/size + y/size) % 2)===0;
-      g.fillStyle = on ? '#dfe7ff3' : '#364152';
+      g.fillStyle = on ? '#dfe7f3' : '#364152';
       g.fillRect(x,y,size,size);
     }
   }
@@ -263,4 +263,3 @@ function makeNoise(w,h){
   g.putImageData(img,0,0);
   const tex=new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
 }
-
