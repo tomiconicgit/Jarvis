@@ -2,10 +2,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const Editor = {
   init(container, bus){
+    // -------- renderer (recreatable) --------
     let renderer = createRenderer(container);
+
+    // block page scroll/zoom while over canvas (wheel on PC, pinch on iOS)
     renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive:false });
 
     const scene = new THREE.Scene();
@@ -19,6 +23,7 @@ const Editor = {
     );
     camera.position.set(12, 10, 16);
 
+    // controls/gizmo are rebuilt whenever renderer is recreated
     let controls, gizmo;
     buildControls();
 
@@ -49,9 +54,11 @@ const Editor = {
       selected = mesh;
 
       if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry?.dispose?.(); boxHelper = null; }
+
       if (mesh) {
         boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff);
         scene.add(boxHelper);
+
         const { center, radius } = boundsOf(mesh);
         controls.target.copy(center);
         clampZoomToRadius(radius);
@@ -76,7 +83,7 @@ const Editor = {
       }
     });
 
-    // bus wiring
+    // bus
     bus.on('add-primitive', ({type})=>{
       const m = makePrimitive(type);
       world.add(m); setSelected(m); frame(m);
@@ -146,10 +153,22 @@ const Editor = {
       if (!selected || !selected.geometry) return;
       const { base, deform } = payload;
       try {
-        const baseGeometry = createBaseGeometry(base);
-        const afterDeform  = applyDeformers(baseGeometry, deform);
+        // Rounded edges for boxes (topology change)
+        let geo;
+        if (base.type === 'box' && (deform.edgeRadius||0) > 0){
+          const clampedR = Math.max(0, Math.min(
+            deform.edgeRadius,
+            0.5 * Math.min(base.width, base.height, base.depth) - 1e-4
+          ));
+          const segs = Math.max(1, Math.floor(deform.edgeSegments||2));
+          geo = new RoundedBoxGeometry(base.width, base.height, base.depth, segs, clampedR);
+        } else {
+          geo = createBaseGeometry(base);
+        }
+        const after = applyDeformers(geo, deform);
+
         selected.geometry.dispose();
-        selected.geometry = afterDeform;
+        selected.geometry = after;
         selected.userData.geometryParams = base;
         selected.userData.deformParams   = deform;
         selected.geometry.computeVertexNormals();
@@ -165,7 +184,7 @@ const Editor = {
       }
     });
 
-    // resize
+    // size management
     function onResize(){
       const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -184,22 +203,22 @@ const Editor = {
       rebuildRenderer();
     }, false);
 
-    // loop
     function safeRender(){
       try { controls?.update(); renderer.render(scene, camera); }
       catch(err){ console.error(err); }
     }
     renderer.setAnimationLoop(safeRender);
 
-    // helpers
     function frame(obj){
       const { center, radius } = boundsOf(obj);
       controls.target.copy(center);
+
       const dist = Math.max(1, radius * 2.2 / Math.tan((camera.fov * Math.PI/180)/2));
       camera.position.copy(center).add(new THREE.Vector3(dist, dist*0.6, dist));
       camera.near = Math.max(0.01, radius * 0.02);
       camera.far  = Math.max(2000, radius * 200);
       camera.updateProjectionMatrix();
+
       clampZoomToRadius(radius);
       if (boxHelper) boxHelper.update();
     }
@@ -259,6 +278,8 @@ const Editor = {
       get scene(){ return scene; },
       get world(){ return world; },
       get selected(){ return selected; },
+      get camera(){ return camera; },
+      get renderer(){ return renderer; },
       setSelected, frame,
       listObjects(){ return world.children.slice(); }
     };
@@ -296,20 +317,24 @@ function makePrimitive(type='box'){
     geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
   } else if (type==='cylinder') {
     params = { type:'cylinder', radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
-    geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, 1, false);
+    geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, 8, false);
   } else if (type==='plane') {
     params = { type:'plane', width: 4, height: 4 };
-    geo = new THREE.PlaneGeometry(params.width, params.height, 1, 1);
+    geo = new THREE.PlaneGeometry(params.width, params.height, 8, 8);
   } else { // box
     params = { type:'box', width: 2, height: 2, depth: 2 };
-    geo = new THREE.BoxGeometry(params.width, params.height, params.depth, 2, 2, 2);
+    geo = new THREE.BoxGeometry(params.width, params.height, params.depth, 6, 6, 6);
   }
 
-  const mesh = new THREE.Mesh(geo, mat);
-  if (type==='plane') mesh.rotation.x = -Math.PI/2;
+  const mesh = new THREE.Mesh(geo, params.type==='plane' ? mat.clone() : mat);
+  if (params.type==='plane') mesh.rotation.x = -Math.PI/2;
 
   mesh.userData.geometryParams = params;
-  mesh.userData.deformParams = { twist: 0, taper: 1, noise: 0, shearX: 0, shearZ: 0, hollow: 0 };
+  mesh.userData.deformParams = {
+    hollow: 0, shearX: 0, shearZ: 0, twist: 0, taper: 1, noise: 0,
+    edgeRadius: 0, edgeSegments: 2,
+    curveX: 0, curveZ: 0
+  };
   mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
   mesh.name = params.type.charAt(0).toUpperCase() + params.type.slice(1);
   return mesh;
@@ -335,50 +360,57 @@ function createBaseGeometry(p) {
   return new THREE.BoxGeometry(2, 2, 2, 4, 4, 4);
 }
 
-/* axis-aware deformers so every shape responds */
 function applyDeformers(geometry, deforms) {
+  // 1) Hollow (thickness)
   const hollow = Math.max(0, +deforms.hollow || 0);
   let g = geometry;
   if (hollow > 0) g = thickenGeometry(g, hollow);
 
+  // 2) Vertex-space edits: shear/slant, taper, twist, noise, curvature
   g.computeBoundingBox();
-  const bb = g.boundingBox.clone();
-  const ext = new THREE.Vector3().subVectors(bb.max, bb.min); // extents
-  // choose axis with largest extent so flat planes still respond
-  const axisIndex = (ext.x >= ext.y && ext.x >= ext.z) ? 0 : (ext.y >= ext.z ? 1 : 2);
-  const axisVec = axisIndex === 0 ? new THREE.Vector3(1,0,0) : axisIndex === 1 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(0,0,1);
-  const centerAxis = (bb.min.getComponent(axisIndex) + bb.max.getComponent(axisIndex)) / 2;
-  const height = Math.max(1e-6, ext.getComponent(axisIndex));
-  const otherA = (axisIndex + 1) % 3; // two perpendicular axes
-  const otherB = (axisIndex + 2) % 3;
+  const box = g.boundingBox.clone();
+  const height = Math.max(1e-6, box.max.y - box.min.y);
+  const width  = Math.max(1e-6, box.max.x - box.min.x);
+  const depth  = Math.max(1e-6, box.max.z - box.min.z);
+  const centerY = (box.min.y + box.max.y) / 2;
+  const centerX = (box.min.x + box.max.x) / 2;
+  const centerZ = (box.min.z + box.max.z) / 2;
 
   const pos = g.attributes.position;
+  const tmp = new THREE.Vector3();
+  const axisY = new THREE.Vector3(0,1,0);
 
-  const shearA = +deforms.shearX || 0; // map “X” to first perpendicular
-  const shearB = +deforms.shearZ || 0; // map “Z” to second perpendicular
+  const shearX = +deforms.shearX || 0;
+  const shearZ = +deforms.shearZ || 0;
   const taper  = (deforms.taper==null) ? 1 : +deforms.taper;
   const twist  = THREE.MathUtils.degToRad(+deforms.twist || 0);
   const noise  = +deforms.noise || 0;
-
-  const tmp = new THREE.Vector3();
+  const curveX = +deforms.curveX || 0;
+  const curveZ = +deforms.curveZ || 0;
 
   for (let i=0;i<pos.count;i++){
     tmp.fromBufferAttribute(pos, i);
 
-    const along = tmp.getComponent(axisIndex);
-    const yPct = (along - centerAxis) / height; // ~ -0.5 .. +0.5
+    const yPct = (tmp.y - centerY) / height; // -0.5..+0.5 approx
+    const xPct = (tmp.x - centerX) / width;
+    const zPct = (tmp.z - centerZ) / depth;
 
-    // Shear: move on perpendicular axes proportional to distance along main axis
-    tmp.setComponent(otherA, tmp.getComponent(otherA) + shearA * (along - centerAxis));
-    tmp.setComponent(otherB, tmp.getComponent(otherB) + shearB * (along - centerAxis));
+    // Shear/slant
+    tmp.x += shearX * (tmp.y - centerY);
+    tmp.z += shearZ * (tmp.y - centerY);
 
-    // Taper: scale perpendicular plane as we move along main axis
+    // Taper (about Y)
     const tScale = 1.0 - (yPct + 0.5) * (1.0 - taper);
-    tmp.setComponent(otherA, tmp.getComponent(otherA) * tScale);
-    tmp.setComponent(otherB, tmp.getComponent(otherB) * tScale);
+    tmp.x *= tScale; tmp.z *= tScale;
 
-    // Twist: around chosen main axis
-    if (twist !== 0) tmp.applyAxisAngle(axisVec, yPct * twist);
+    // Gentle "barrel" curvature across X/Z (positive = bulge)
+    // strongest at mid-height, fades toward top/bottom
+    const fadeY = 1 - Math.min(1, Math.abs(yPct)*2);
+    tmp.x += (xPct) * curveX * fadeY;
+    tmp.z += (zPct) * curveZ * fadeY;
+
+    // Twist
+    if (twist !== 0) tmp.applyAxisAngle(axisY, yPct * twist);
 
     // Noise
     if (noise > 0){
@@ -395,7 +427,7 @@ function applyDeformers(geometry, deforms) {
   return g;
 }
 
-/* make a thick shell by offsetting along vertex normals */
+/* thicken shell (outer + inner flipped) */
 function thickenGeometry(geometry, thickness){
   const g = geometry.clone();
   g.computeVertexNormals();
