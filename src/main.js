@@ -1,5 +1,5 @@
-// main.js — app brain: device/layout, manifest, input, boot
-import { showLoader, loadManifest, hideLoader, reportProgress } from './loader.js';
+// main.js — app boot (single-pass loader, robust error reporting)
+import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
   bus: createBus(),
@@ -7,6 +7,7 @@ const App = {
   env: { isTouch: 'ontouchstart' in window, isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) }
 };
 
+// Build module URLs RELATIVE to this file
 const MANIFEST = [
   { id: 'editor',    path: new URL('./editor.js',    import.meta.url).href },
   { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
@@ -16,41 +17,60 @@ const MANIFEST = [
 ];
 
 (async function boot(){
-  showLoader();
-  await loadManifest(MANIFEST, reportProgress);
-  const [{ default: Editor }, { default: Toolbar }, { default: Panel }, { default: SceneTab }, { default: MaterialTab }] =
-    await Promise.all(MANIFEST.map(m => import(m.path)));
+  try {
+    showLoader();
 
-  const viewport = document.getElementById('viewport');
-  const appRoot  = document.getElementById('app');
+    // SINGLE import pass with progress (no duplicate imports)
+    const mods = await loadManifest(MANIFEST, reportProgress);
 
-  const editor = Editor.init(viewport, App.bus);
-  App.modules.editor = editor;
+    // Pull defaults
+    const Editor      = mods.editor.default;
+    const Toolbar     = mods.toolbar.default;
+    const Panel       = mods.panel.default;
+    const SceneTab    = mods.scene.default;
+    const MaterialTab = mods.materials.default;
 
-  Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
-
-  Panel.init({
-    tabs: {
-      scene:    root => SceneTab.init(root, App.bus, editor),
-      material: root => MaterialTab.init(root, App.bus, editor)
+    // Sanity-check exports early so we fail with a clear message instead of hanging under the loader.
+    if (!Editor?.init || !Toolbar?.init || !Panel?.init || !SceneTab?.init || !MaterialTab?.init) {
+      throw new Error('One or more modules missing default .init export');
     }
-  });
 
-  function applyClass(){ document.body.classList.toggle('touch', App.env.isTouch); }
-  applyClass(); window.addEventListener('orientationchange', applyClass, { passive:true });
+    const viewport = document.getElementById('viewport');
+    const appRoot  = document.getElementById('app');
 
-  window.addEventListener('keydown', e=>{
-    if (e.key === 'g') App.bus.emit('toggle-grid');
-    if (e.key === 'f') App.bus.emit('frame-selection');
-    if (e.key === 'Delete') App.bus.emit('delete-selection');
-  });
+    const editor = Editor.init(viewport, App.bus);
+    App.modules.editor = editor;
 
-  window.__ICONIC__ = { App };
+    Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
 
-  hideLoader();
-  appRoot.hidden = false;
+    Panel.init({
+      tabs: {
+        scene:    root => SceneTab.init(root, App.bus, editor),
+        material: root => MaterialTab.init(root, App.bus, editor)
+      }
+    });
 
-  App.bus.emit('add-primitive', { type:'box' });
+    function applyClass(){ document.body.classList.toggle('touch', App.env.isTouch); }
+    applyClass(); window.addEventListener('orientationchange', applyClass, { passive:true });
+
+    window.addEventListener('keydown', e=>{
+      if (e.key === 'g') App.bus.emit('toggle-grid');
+      if (e.key === 'f') App.bus.emit('frame-selection');
+      if (e.key === 'Delete') App.bus.emit('delete-selection');
+    });
+
+    window.__ICONIC__ = { App };
+
+    hideLoader();
+    appRoot.hidden = false;
+
+    // Seed scene
+    App.bus.emit('add-primitive', { type:'box' });
+  } catch (err) {
+    console.error('BOOT FAILED:', err);
+    setStatus('Error: ' + (err?.message || err));
+    // keep loader visible with error text so you can see what went wrong on device
+  }
 })();
 
 function createBus(){
