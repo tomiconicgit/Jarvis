@@ -3,7 +3,6 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 
-// --- (FIX) Module-level state for the active popup ---
 let activeMenu = null;
 
 function closeActiveMenu() {
@@ -13,7 +12,6 @@ function closeActiveMenu() {
     activeMenu = null;
   }
 }
-// --- End Fix ---
 
 export default {
   init(root, bus, editor){
@@ -70,8 +68,7 @@ export default {
     }
 
     /* ---------- File actions ---------- */
-    
-    // --- (NEW) Show confirmation modal for New Project ---
+
     function newProject(){
       const ui = modal(`
         <h3 style="margin:0 0 10px 0">New Project</h3>
@@ -104,7 +101,7 @@ export default {
         const text = await f.text();
         const data = JSON.parse(text);
         if (!data || !data.world) return;
-        
+
         // Use the modal to confirm load
         const ui = modal(`
           <h3 style="margin:0 0 10px 0">Load Project</h3>
@@ -190,14 +187,14 @@ function popup(anchor, items){
     border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4);
     color: var(--text);
   `;
-  
+
   items.forEach(([label,fn])=>{
     const it = document.createElement('div');
     it.textContent = label;
     it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
-    it.addEventListener('pointerdown', e=>{ 
-      e.stopPropagation(); 
-      fn(); 
+    it.addEventListener('pointerdown', e=>{
+      e.stopPropagation();
+      fn();
       closeActiveMenu(); // Use the new closer function
     });
     // Add hover effect
@@ -206,7 +203,7 @@ function popup(anchor, items){
     m.appendChild(it);
   });
   if (m.lastChild) m.lastChild.style.borderBottom='0';
-  
+
   document.body.appendChild(m);
 
   const closer = (ev) => {
@@ -224,7 +221,7 @@ function popup(anchor, items){
 
 /* ---- Export helper ---- */
 function exportGLB(root, opts, baseName='iconic_scene'){
-  const exporter = new GLTFExporter(); // <-- (BUG FIX) Was GLTFLoader
+  const exporter = new GLTFExporter();
   exporter.parse(root, (result)=>{
     const ext = opts.binary ? 'glb' : 'gltf';
     const data = opts.binary ? result : JSON.stringify(result);
