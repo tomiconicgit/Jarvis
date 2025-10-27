@@ -24,7 +24,6 @@ export default {
       <div style="opacity:.8">SOLID ▼</div>
     `;
 
-    // Click anywhere on the label triggers (desktop & iOS)
     root.addEventListener('pointerdown', e=>{
       const m = e.target?.dataset?.m; if (!m) return;
       if (m==='add') showAddMenu(e.target);
