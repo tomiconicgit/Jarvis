@@ -44,56 +44,63 @@ export default {
       </div>
 
       <div class="group">
-        <h3>Geometry</h3>
+        <h3>Deformers</h3>
+        <div class="row"><label>Twist (Y-axis)</label><input id="deform-twist" type="range" min="-360" max="360" step="1" value="0"/><output id="deform-twist-out">0°</output></div>
+        <div class="row"><label>Taper (Y-axis)</label><input id="deform-taper" type="range" min="0" max="3" step="0.01" value="1"/><output id="deform-taper-out">1.00</output></div>
+        <div class="row"><label>Noise</label><input id="deform-noise" type="range" min="0" max="1" step="0.01" value="0"/><output id="deform-noise-out">0.00</output></div>
+      </div>
+
+      <div class="group">
+        <h3>Base Geometry</h3>
         <div id="geometry-controls">
           <small class="note">Select a primitive (Box, Sphere, etc.) to see its geometry options.</small>
         </div>
       </div>
     `;
 
-    // --- (NEW) Geometry controls ---
+    // --- Geometry controls ---
     const geoControls = root.querySelector('#geometry-controls');
 
-    function applyGeometryChanges(){
+    function pushGeometryChanges(){
         const obj = editor.selected;
         if (!obj || !obj.userData.geometryParams) return;
 
         const params = obj.userData.geometryParams;
         const newParams = { ...params }; // copy
-        let newGeo;
-
+        
+        // 1. Read Base Geometry Params
         try {
             if (params.type === 'box') {
                 newParams.width = +root.querySelector('#geo-width').value;
                 newParams.height = +root.querySelector('#geo-height').value;
                 newParams.depth = +root.querySelector('#geo-depth').value;
-                newGeo = new THREE.BoxGeometry(newParams.width, newParams.height, newParams.depth);
             } else if (params.type === 'sphere') {
                 newParams.radius = +root.querySelector('#geo-radius').value;
                 newParams.widthSegments = Math.max(3, +root.querySelector('#geo-wsegs').value);
                 newParams.heightSegments = Math.max(2, +root.querySelector('#geo-hsegs').value);
-                newGeo = new THREE.SphereGeometry(newParams.radius, newParams.widthSegments, newParams.heightSegments);
             } else if (params.type === 'cylinder') {
                 newParams.radiusTop = +root.querySelector('#geo-rtop').value;
                 newParams.radiusBottom = +root.querySelector('#geo-rbot').value;
                 newParams.height = +root.querySelector('#geo-height').value;
                 newParams.radialSegments = Math.max(3, +root.querySelector('#geo-rsegs').value);
-                newGeo = new THREE.CylinderGeometry(newParams.radiusTop, newParams.radiusBottom, newParams.height, newParams.radialSegments);
             } else if (params.type === 'plane') {
                 newParams.width = +root.querySelector('#geo-width').value;
                 newParams.height = +root.querySelector('#geo-height').value;
-                newGeo = new THREE.PlaneGeometry(newParams.width, newParams.height);
-            }
-
-            if (newGeo) {
-                obj.geometry.dispose();
-                obj.geometry = newGeo;
-                obj.userData.geometryParams = newParams;
-                bus.emit('attach-selected'); // Re-attach gizmo/box helper
             }
         } catch (err) {
-            console.error("Error applying geometry:", err);
+            console.error("Error reading base geometry params:", err);
+            return;
         }
+
+        // 2. Read Deformer Params
+        const deformParams = {
+            twist: +val('deform-twist'),
+            taper: +val('deform-taper'),
+            noise: +val('deform-noise')
+        };
+        
+        // 3. Emit event for editor to rebuild
+        bus.emit('rebuild-geometry', { base: newParams, deform: deformParams });
     }
 
     function updateGeometryUI(obj) {
@@ -132,28 +139,41 @@ export default {
         }
 
         if (html) {
-            html += '<div style="margin-top:6px;"><button id="applyGeo" class="primary">Apply Geometry</button></div>';
+            html += '<div style="margin-top:6px;"><button id="applyGeometry" class="primary">Apply Geometry</button></div>';
         }
 
         geoControls.innerHTML = html;
         
         if(html) {
-          root.querySelector('#applyGeo').addEventListener('click', applyGeometryChanges);
+          root.querySelector('#applyGeometry').addEventListener('click', pushGeometryChanges);
         }
     }
     // --- End Geometry controls ---
 
 
     // wire outputs for ranges
-    const bindOut = (id, outId) => root.querySelector('#'+id).addEventListener('input', e=> root.querySelector('#'+outId).textContent = (+e.target.value).toFixed( (e.target.step?.split?.('.')?.[1]?.length) || 2 ));
+    const bindOut = (id, outId, fixed=2) => {
+        const el = root.querySelector('#'+id);
+        const out = root.querySelector('#'+outId);
+        if (!el || !out) return;
+        el.addEventListener('input', e=> {
+            let val = (+e.target.value).toFixed(fixed);
+            if (outId === 'deform-twist-out') val += '°';
+            out.textContent = val;
+        });
+    }
     bindOut('metal','metalOut'); bindOut('rough','roughOut'); bindOut('emis','emisOut'); bindOut('su','suOut');
+    bindOut('deform-twist','deform-twist-out', 0);
+    bindOut('deform-taper','deform-taper-out');
+    bindOut('deform-noise','deform-noise-out');
+
 
     /* transform + material apply */
     function readTransform(){
       return {
         position: { x: +val('tx'), y: +val('ty'), z: +val('tz') },
         rotation: { x: +val('rx'), y: +val('ry'), z: +val('rz') },
-        scale:    byUniform() ? { uniform:+val('su') } : { x:+val('sx'), y:+val('sy'), z:+val('sz') } // <-- (BUG FIX) Was val_('sz')
+        scale:    byUniform() ? { uniform:+val('su') } : { x:+val('sx'), y:+val('sy'), z:+val('sz') } // <-- Bug fix
       };
     }
     function val(id){ return root.querySelector('#'+id).value; }
@@ -207,7 +227,7 @@ export default {
     // update UI when selection changes
     function fillFromSelection(obj){
       if (!obj) {
-        updateGeometryUI(null); // (NEW) Clear geometry panel
+        updateGeometryUI(null); // Clear geometry panel
         return;
       }
       root.querySelector('#tx').value = obj.position.x.toFixed(3);
@@ -235,9 +255,20 @@ export default {
         root.querySelector('#emisC').value = '#'+(mat.emissive?.getHexString?.() || '000000');
       }
 
-      updateGeometryUI(obj); // (NEW) Update geometry panel
+      // Update geometry and deformer panels
+      updateGeometryUI(obj);
+      const dParams = obj.userData.deformParams || { twist: 0, taper: 1, noise: 0 };
+      setRange('deform-twist', dParams.twist, 0, '°');
+      setRange('deform-taper', dParams.taper);
+      setRange('deform-noise', dParams.noise);
     }
-    function setRange(id, v){ const el=root.querySelector('#'+id); const out=root.querySelector('#'+id+'Out'); el.value=v; out.textContent=Number(v).toFixed(2); }
+    
+    function setRange(id, v, fixed=2, suffix=''){ 
+        const el=root.querySelector('#'+id); 
+        const out=root.querySelector('#'+id+'Out'); 
+        if(el) el.value=v; 
+        if(out) out.textContent=Number(v).toFixed(fixed) + suffix; 
+    }
 
     bus.on('selection-changed', obj => fillFromSelection(obj));
     // initial fill if something selected later
