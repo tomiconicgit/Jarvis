@@ -40,24 +40,30 @@ const Editor = {
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
     let selected = null; let boxHelper = null;
     
-    // --- (FIX) Updated setSelected function ---
+    // --- (FIX #1) Updated setSelected function ---
     function setSelected(mesh){
       if (selected === mesh) return;
       selected = mesh;
-      if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry.dispose(); boxHelper = null; }
+      
+      if (boxHelper) { 
+        scene.remove(boxHelper); 
+        boxHelper.geometry.dispose(); 
+        boxHelper = null; 
+      }
       
       if (mesh) { 
         boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff); 
         scene.add(boxHelper);
         
+        // --- THIS IS THE FIX ---
         // Update orbit target to the center of the new selection
         const box = new THREE.Box3().setFromObject(mesh);
         const center = box.getCenter(new THREE.Vector3());
         controls.target.copy(center);
+        // --- END FIX ---
       }
       bus.emit('selection-changed', selected);
     }
-    // --- End Fix ---
     
     container.addEventListener('pointerdown', e=>{
       const rect=renderer.domElement.getBoundingClientRect();
@@ -142,7 +148,14 @@ const Editor = {
         else { selected.scale.set(t.scale.x, t.scale.y, t.scale.z); }
       }
       if (boxHelper) boxHelper.update();
+      // --- (FIX) Update target on transform change ---
+      if (selected) {
+          const box = new THREE.Box3().setFromObject(selected);
+          const center = box.getCenter(new THREE.Vector3());
+          controls.target.copy(center);
+      }
       gizmo.attach(selected);
+      // --- End Fix ---
       bus.emit('transform-changed', selected);
     });
 
@@ -215,7 +228,9 @@ const Editor = {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
-      controls.zoomSpeed = 0.3; // <-- (FIX) Even smoother zoom
+      // --- (FIX #2) Finer zoom speed ---
+      controls.zoomSpeed = 0.2; 
+      // --- End Fix ---
       controls.target.set(0, 2, 0);
       controls.minDistance = 1;      
       controls.maxDistance = 500;
@@ -226,7 +241,10 @@ const Editor = {
       gizmo.setSize(0.9);
       gizmo.addEventListener('change', ()=> safeRender());
       gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
-      gizmo.addEventListener('objectChange', ()=> { if (boxHelper) boxHelper.update(); bus.emit('transform-changed', selected); });
+      gizmo.addEventListener('objectChange', ()=> { 
+        if (boxHelper) boxHelper.update(); 
+        bus.emit('transform-changed', selected); 
+      });
       scene.add(gizmo);
     }
 
