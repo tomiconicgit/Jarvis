@@ -70,28 +70,28 @@
     .group{border:1px solid var(--panel-border);border-radius:12px;background:rgba(255,255,255,.03);
       padding:14px;margin-bottom:10px}
     .group h3{margin:0 0 8px 0;font-size:12px;letter-spacing:.3px;opacity:.9}
-    
-    /* --- (CHANGED) 3-column grid for Labeled Sliders --- */
+
+    /* 3-column grid for Labeled Sliders */
     .row{display:grid;grid-template-columns:90px 1fr 70px;gap:8px;align-items:center;margin:8px 0}
     .row label{color:var(--muted);font-size:12px;white-space:nowrap;}
     .row output{display:none;} /* No longer used */
 
-    /* --- (CHANGED) Style for number inputs in the grid --- */
+    /* Style for number inputs in the grid */
     .row input[type="number"]{width:100%;padding: 8px 6px;text-align:right;}
-    
-    /* --- (CHANGED) Style for rows without a slider --- */
+
+    /* Style for rows without a slider */
     .row.simple{grid-template-columns:90px 1fr;}
     .row.simple > input, .row.simple > select {
       grid-column: 2 / span 2; /* Span across the 2nd and 3rd columns */
     }
-    
+
     input[type="range"], select, input[type="color"], input[type="file"], input[type="number"], input[type="text"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
       border-radius:10px;color:var(--text);padding:10px 12px
     }
     input[type="range"]{padding:0}
     input[type="color"]{padding: 5px 8px;} /* Make color picker padding smaller */
-    
+
     button{appearance:none;background:rgba(77,163,255,.15);
       border:1px solid rgba(77,163,255,.3);color:var(--text);border-radius:10px;
       padding:10px 12px;font-weight:800;cursor:pointer;transition:background .15s}
