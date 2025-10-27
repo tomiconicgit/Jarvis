@@ -14,7 +14,8 @@ export default {
       <div style="opacity:.8">SOLID ▾</div>
     `;
 
-    root.addEventListener('click', e=>{
+    // Click anywhere on the label triggers (desktop & iOS)
+    root.addEventListener('pointerdown', e=>{
       const m = e.target?.dataset?.m; if (!m) return;
       if (m==='add') showAddMenu(e.target);
       if (m==='view') showViewMenu(e.target);
@@ -57,26 +58,15 @@ export default {
     }
 
     /* ---------- File actions ---------- */
-
     function newProject(){
       editor.setSelected(null);
-      // remove all children
       [...editor.world.children].forEach(c=> editor.world.remove(c));
       bus.emit('scene-updated');
     }
 
     function saveProject(){
-      // pack world + simple camera state
       const worldJSON = editor.world.toJSON();
-      const payload = {
-        type: 'IconicProject',
-        version: 1,
-        camera: {
-          position: editor.scene.children.find(o=>o.isPerspectiveCamera)?.position || null,
-          target: null // target is internal to controls; we store last selection center by user ops
-        },
-        world: worldJSON
-      };
+      const payload = { type:'IconicProject', version:1, world:worldJSON };
       const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
       downloadBlob(blob, 'iconic_project.iconic.json');
     }
@@ -88,12 +78,9 @@ export default {
         const text = await f.text();
         const data = JSON.parse(text);
         if (!data || !data.world) return;
-        // clear
         newProject();
-        // load world
         const loader = new THREE.ObjectLoader();
         const obj = loader.parse(data.world);
-        // we only want the children of the parsed root
         (obj.children||[]).forEach(child=> editor.world.add(child));
         bus.emit('scene-updated');
       };
@@ -101,7 +88,6 @@ export default {
     }
 
     function exportDialog(){
-      // modal
       const ui = modal(`
         <h3 style="margin:0 0 10px 0">Export</h3>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
@@ -109,7 +95,7 @@ export default {
           <label>Binary (.glb)</label><input id="exBin" type="checkbox" checked/>
           <label>Only visible</label><input id="exVis" type="checkbox" checked/>
           <label>Embed images</label><input id="exEmbed" type="checkbox" checked/>
-          <label>TRS (separate transforms)</label><input id="exTrs" type="checkbox"/>
+          <label>TRS</label><input id="exTrs" type="checkbox"/>
           <label>Max texture size</label><input id="exTex" type="number" min="256" max="8192" step="256" value="4096"/>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
@@ -140,7 +126,6 @@ export default {
         loader.load(url, gltf=>{
           const root = gltf.scene || gltf.scenes?.[0];
           if (!root) { URL.revokeObjectURL(url); return; }
-          // enable shadows
           root.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
           editor.world.add(root);
           bus.emit('scene-updated');
@@ -152,23 +137,28 @@ export default {
   }
 };
 
-/* ---- mini popup ---- */
+/* ---- anchored popup that always opens ---- */
 function popup(anchor, items){
   closeAll();
+  const r = anchor.getBoundingClientRect();
   const m = document.createElement('div');
-  m.style.cssText = 'position:absolute;top:44px;left:12px;z-index:50;background:#15171d;border:1px solid rgba(255,255,255,.12);border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)';
+  m.style.cssText = `
+    position:fixed;top:${Math.round(r.bottom+6)}px;left:${Math.round(r.left)}px;
+    z-index:200;background:#15171d;border:1px solid rgba(255,255,255,.12);
+    border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)
+  `;
   items.forEach(([label,fn])=>{
     const it = document.createElement('div');
     it.textContent = label;
     it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
-    it.addEventListener('click', ()=>{ fn(); closeAll(); });
+    it.addEventListener('pointerdown', e=>{ e.stopPropagation(); fn(); closeAll(); });
     m.appendChild(it);
   });
   if (m.lastChild) m.lastChild.style.borderBottom='0';
   document.body.appendChild(m);
-  function closeAll(){ m.remove(); document.removeEventListener('pointerdown', closer); }
+  function closeAll(){ m.remove(); document.removeEventListener('pointerdown', closer, true); }
   function closer(ev){ if (!m.contains(ev.target)) closeAll(); }
-  setTimeout(()=> document.addEventListener('pointerdown', closer), 0);
+  setTimeout(()=> document.addEventListener('pointerdown', closer, true), 0);
 }
 
 /* ---- Export helper ---- */
@@ -192,7 +182,7 @@ function exportGLB(root, opts, baseName='iconic_scene'){
 /* ---- tiny helpers ---- */
 function modal(html){
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:200';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
   card.style.cssText = 'background:#12141a;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:#eaeef5';
   card.innerHTML = html;
