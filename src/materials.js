@@ -1,4 +1,4 @@
-// materials.js — transform + material + advanced geometry (freeze-safe)
+// materials.js — transform + material + advanced geometry (axis-aware; no lockouts)
 import * as THREE from 'three';
 
 /* ---------- helpers (no event ping-pong) ---------- */
@@ -7,7 +7,6 @@ function bindSliderAndNumber(root, sliderId, numberId, fixed = 2) {
   const number = root.querySelector('#' + numberId);
   if (!slider || !number) return;
 
-  // initial sync
   number.value = Number(slider.value).toFixed(fixed);
 
   slider.addEventListener('input', () => {
@@ -75,10 +74,10 @@ export default {
         <h3>Advanced Geometry</h3>
         <div id="geometry-controls"><small class="note">Select a primitive to edit base geometry.</small></div>
         <div class="row"><label>Hollow (thickness)</label><input id="adv_hollow_slider" type="range" min="0" max="0.5" step="0.01" value="0"/><input id="adv_hollow_num" type="number" step="0.01" value="0"/></div>
-        <div class="row"><label>Slant X (shear)</label><input id="adv_shearX_slider" type="range" min="-0.5" max="0.5" step="0.005" value="0"/><input id="adv_shearX_num" type="number" step="0.005" value="0"/></div>
-        <div class="row"><label>Slant Z (shear)</label><input id="adv_shearZ_slider" type="range" min="-0.5" max="0.5" step="0.005" value="0"/><input id="adv_shearZ_num" type="number" step="0.005" value="0"/></div>
+        <div class="row"><label>Slant A (shear)</label><input id="adv_shearX_slider" type="range" min="-0.5" max="0.5" step="0.005" value="0"/><input id="adv_shearX_num" type="number" step="0.005" value="0"/></div>
+        <div class="row"><label>Slant B (shear)</label><input id="adv_shearZ_slider" type="range" min="-0.5" max="0.5" step="0.005" value="0"/><input id="adv_shearZ_num" type="number" step="0.005" value="0"/></div>
         <div class="row"><label>Twist (deg)</label><input id="deform_twist_slider" type="range" min="-360" max="360" step="1" value="0"/><input id="deform_twist_num" type="number" step="1" value="0"/></div>
-        <div class="row"><label>Taper (Y)</label><input id="deform_taper_slider" type="range" min="0" max="3" step="0.01" value="1"/><input id="deform_taper_num" type="number" step="0.01" value="1"/></div>
+        <div class="row"><label>Taper</label><input id="deform_taper_slider" type="range" min="0" max="3" step="0.01" value="1"/><input id="deform_taper_num" type="number" step="0.01" value="1"/></div>
         <div class="row"><label>Noise</label><input id="deform_noise_slider" type="range" min="0" max="1" step="0.01" value="0"/><input id="deform_noise_num" type="number" step="0.01" value="0"/></div>
       </div>
 
@@ -170,25 +169,39 @@ export default {
       });
     }
 
-    /* ---------- binds ---------- */
+    /* ---------- Transform (no lockout) ---------- */
+    let scaleMode = 'perAxis'; // 'uniform' | 'perAxis'
 
-    // transform — live, throttled
     [
       'tx','ty','tz','rx','ry','rz','sx','sy','sz','su'
     ].forEach(base=>{
       bindSliderAndNumber(root, `${base}_slider`, `${base}_num`, base.startsWith('s')?2:(base.startsWith('r')?0:1));
-      root.querySelector(`#${base}_slider`)?.addEventListener('input', pushTransform);
-      root.querySelector(`#${base}_num`)?.addEventListener('input', pushTransform);
+      const push = base === 'su' ? onUniformChange : (base.startsWith('s') ? onPerAxisChange : pushTransform);
+      root.querySelector(`#${base}_slider`)?.addEventListener('input', push);
+      root.querySelector(`#${base}_num`)?.addEventListener('input', push);
     });
 
+    function onUniformChange(){ scaleMode = 'uniform'; pushTransform(); }
+    function onPerAxisChange(){
+      if (scaleMode !== 'perAxis'){
+        scaleMode = 'perAxis';
+        // reset uniform UI to 1 so it no longer overrides
+        setSliderAndNumber(root, 'su', 1, 2);
+      }
+      pushTransform();
+    }
+
     function readTransform(){
-      return {
+      const t = {
         position: { x:+val('tx_num'), y:+val('ty_num'), z:+val('tz_num') },
-        rotation: { x:+val('rx_num'), y:+val('ry_num'), z:+val('rz_num') },
-        scale: Math.abs(+val('su_num')-1) > 1e-6
-          ? { uniform:+val('su_num') }
-          : { x:+val('sx_num'), y:+val('sy_num'), z:+val('sz_num') }
+        rotation: { x:+val('rx_num'), y:+val('ry_num'), z:+val('rz_num') }
       };
+      if (scaleMode === 'uniform' && Math.abs(+val('su_num')-1) > 1e-6){
+        t.scale = { uniform:+val('su_num') };
+      } else {
+        t.scale = { x:+val('sx_num'), y:+val('sy_num'), z:+val('sz_num') };
+      }
+      return t;
     }
     function val(id){ return root.querySelector('#'+id).value; }
     function pushTransform(){
@@ -203,7 +216,7 @@ export default {
     root.querySelector('#frame').addEventListener('click', ()=> bus.emit('frame-selection'));
     root.querySelector('#gmode').addEventListener('change', e=> bus.emit('set-gizmo', e.target.value));
 
-    // material — live, throttled
+    /* ---------- Material (throttled) ---------- */
     function pushMaterial(){
       if (_matTick) return;
       _matTick = true;
@@ -259,7 +272,7 @@ export default {
       root.querySelector(`#${base}_num`)?.addEventListener('input', pushGeometryChanges);
     });
 
-    /* update UI on selection */
+    /* update UI on selection and gizmo moves */
     function fillFromSelection(obj){
       if (!obj) {
         updateGeometryUI(null);
@@ -275,7 +288,8 @@ export default {
       setSliderAndNumber(root, 'sx', obj.scale.x, 2);
       setSliderAndNumber(root, 'sy', obj.scale.y, 2);
       setSliderAndNumber(root, 'sz', obj.scale.z, 2);
-      setSliderAndNumber(root, 'su', 1, 2);
+      setSliderAndNumber(root, 'su', 1, 2); // default to per-axis after sync
+      scaleMode = 'perAxis';
 
       // material
       let mat = null;
@@ -302,9 +316,8 @@ export default {
       setSliderAndNumber(root, 'deform_noise', d.noise, 2);
     }
 
-    bindSliderAndNumber(root, 'tx_slider','tx_num',1); // harmless duplicate bind protection
-
     bus.on('selection-changed', obj => fillFromSelection(obj));
+    bus.on('transform-changed', () => editor.selected && fillFromSelection(editor.selected));
     if (editor.selected) fillFromSelection(editor.selected);
   }
 };
