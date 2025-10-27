@@ -1,4 +1,8 @@
 // toolbar.js — top bar menus (File, Edit, Add, View)
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
+import * as THREE from 'three';
+
 export default {
   init(root, bus, editor){
     root.innerHTML = `
@@ -10,10 +14,8 @@ export default {
       <div style="opacity:.8">SOLID ▾</div>
     `;
 
-    // simple click menus (lean v1)
     root.addEventListener('click', e=>{
-      const m = e.target?.dataset?.m;
-      if (!m) return;
+      const m = e.target?.dataset?.m; if (!m) return;
       if (m==='add') showAddMenu(e.target);
       if (m==='view') showViewMenu(e.target);
       if (m==='edit') showEditMenu(e.target);
@@ -46,9 +48,106 @@ export default {
     }
     function showFileMenu(anchor){
       popup(anchor, [
-        ['New Scene', ()=>location.reload()],
-        ['Export GLB', ()=>exportGLB(editor.world)]
+        ['New', newProject],
+        ['Save', saveProject],
+        ['Load', loadProject],
+        ['Export…', exportDialog],
+        ['Import GLB', importGLB]
       ]);
+    }
+
+    /* ---------- File actions ---------- */
+
+    function newProject(){
+      editor.setSelected(null);
+      // remove all children
+      [...editor.world.children].forEach(c=> editor.world.remove(c));
+      bus.emit('scene-updated');
+    }
+
+    function saveProject(){
+      // pack world + simple camera state
+      const worldJSON = editor.world.toJSON();
+      const payload = {
+        type: 'IconicProject',
+        version: 1,
+        camera: {
+          position: editor.scene.children.find(o=>o.isPerspectiveCamera)?.position || null,
+          target: null // target is internal to controls; we store last selection center by user ops
+        },
+        world: worldJSON
+      };
+      const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+      downloadBlob(blob, 'iconic_project.iconic.json');
+    }
+
+    function loadProject(){
+      const input = filePick('.iconic.json,application/json');
+      input.onchange = async () => {
+        const f = input.files?.[0]; if (!f) return;
+        const text = await f.text();
+        const data = JSON.parse(text);
+        if (!data || !data.world) return;
+        // clear
+        newProject();
+        // load world
+        const loader = new THREE.ObjectLoader();
+        const obj = loader.parse(data.world);
+        // we only want the children of the parsed root
+        (obj.children||[]).forEach(child=> editor.world.add(child));
+        bus.emit('scene-updated');
+      };
+      input.click();
+    }
+
+    function exportDialog(){
+      // modal
+      const ui = modal(`
+        <h3 style="margin:0 0 10px 0">Export</h3>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
+          <label>Filename</label><input id="exName" type="text" value="iconic_scene"/>
+          <label>Binary (.glb)</label><input id="exBin" type="checkbox" checked/>
+          <label>Only visible</label><input id="exVis" type="checkbox" checked/>
+          <label>Embed images</label><input id="exEmbed" type="checkbox" checked/>
+          <label>TRS (separate transforms)</label><input id="exTrs" type="checkbox"/>
+          <label>Max texture size</label><input id="exTex" type="number" min="256" max="8192" step="256" value="4096"/>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button id="exCancel">Cancel</button>
+          <button id="exGo">Export</button>
+        </div>
+      `);
+      ui.querySelector('#exCancel').onclick = () => ui.remove();
+      ui.querySelector('#exGo').onclick = ()=>{
+        const name = ui.querySelector('#exName').value.trim() || 'iconic_scene';
+        exportGLB(editor.world, {
+          binary: ui.querySelector('#exBin').checked,
+          onlyVisible: ui.querySelector('#exVis').checked,
+          embedImages: ui.querySelector('#exEmbed').checked,
+          trs: ui.querySelector('#exTrs').checked,
+          maxTextureSize: +ui.querySelector('#exTex').value || 4096
+        }, name);
+        ui.remove();
+      };
+    }
+
+    function importGLB(){
+      const input = filePick('.glb,.gltf,model/gltf-binary,model/gltf+json');
+      input.onchange = async ()=>{
+        const f = input.files?.[0]; if(!f) return;
+        const url = URL.createObjectURL(f);
+        const loader = new GLTFLoader();
+        loader.load(url, gltf=>{
+          const root = gltf.scene || gltf.scenes?.[0];
+          if (!root) { URL.revokeObjectURL(url); return; }
+          // enable shadows
+          root.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+          editor.world.add(root);
+          bus.emit('scene-updated');
+          URL.revokeObjectURL(url);
+        }, undefined, err=>{ console.error(err); URL.revokeObjectURL(url); });
+      };
+      input.click();
     }
   }
 };
@@ -57,7 +156,7 @@ export default {
 function popup(anchor, items){
   closeAll();
   const m = document.createElement('div');
-  m.style.cssText = 'position:absolute;top:44px;left:12px;z-index:50;background:#15171d;border:1px solid rgba(255,255,255,.12);border-radius:10px;min-width:180px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)';
+  m.style.cssText = 'position:absolute;top:44px;left:12px;z-index:50;background:#15171d;border:1px solid rgba(255,255,255,.12);border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)';
   items.forEach(([label,fn])=>{
     const it = document.createElement('div');
     it.textContent = label;
@@ -72,14 +171,40 @@ function popup(anchor, items){
   setTimeout(()=> document.addEventListener('pointerdown', closer), 0);
 }
 
-/* ---- GLB export (simple) ---- */
-import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-function exportGLB(root){
+/* ---- Export helper ---- */
+function exportGLB(root, opts, baseName='iconic_scene'){
   const exporter = new GLTFExporter();
-  exporter.parse(root, (ab)=>{
-    const blob = new Blob([ab], {type:'model/gltf-binary'});
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href:url, download:'iconic_scene.glb' });
-    a.click(); URL.revokeObjectURL(url);
-  }, { binary:true, onlyVisible:true });
+  exporter.parse(root, (result)=>{
+    const ext = opts.binary ? 'glb' : 'gltf';
+    const data = opts.binary ? result : JSON.stringify(result);
+    const mime = opts.binary ? 'model/gltf-binary' : 'model/gltf+json';
+    const blob = new Blob([data], { type:mime });
+    downloadBlob(blob, `${baseName}.${ext}`);
+  }, {
+    binary: !!opts.binary,
+    onlyVisible: !!opts.onlyVisible,
+    embedImages: !!opts.embedImages,
+    trs: !!opts.trs,
+    maxTextureSize: opts.maxTextureSize || 4096
+  });
+}
+
+/* ---- tiny helpers ---- */
+function modal(html){
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:200';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#12141a;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:#eaeef5';
+  card.innerHTML = html;
+  wrap.appendChild(card);
+  document.body.appendChild(wrap);
+  return wrap;
+}
+function filePick(accept){
+  const i = document.createElement('input'); i.type='file'; i.accept = accept; return i;
+}
+function downloadBlob(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href:url, download:name });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
