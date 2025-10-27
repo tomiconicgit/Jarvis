@@ -1,4 +1,4 @@
-// editor.js â renderer / scene / camera / controls / selection / lighting / grid
+// editor.js — renderer / scene / camera / controls / selection / lighting / grid
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -46,13 +46,30 @@ const Editor = {
       if (mesh) { boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff); scene.add(boxHelper); }
       bus.emit('selection-changed', selected);
     }
+    
+    // --- (FIX) Corrected selection logic ---
     container.addEventListener('pointerdown', e=>{
       const rect=renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
       pointer.y = -((e.clientY-rect.top)/rect.height)*2+1;
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObjects(world.children, true);
-      setSelected(hits[0]?.object?.parent?.isGroup ? hits[0].object.parent : hits[0]?.object || null);
+      
+      let hitObject = hits[0]?.object;
+      if (hitObject) {
+        // Traverse up to find the direct child of 'world'
+        while (hitObject.parent && hitObject.parent !== world) {
+          hitObject = hitObject.parent;
+        }
+        // Only select if the ancestor is a direct child of 'world'
+        if (hitObject.parent === world) {
+          setSelected(hitObject);
+        } else {
+          setSelected(null); // Hit something, but not a selectable object
+        }
+      } else {
+        setSelected(null); // Clicked empty space
+      }
     });
 
     // bus
@@ -73,7 +90,14 @@ const Editor = {
     bus.on('set-background', c=> { scene.background = new THREE.Color(c); });
     bus.on('set-lighting', name=> applyLightingPreset(name, { hemi, key, rim, scene }));
     bus.on('set-gizmo', mode=> gizmo.setMode(mode));
-    bus.on('attach-selected', ()=> selected ? gizmo.attach(selected) : gizmo.detach());
+    bus.on('attach-selected', ()=> {
+        if (selected) {
+            gizmo.attach(selected);
+            if(boxHelper) boxHelper.update();
+        } else {
+            gizmo.detach();
+        }
+    });
     bus.on('detach-gizmo', ()=> gizmo.detach());
 
     // material updates
@@ -125,10 +149,10 @@ const Editor = {
     window.addEventListener('orientationchange', onResize, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
 
-    // context-loss: rebuild renderer + controls instantly (fixes âblank after zoomâ)
+    // context-loss: rebuild renderer + controls instantly (fixes “blank after zoom”)
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
       e.preventDefault();
-      console.warn('WebGL context lost â rebuilding renderer');
+      console.warn('WebGL context lost — rebuilding renderer');
       rebuildRenderer();
     }, false);
 
@@ -158,9 +182,11 @@ const Editor = {
       controls?.dispose();
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
+      controls.dampingFactor = 0.1;
+      controls.zoomSpeed = 0.5; // <-- (NEW) Smoother zoom
       controls.target.set(0, 2, 0);
-      controls.minDistance = 1;      // <-- CHANGED from 0.25
-      controls.maxDistance = 500;    // <-- CHANGED from 2000
+      controls.minDistance = 1;      
+      controls.maxDistance = 500;
       controls.maxPolarAngle = Math.PI * 0.499;
 
       if (gizmo){ scene.remove(gizmo); }
@@ -208,13 +234,38 @@ function createRenderer(container){
   container.appendChild(r.domElement);
   return r;
 }
+
+// --- (NEW) Store geometry parameters in userData ---
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
-  let mesh;
-  if (type==='sphere') mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), mat);
-  else if (type==='cylinder') mesh = new THREE.Mesh(new THREE.CylinderGeometry(1,1,2, 48, 1), mat);
-  else if (type==='plane') { mesh = new THREE.Mesh(new THREE.PlaneGeometry(4,4,1,1), mat); mesh.rotation.x = -Math.PI/2; }
-  else mesh = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), mat);
+  let mesh, geo;
+  
+  if (type==='sphere') {
+    const params = { radius: 1, widthSegments: 48, heightSegments: 32 };
+    geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
+    mesh = new THREE.Mesh(geo, mat);
+    mesh.userData.geometryParams = { type, ...params };
+  }
+  else if (type==='cylinder') {
+    const params = { radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
+    geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments);
+    mesh = new THREE.Mesh(geo, mat);
+    mesh.userData.geometryParams = { type, ...params };
+  }
+  else if (type==='plane') {
+    const params = { width: 4, height: 4 };
+    geo = new THREE.PlaneGeometry(params.width, params.height, 1, 1);
+    mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.userData.geometryParams = { type, ...params };
+  }
+  else { // box
+    const params = { width: 2, height: 2, depth: 2 };
+    geo = new THREE.BoxGeometry(params.width, params.height, params.depth);
+    mesh = new THREE.Mesh(geo, mat);
+    mesh.userData.geometryParams = { type: 'box', ...params };
+  }
+  
   mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
   mesh.name = type.charAt(0).toUpperCase() + type.slice(1);
   return mesh;
