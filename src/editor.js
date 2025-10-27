@@ -39,15 +39,26 @@ const Editor = {
     // selection
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
     let selected = null; let boxHelper = null;
+    
+    // --- (FIX) Updated setSelected function ---
     function setSelected(mesh){
       if (selected === mesh) return;
       selected = mesh;
       if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry.dispose(); boxHelper = null; }
-      if (mesh) { boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff); scene.add(boxHelper); }
+      
+      if (mesh) { 
+        boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff); 
+        scene.add(boxHelper);
+        
+        // Update orbit target to the center of the new selection
+        const box = new THREE.Box3().setFromObject(mesh);
+        const center = box.getCenter(new THREE.Vector3());
+        controls.target.copy(center);
+      }
       bus.emit('selection-changed', selected);
     }
+    // --- End Fix ---
     
-    // --- (FIX) Corrected selection logic ---
     container.addEventListener('pointerdown', e=>{
       const rect=renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
@@ -135,7 +146,7 @@ const Editor = {
       bus.emit('transform-changed', selected);
     });
 
-    // --- (NEW) Rebuild Geometry + Deformers ---
+    // Rebuild Geometry + Deformers
     bus.on('rebuild-geometry', payload => {
       if (!selected) return;
       const { base, deform } = payload;
@@ -204,7 +215,7 @@ const Editor = {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
-      controls.zoomSpeed = 0.5; // <-- Smoother zoom
+      controls.zoomSpeed = 0.3; // <-- (FIX) Even smoother zoom
       controls.target.set(0, 2, 0);
       controls.minDistance = 1;      
       controls.maxDistance = 500;
@@ -302,7 +313,7 @@ function applyLightingPreset(name, {hemi, key, rim, scene}){
   else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
 }
 
-// --- (NEW) Geometry Generation Helpers ---
+// --- Geometry Generation Helpers ---
 
 function createBaseGeometry(params) {
   const p = params; // alias
