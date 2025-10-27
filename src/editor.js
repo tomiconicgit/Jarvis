@@ -5,12 +5,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const Editor = {
   init(container, bus){
-    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:'high-performance' });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.shadowMap.enabled = true;
-    container.appendChild(renderer.domElement);
+    let renderer = makeRenderer(container);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b0c0f);
@@ -21,23 +16,26 @@ const Editor = {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.target.set(0, 2, 0);
+    controls.minDistance = 0.25;
+    controls.maxDistance = 2000;
+    controls.maxPolarAngle = Math.PI * 0.499;
 
-    // lights (presets controlled later)
+    // lights
     const hemi = new THREE.HemisphereLight(0xffffff, 0x171a1f, 0.6);
     const key  = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(10,20,12); key.castShadow = true;
     const rim  = new THREE.DirectionalLight(0x88bbff, 0.5); rim.position.set(-18,18,-10);
     scene.add(hemi, key, rim);
 
-    // real-world grid (1m)
+    // grid + ground
     const grid = new THREE.GridHelper(400, 400, 0x334, 0x223);
     grid.position.y = 0; scene.add(grid);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), new THREE.MeshStandardMaterial({ color:0x111315, roughness:1 }));
     ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
 
-    // World root for content
+    // world root
     const world = new THREE.Group(); world.name = 'World'; scene.add(world);
 
-    // Selection
+    // selection
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
     let selected = null; let boxHelper = null;
     function setSelected(mesh){
@@ -56,15 +54,15 @@ const Editor = {
       setSelected(hits[0]?.object?.parent?.isGroup ? hits[0].object.parent : hits[0]?.object || null);
     });
 
-    // Transform gizmo
+    // gizmo
     const gizmo = new TransformControls(camera, renderer.domElement);
     gizmo.setSize(0.9);
-    gizmo.addEventListener('change', ()=> renderer.render(scene, camera));
+    gizmo.addEventListener('change', ()=> safeRender());
     gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
     gizmo.addEventListener('objectChange', ()=> { if (boxHelper) boxHelper.update(); bus.emit('transform-changed', selected); });
     scene.add(gizmo);
 
-    // Bus wiring
+    // bus
     bus.on('add-primitive', ({type})=>{
       const m = makePrimitive(type);
       world.add(m); setSelected(m); frame(m);
@@ -106,7 +104,7 @@ const Editor = {
       bus.emit('material-updated', selected);
     });
 
-    // transform updates from UI
+    // transform from UI
     bus.on('transform-update', t=>{
       if (!selected) return;
       if (t.position){ selected.position.set(t.position.x, t.position.y, t.position.z); }
@@ -120,24 +118,45 @@ const Editor = {
       bus.emit('transform-changed', selected);
     });
 
-    // Resize
+    // robust resize
     function onResize(){
-      const w = container.clientWidth, h = container.clientHeight;
-      renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+      const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      renderer.setPixelRatio(dpr);
+      renderer.setSize(w, h, false);
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      safeRender();
     }
+    const ro = new ResizeObserver(onResize); ro.observe(container);
+    window.addEventListener('orientationchange', onResize, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
 
-    // Loop
-    renderer.setAnimationLoop(()=>{ controls.update(); renderer.render(scene, camera); });
+    // WebGL context loss protection (Safari/iOS & heavy zoom cases)
+    renderer.domElement.addEventListener('webglcontextlost', (e)=>{
+      e.preventDefault();
+      console.warn('WebGL context lost — attempting restore');
+    }, false);
+    renderer.domElement.addEventListener('webglcontextrestored', ()=>{
+      console.warn('WebGL context restored');
+      onResize();
+    }, false);
+
+    // loop
+    function safeRender(){
+      try { controls.update(); renderer.render(scene, camera); }
+      catch(err){ console.error(err); /* no crash */ }
+    }
+    renderer.setAnimationLoop(safeRender);
 
     function frame(obj){
       const box = new THREE.Box3().setFromObject(obj);
-      const size = box.getSize(new THREE.Vector3()).length() || 1;
+      const sizeVec = box.getSize(new THREE.Vector3());
+      const size = Math.max(sizeVec.x, sizeVec.y, sizeVec.z) || 1;
       const center = box.getCenter(new THREE.Vector3());
       controls.target.copy(center);
-      const dist = size * 1.2 / Math.tan((camera.fov * Math.PI/180)/2);
+      const dist = Math.max(1, size * 1.2 / Math.tan((camera.fov * Math.PI/180)/2));
       camera.position.copy(center).add(new THREE.Vector3(dist, dist*0.6, dist));
-      camera.updateProjectionMatrix();
+      camera.near = 0.1; camera.far = Math.max(2000, dist*10); camera.updateProjectionMatrix();
       if (boxHelper) boxHelper.update();
     }
 
@@ -154,6 +173,15 @@ const Editor = {
 export default Editor;
 
 /* ---------- helpers ---------- */
+function makeRenderer(container){
+  const r = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:'high-performance', preserveDrawingBuffer:false });
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  r.setSize(container.clientWidth, container.clientHeight);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  r.shadowMap.enabled = true;
+  container.appendChild(r.domElement);
+  return r;
+}
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
   let mesh;
@@ -173,7 +201,5 @@ function ensureStandard(mat){
 function applyLightingPreset(name, {hemi, key, rim, scene}){
   if (name==='Night'){ scene.background.set(0x06070a); hemi.intensity=.25; key.intensity=.4; rim.intensity=.2; }
   else if (name==='Studio'){ scene.background.set(0x0e1116); hemi.intensity=.8; key.intensity=1.2; rim.intensity=.7; }
-  else { // Day
-    scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5;
-  }
+  else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
 }
