@@ -36,14 +36,12 @@ export default {
     }
     refresh();
 
-    /* wiring */
     root.querySelector('#bg').addEventListener('change', e=> bus.emit('set-background', e.target.value));
     root.querySelector('#lighting').addEventListener('change', e=> bus.emit('set-lighting', e.target.value));
     root.querySelector('#gizmo').addEventListener('change', e=> bus.emit('set-gizmo', e.target.value));
     root.querySelector('#btn-attach').addEventListener('click', ()=> bus.emit('attach-selected'));
     root.querySelector('#btn-delete').addEventListener('click', ()=> bus.emit('delete-selection'));
 
-    // events
     bus.on('scene-updated', refresh);
     bus.on('selection-changed', ()=>{ refresh(); });
     bus.on('selection-from-outliner', (obj)=> editor.setSelected(obj));
