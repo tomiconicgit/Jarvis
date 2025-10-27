@@ -72,7 +72,7 @@ export default {
     function newProject(){
       const ui = modal(`
         <h3 style="margin:0 0 10px 0">New Project</h3>
-        <p style="margin:0 0 12px 0;color:var(--muted)">Are you sure you want to start a new project? All unsaved changes will be lost.</p>
+        <p style="margin:0 0 12px 0;color:var(--muted)">Start a new project? Unsaved changes will be lost.</p>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button id="newCancel">Cancel</button>
           <button id="newGo" class="primary">Start New</button>
@@ -102,10 +102,9 @@ export default {
         const data = JSON.parse(text);
         if (!data || !data.world) return;
 
-        // Use the modal to confirm load
         const ui = modal(`
           <h3 style="margin:0 0 10px 0">Load Project</h3>
-          <p style="margin:0 0 12px 0;color:var(--muted)">Loading this project will replace your current scene. All unsaved changes will be lost.</p>
+          <p style="margin:0 0 12px 0;color:var(--muted)">Replace current scene? Unsaved changes will be lost.</p>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button id="loadCancel">Cancel</button>
             <button id="loadGo" class="primary">Load Project</button>
@@ -175,9 +174,9 @@ export default {
   }
 };
 
-/* ---- anchored popup that always opens ---- */
+/* ---- anchored popup ---- */
 function popup(anchor, items){
-  closeActiveMenu(); // Close any menu that's already open
+  closeActiveMenu();
 
   const r = anchor.getBoundingClientRect();
   const m = document.createElement('div');
@@ -195,9 +194,8 @@ function popup(anchor, items){
     it.addEventListener('pointerdown', e=>{
       e.stopPropagation();
       fn();
-      closeActiveMenu(); // Use the new closer function
+      closeActiveMenu();
     });
-    // Add hover effect
     it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     m.appendChild(it);
@@ -207,15 +205,10 @@ function popup(anchor, items){
   document.body.appendChild(m);
 
   const closer = (ev) => {
-    if (!m.contains(ev.target)) {
-      closeActiveMenu();
-    }
+    if (!m.contains(ev.target)) closeActiveMenu();
   };
 
-  // Store new menu state
-  activeMenu = { element: m, closer: closer };
-
-  // Add the closing listener *after* the current event loop, using capture
+  activeMenu = { element: m, closer };
   setTimeout(()=> document.addEventListener('pointerdown', closer, true), 0);
 }
 
