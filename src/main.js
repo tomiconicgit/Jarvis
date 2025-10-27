@@ -7,7 +7,6 @@ const App = {
   env: { isTouch: 'ontouchstart' in window, isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) }
 };
 
-// Build module URLs RELATIVE to this file (no double /src/src/)
 const MANIFEST = [
   { id: 'editor',    path: new URL('./editor.js',    import.meta.url).href },
   { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
