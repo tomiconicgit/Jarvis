@@ -135,6 +135,27 @@ const Editor = {
       bus.emit('transform-changed', selected);
     });
 
+    // --- (NEW) Rebuild Geometry + Deformers ---
+    bus.on('rebuild-geometry', payload => {
+      if (!selected) return;
+      const { base, deform } = payload;
+      
+      try {
+        const baseGeometry = createBaseGeometry(base);
+        const deformedGeometry = applyDeformers(baseGeometry, deform);
+
+        selected.geometry.dispose();
+        selected.geometry = deformedGeometry;
+        selected.userData.geometryParams = base; // Save new base params
+        selected.userData.deformParams = deform; // Save new deform params
+        
+        selected.geometry.computeVertexNormals();
+        bus.emit('attach-selected'); // Update gizmo and box helper
+      } catch (err) {
+        console.error("Error rebuilding geometry:", err);
+      }
+    });
+
     // size management
     function onResize(){
       const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
@@ -183,7 +204,7 @@ const Editor = {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
-      controls.zoomSpeed = 0.5; // <-- (NEW) Smoother zoom
+      controls.zoomSpeed = 0.5; // <-- Smoother zoom
       controls.target.set(0, 2, 0);
       controls.minDistance = 1;      
       controls.maxDistance = 500;
@@ -235,48 +256,113 @@ function createRenderer(container){
   return r;
 }
 
-// --- (NEW) Store geometry parameters in userData ---
+// --- Store geometry parameters in userData ---
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
-  let mesh, geo;
+  let mesh, geo, params;
   
   if (type==='sphere') {
-    const params = { radius: 1, widthSegments: 48, heightSegments: 32 };
+    params = { radius: 1, widthSegments: 48, heightSegments: 32 };
     geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
     mesh = new THREE.Mesh(geo, mat);
-    mesh.userData.geometryParams = { type, ...params };
   }
   else if (type==='cylinder') {
-    const params = { radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
+    params = { radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
     geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments);
     mesh = new THREE.Mesh(geo, mat);
-    mesh.userData.geometryParams = { type, ...params };
   }
   else if (type==='plane') {
-    const params = { width: 4, height: 4 };
+    params = { width: 4, height: 4 };
     geo = new THREE.PlaneGeometry(params.width, params.height, 1, 1);
     mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI/2;
-    mesh.userData.geometryParams = { type, ...params };
   }
   else { // box
-    const params = { width: 2, height: 2, depth: 2 };
+    params = { width: 2, height: 2, depth: 2 };
     geo = new THREE.BoxGeometry(params.width, params.height, params.depth);
     mesh = new THREE.Mesh(geo, mat);
-    mesh.userData.geometryParams = { type: 'box', ...params };
   }
   
+  mesh.userData.geometryParams = { type, ...params };
+  mesh.userData.deformParams = { twist: 0, taper: 1, noise: 0 };
   mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
   mesh.name = type.charAt(0).toUpperCase() + type.slice(1);
   return mesh;
 }
+
 function ensureStandard(mat){
   if (mat && mat.isMeshStandardMaterial) return mat;
   const m = new THREE.MeshStandardMaterial({ color: (mat?.color||0xffffff) });
   return m;
 }
+
 function applyLightingPreset(name, {hemi, key, rim, scene}){
   if (name==='Night'){ scene.background.set(0x06070a); hemi.intensity=.25; key.intensity=.4; rim.intensity=.2; }
   else if (name==='Studio'){ scene.background.set(0x0e1116); hemi.intensity=.8; key.intensity=1.2; rim.intensity=.7; }
   else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
+}
+
+// --- (NEW) Geometry Generation Helpers ---
+
+function createBaseGeometry(params) {
+  const p = params; // alias
+  if (p.type === 'box') {
+    return new THREE.BoxGeometry(p.width, p.height, p.depth, 1, 1, 1);
+  } else if (p.type === 'sphere') {
+    return new THREE.SphereGeometry(p.radius, p.widthSegments, p.heightSegments);
+  } else if (p.type === 'cylinder') {
+    return new THREE.CylinderGeometry(p.radiusTop, p.radiusBottom, p.height, p.radialSegments);
+  } else if (p.type === 'plane') {
+    return new THREE.PlaneGeometry(p.width, p.height);
+  }
+  // Fallback
+  return new THREE.BoxGeometry(2, 2, 2);
+}
+
+function applyDeformers(geometry, deforms) {
+  const positions = geometry.attributes.position;
+  const vertex = new THREE.Vector3();
+  const axis = new THREE.Vector3(0, 1, 0); // Deform along Y
+  
+  // Get bounds
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  const height = box.max.y - box.min.y;
+  const center = box.min.y + height / 2;
+
+  // Nothing to do if no deforms
+  if (deforms.twist === 0 && deforms.taper === 1 && deforms.noise === 0) {
+    return geometry;
+  }
+
+  for (let i = 0; i < positions.count; i++) {
+    vertex.fromBufferAttribute(positions, i);
+
+    // Get Y-axis percentage (from -0.5 to +0.5)
+    const yPercent = (height > 0.01) ? ((vertex.y - center) / height) : 0;
+    
+    // 1. Apply Taper
+    // Taper scale goes from 1.0 (at -0.5) to taper (at +0.5)
+    const taperScale = 1.0 - (yPercent + 0.5) * (1.0 - deforms.taper);
+    vertex.x *= taperScale;
+    vertex.z *= taperScale;
+    
+    // 2. Apply Twist
+    const twistAmount = THREE.MathUtils.degToRad(deforms.twist);
+    const twistAngle = yPercent * twistAmount;
+    vertex.applyAxisAngle(axis, twistAngle);
+    
+    // 3. Apply Noise
+    const noise = deforms.noise;
+    if (noise > 0) {
+      vertex.x += (Math.random() - 0.5) * noise;
+      vertex.y += (Math.random() - 0.5) * noise;
+      vertex.z += (Math.random() - 0.5) * noise;
+    }
+    
+    positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+  }
+  
+  geometry.attributes.position.needsUpdate = true;
+  return geometry;
 }
