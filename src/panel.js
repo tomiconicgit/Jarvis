@@ -3,9 +3,7 @@ export default {
   init({ tabs }){
     const paneScene = document.getElementById('pane-scene');
     const paneMat   = document.getElementById('pane-material');
-    const map = { scene: paneScene, material: paneMat };
 
-    // wire tabs
     document.querySelectorAll('.tab').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -14,7 +12,6 @@ export default {
       });
     });
 
-    // mount content
     tabs.scene?.(paneScene);
     tabs.material?.(paneMat);
   }
