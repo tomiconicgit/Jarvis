@@ -2,892 +2,100 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>Truss Bay + Walkway + PBR (clean base ring)</title>
-<style>
-  :root{ --glass:rgba(28,32,40,.68); --line:rgba(255,255,255,.10); --txt:#e8eef5; --ink:#cfd7e3; --accent:#7fb0ff; }
-  html,body{height:100%;margin:0;background:#0b0d12;color:var(--txt);font-family:-apple-system,system-ui,Inter,Roboto,Segoe UI,sans-serif;overflow:hidden}
-  canvas{display:block;width:100%;height:100%}
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Iconic Editor — Hybrid Three.js</title>
+<meta name="theme-color" content="#0a0a0a"/>
 
-  /* Top bar */
-  .top{position:fixed;inset:0 0 auto 0;height:56px;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
-    display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);z-index:6;pointer-events:none}
-  .chip{pointer-events:auto;margin:8px;padding:10px 14px;border-radius:14px;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--line);display:flex;gap:8px;align-items:center}
-  .chip b{font-weight:600}
-  .chip button{all:unset;cursor:pointer;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.06)}
-
-  /* Dock (open sheets) */
-  .dock{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:7;display:flex;flex-direction:column;gap:10px}
-  .dock .fab{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;
-    border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(14px);
-    padding:10px 12px;border-radius:14px;min-width:44px}
-  .fab span{font-size:14px}
-  .fab .dot{width:8px;height:8px;border-radius:99px;background:var(--accent);box-shadow:0 0 12px rgba(127,176,255,.7)}
-
-  /* Sheets */
-  .sheet-backdrop{position:fixed;inset:0;backdrop-filter:blur(2px);background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:8}
-  .sheet-backdrop.open{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:8px;right:8px;bottom:-100vh;max-height:72vh;z-index:9;
-    background:var(--glass);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(14px);
-    box-shadow:0 12px 40px rgba(0,0,0,.45);transition:transform .22s ease, bottom .22s ease;
-    display:flex;flex-direction:column;overflow:hidden;touch-action:none}
-  .sheet.open{bottom:calc(10px + env(safe-area-inset-bottom))}
-  .sheet-handle{height:44px;display:flex;align-items:center;justify-content:center;position:relative;cursor:grab}
-  .sheet-handle:active{cursor:grabbing}
-  .grabber{width:44px;height:4px;border-radius:99px;background:rgba(255,255,255,.18)}
-  .sheet-title{position:absolute;left:14px;right:44px;top:10px;font-weight:600;font-size:14px;opacity:.9}
-  .sheet-close{position:absolute;right:8px;top:6px;all:unset;cursor:pointer;padding:8px;border-radius:10px;background:rgba(255,255,255,.06)}
-
-  .sheet-body{overflow:auto;-webkit-overflow-scrolling:touch;padding:8px 10px 12px 10px;display:flex;flex-direction:column;gap:10px}
-  .card{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-  label{font-size:13px;opacity:.9}
-  input[type="range"]{width:38vw;min-width:140px}
-  input[type="number"]{width:90px;background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:8px}
-  select{background:transparent;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:8px}
-  .txBtn{all:unset;cursor:pointer;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
-  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-
-  .btn{all:unset;cursor:pointer;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:14px}
-  .btn-row{display:flex;flex-wrap:wrap;gap:8px}
-
-  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:rgba(18,18,22,.92);
-    padding:10px 14px;border-radius:12px;border:1px solid var(--line);z-index:10;display:none}
-  .toast.show{display:block}
-
-  @media (max-width:480px){
-    .fab span{font-size:15px}
-    input[type="range"]{width:100%}
-    .card{gap:12px}
-  }
-
-  /* hide legacy inline UI */
-  .stack, .panel{display:none}
-</style>
-</head>
-<body>
-  <div class="top">
-    <div class="chip">
-      <b>Truss Bay</b>
-      <span id="lvlInfo" style="opacity:.6;margin-left:8px">1 unit = 1 m</span>
-    </div>
-    <div class="chip"><button id="centerBtn">Center</button></div>
-  </div>
-
-  <!-- Backdrop -->
-  <div id="backdrop" class="sheet-backdrop"></div>
-
-  <!-- Sheets -->
-  <div id="sheet-basics" class="sheet" aria-modal="true">
-    <div class="sheet-handle" data-drag-handle><div class="grabber"></div><div class="sheet-title">Basics</div><button class="sheet-close" data-close>✕</button></div>
-    <div class="sheet-body">
-      <div class="card">
-        <label>Entrance Side</label>
-        <select id="entranceSide">
-          <option value="right">right</option>
-          <option value="front">front</option>
-          <option value="back">back</option>
-          <option value="left">left</option>
-        </select>
-        <label style="margin-left:8px">Walkway Level</label>
-        <input id="walkLvl" type="range" min="1" max="12" step="1" value="1">
-      </div>
-    </div>
-  </div>
-
-  <div id="sheet-geometry" class="sheet" aria-modal="true">
-    <div class="sheet-handle" data-drag-handle><div class="grabber"></div><div class="sheet-title">Geometry</div><button class="sheet-close" data-close>✕</button></div>
-    <div class="sheet-body">
-      <div class="card">
-        <label>W</label><input id="w" type="range" min="6" max="24" step="0.5" value="20">
-        <label>D</label><input id="d" type="range" min="6" max="24" step="0.5" value="20">
-        <label>H</label><input id="h" type="range" min="3" max="12" step="0.25" value="6">
-        <label>Beam</label><input id="t" type="range" min="0.2" max="1.6" step="0.05" value="0.6">
-        <label>Wire</label><input id="wire" type="checkbox">
-        <label>Shaft</label><input id="shaft" type="range" min="1" max="6" step="0.25" value="5">
-      </div>
-    </div>
-  </div>
-
-  <div id="sheet-materials" class="sheet" aria-modal="true">
-    <div class="sheet-handle" data-drag-handle><div class="grabber"></div><div class="sheet-title">Materials</div><button class="sheet-close" data-close>✕</button></div>
-    <div class="sheet-body">
-      <div class="card">
-        <b>Material Target</b>
-        <select id="meshSelect" title="Pick a mesh to texture"></select>
-        <label>Tile (m) <input id="tileSize" type="number" min="0.1" step="0.1" value="1.0"></label>
-      </div>
-      <div class="card row">
-        <button class="txBtn" data-kind="albedo">Albedo</button>
-        <button class="txBtn" data-kind="metalness">Metal</button>
-        <button class="txBtn" data-kind="roughness">Rough</button>
-        <button class="txBtn" data-kind="ao">AO</button>
-        <button class="txBtn" data-kind="normal">Normal</button>
-        <input type="file" id="file-albedo"   accept="image/*" hidden>
-        <input type="file" id="file-metalness" accept="image/*" hidden>
-        <input type="file" id="file-roughness" accept="image/*" hidden>
-        <input type="file" id="file-ao"       accept="image/*" hidden>
-        <input type="file" id="file-normal"   accept="image/*" hidden>
-      </div>
-    </div>
-  </div>
-
-  <div id="sheet-actions" class="sheet" aria-modal="true">
-    <div class="sheet-handle" data-drag-handle><div class="grabber"></div><div class="sheet-title">Actions</div><button class="sheet-close" data-close>✕</button></div>
-    <div class="sheet-body">
-      <div class="card btn-row">
-        <button id="addLevelBtn" class="btn">Add Level (with floor)</button>
-        <button id="addFrameBtn" class="btn">Add Frame (no floor)</button>
-        <button id="remLastBtn" class="btn">Remove Last</button>
-        <button id="copyBtn" class="btn">📋 Copy Truss Code</button>
-        <button id="exportBtn" class="btn">⬇️ Export GLB</button>
-        <button id="resetBtn" class="btn">Reset</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Dock -->
-  <div class="dock">
-    <button class="fab" data-open="sheet-basics"><div class="dot"></div><span>Basics</span></button>
-    <button class="fab" data-open="sheet-geometry"><div class="dot"></div><span>Geometry</span></button>
-    <button class="fab" data-open="sheet-materials"><div class="dot"></div><span>Materials</span></button>
-    <button class="fab" data-open="sheet-actions"><div class="dot"></div><span>Actions</span></button>
-  </div>
-
-  <div id="toast" class="toast">Copied</div>
-
+<!-- ES module shim must load before the import map -->
+<script async src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js"></script>
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "troika-three-text": "https://unpkg.com/troika-three-text@0.49.1/dist/troika-three-text.esm.js"
   }
 }
 </script>
 
-<script type="module">
-/* ===== Floating sheets logic ===== */
-const backdrop = document.getElementById('backdrop');
-const sheets = [...document.querySelectorAll('.sheet')];
-let openSheet = null, startY = 0, startBottom = 0, dragging = false;
-
-function lockBody(lock){ document.documentElement.style.overflow = lock ? 'hidden' : ''; document.body.style.overflow = lock ? 'hidden' : ''; }
-function openSheetById(id){
-  const el = document.getElementById(id);
-  if (!el) return;
-  sheets.forEach(s=>s.classList.remove('open'));
-  el.classList.add('open'); openSheet = el; backdrop.classList.add('open'); lockBody(true);
-}
-function closeSheet(){
-  if (!openSheet) return;
-  openSheet.classList.remove('open'); openSheet = null; backdrop.classList.remove('open'); lockBody(false);
-}
-document.querySelectorAll('[data-open]').forEach(btn=>btn.addEventListener('click', ()=>openSheetById(btn.dataset.open)));
-document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', closeSheet));
-backdrop.addEventListener('click', closeSheet);
-
-/* drag-to-dismiss */
-sheets.forEach(sheet=>{
-  const handle = sheet.querySelector('[data-drag-handle]');
-  const onStart = (y)=>{ dragging=true; startY=y; startBottom=parseFloat(getComputedStyle(sheet).bottom)||0; sheet.style.transition='none'; };
-  const onMove = (y)=>{ if(!dragging) return; const dy = y-startY; const nb = Math.max(-20, startBottom - dy); sheet.style.bottom = nb + 'px'; };
-  const onEnd = (y)=>{ if(!dragging) return; dragging=false; sheet.style.transition=''; const dy = y-startY; const h = sheet.getBoundingClientRect().height; if (dy>h*0.25){ closeSheet(); sheet.style.bottom=''; } else { sheet.style.bottom=''; } };
-
-  handle.addEventListener('touchstart', e=>onStart(e.touches[0].clientY), {passive:true});
-  handle.addEventListener('touchmove',  e=>onMove(e.touches[0].clientY), {passive:true});
-  handle.addEventListener('touchend',   e=>onEnd((e.changedTouches?.[0]||e.touches[0]||{clientY:0}).clientY));
-  handle.addEventListener('mousedown',  e=>{ e.preventDefault(); onStart(e.clientY);
-    const mm = e2=>onMove(e2.clientY), mu = e2=>{ onEnd(e2.clientY); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); };
-    window.addEventListener('mousemove',mm); window.addEventListener('mouseup',mu);
-  });
-});
-
-/* ===== Three.js app ===== */
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-
-let renderer, scene, camera, controls, stackRoot, params, stackPlan;
-const meshRegistry = new Map(); let meshAutoId = 1;
-
-init(); setDefaults(); safeBuild(); animate();
-
-function init(){
-  renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance', logarithmicDepthBuffer:true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  document.body.appendChild(renderer.domElement);
-
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x10131a);
-
-  camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.1, 5000);
-  camera.position.set(36, 26, 36);
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.target.set(0, 8, 0);
-
-  const hemi = new THREE.HemisphereLight(0xddeeff, 0x0b0d12, 0.9); scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(60,100,60); sun.castShadow = true; sun.shadow.bias = -0.0004; scene.add(sun);
-
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(600,600), new THREE.MeshStandardMaterial({color:0x1a1f29}));
-  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
-
-  window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  // UI bindings
-  document.getElementById('centerBtn').addEventListener('click', ()=>centerView());
-  document.getElementById('resetBtn').addEventListener('click', ()=>{ setDefaults(); syncUI(); safeBuild(); });
-  ['w','d','h','t','wire','shaft','walkLvl','entranceSide'].forEach(id=>{
-    const el=document.getElementById(id);
-    el.addEventListener('input', scheduleRebuild);
-    el.addEventListener('change', scheduleRebuild);
-  });
-  document.getElementById('addLevelBtn').addEventListener('click', ()=>{ stackPlan.push('withFloor'); safeBuild(); });
-  document.getElementById('addFrameBtn').addEventListener('click', ()=>{ stackPlan.push('frameOnly'); safeBuild(); });
-  document.getElementById('remLastBtn').addEventListener('click', ()=>{ if (stackPlan.length>1) stackPlan.pop(); safeBuild(); });
-  document.getElementById('copyBtn').addEventListener('click', async ()=>{
-    const text = createTrussBay.toString();
-    await navigator.clipboard.writeText(text);
-    toast('Copied');
-  });
-  document.getElementById('exportBtn').addEventListener('click', exportGLB);
-
-  for (const btn of document.querySelectorAll('.txBtn')){
-    btn.addEventListener('click', ()=>{ document.getElementById(`file-${btn.dataset.kind}`).click(); });
+<style>
+  :root{
+    --bg:#0b0c0f; --panel:rgba(20,22,28,.98); --panel-border:rgba(255,255,255,.08);
+    --text:#eaeef5; --muted:#9aa3b2; --accent:#4da3ff; --toolbar:#111317;
+    --panel-w:380px; /* desktop width */
   }
-  document.getElementById('meshSelect').addEventListener('change', ()=>{});
-  document.getElementById('tileSize').addEventListener('change', ()=>{});
-
-  hookFile('albedo',   (mesh, tex)=>applyTex(mesh, 'map', tex, {srgb:true}));
-  hookFile('metalness',(mesh, tex)=>applyTex(mesh, 'metalnessMap', tex));
-  hookFile('roughness',(mesh, tex)=>applyTex(mesh, 'roughnessMap', tex));
-  hookFile('ao',       (mesh, tex)=>{ ensureUV2(mesh); applyTex(mesh, 'aoMap', tex); mesh.material.aoMapIntensity = 1.0; });
-  hookFile('normal',   (mesh, tex)=>{ applyTex(mesh, 'normalMap', tex); mesh.material.normalScale = new THREE.Vector2(1,1); });
-}
-
-function safeBuild(){
-  try{ buildStack(); }
-  catch(err){
-    console.error('[buildStack error]', err);
-    if (!scene.getObjectByName('DEBUG_CUBE')){
-      const m = new THREE.Mesh(new THREE.BoxGeometry(4,4,4), new THREE.MeshStandardMaterial({color:0x5588ff, metalness:.2, roughness:.6}));
-      m.position.y = 2; m.name='DEBUG_CUBE'; scene.add(m);
-    }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
+  .app{position:fixed;inset:0;display:grid;grid-template-rows:48px 1fr}
+  /* Toolbar */
+  #toolbar{background:var(--toolbar);border-bottom:1px solid var(--panel-border);display:flex;align-items:center;gap:16px;padding:0 12px;user-select:none}
+  #toolbar .menu{font-weight:700;opacity:.9;cursor:pointer}
+  #toolbar .menu:hover{opacity:1}
+  /* Layout: default landscape */
+  #main{display:grid;grid-template-columns:1fr var(--panel-w);min-height:0}
+  #viewport{position:relative;min-height:0}
+  #panel{border-left:1px solid var(--panel-border);background:var(--panel);min-width:260px;overflow:auto}
+  /* Portrait mobile: split top/bottom */
+  @media (orientation:portrait){
+    #main{grid-template-columns:1fr;grid-template-rows:55vh 45vh}
+    #panel{border-left:none;border-top:1px solid var(--panel-border)}
   }
-}
-
-/* ===== Export GLB ===== */
-async function exportGLB(){
-  try{
-    if (!stackRoot){ toast('Nothing to export'); return; }
-    toast('Exporting…');
-    scene.updateMatrixWorld(true);
-
-    const exporter = new GLTFExporter();
-    exporter.parse(
-      stackRoot, // only the assembled tower
-      (binary)=>{
-        const blob = new Blob([binary], { type: 'model/gltf-binary' });
-        const d = new Date(); const pad = n => String(n).padStart(2,'0');
-        const name = `truss_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.glb`;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = name; document.body.appendChild(a); a.click();
-        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
-        toast(`Saved ${name} (${(blob.size/1048576).toFixed(1)} MB)`);
-      },
-      (err)=>{ console.error('[GLB export error]', err); toast('Export failed'); },
-      { binary:true, onlyVisible:true, maxTextureSize:4096 }
-    );
-  }catch(e){
-    console.error(e); toast('Export error');
+  canvas{display:block;width:100%;height:100%}
+  /* Panel internals */
+  .tabs{position:sticky;top:0;background:linear-gradient(to bottom, rgba(20,22,28,.98), rgba(20,22,28,.95));display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--panel-border);z-index:5}
+  .tab{flex:1;text-align:center;padding:8px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid transparent;color:var(--muted);font-weight:800}
+  .tab.active{color:var(--text);background:rgba(77,163,255,.12);border-color:rgba(77,163,255,.25)}
+  .pane{padding:10px;display:none}
+  .pane.active{display:block}
+  .group{border:1px solid var(--panel-border);border-radius:12px;background:rgba(255,255,255,.03);padding:10px;margin-bottom:10px}
+  .group h3{margin:0 0 6px 0;font-size:12px;letter-spacing:.3px;opacity:.9}
+  .row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:7px 0}
+  .row label{color:var(--muted);font-size:12px}
+  .row output{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}
+  input[type="range"], select, input[type="color"], input[type="file"], input[type="number"], input[type="text"]{
+    width:100%;background:rgba(255,255,255,.06);border:1px solid var(--panel-border);border-radius:10px;color:var(--text);padding:8px 10px
   }
-}
-
-/* ===== Texture helpers ===== */
-function hookFile(kind, apply){
-  const input = document.getElementById(`file-${kind}`);
-  input.addEventListener('change', async (e)=>{
-    const file = e.target.files?.[0]; if (!file) return;
-    const mesh = getSelectedMesh(); if (!mesh){ toast('Pick a mesh first'); return; }
-    const tex = await loadTexFromFile(file, {srgb: (kind==='albedo')});
-    apply(mesh, tex); syncAllMapRepeats(mesh); toast(`${kind} set`); e.target.value='';
-  });
-}
-function loadTexFromFile(file, {srgb=false}={}){
-  return new Promise((res, rej)=>{
-    const url = URL.createObjectURL(file);
-    new THREE.TextureLoader().load(url, (t)=>{
-      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
-      res(t);
-    }, undefined, rej);
-  });
-}
-function applyTex(mesh, slot, tex, {srgb=false}={}){
-  ensurePBR(mesh); setTextureRepeatForMesh(mesh, tex); mesh.material[slot] = tex;
-  if (srgb && mesh.material.color) mesh.material.color.set(0xffffff);
-  mesh.material.needsUpdate = true;
-}
-function syncAllMapRepeats(mesh){
-  const m = mesh.material;
-  const rep = (m.map||m.roughnessMap||m.metalnessMap||m.aoMap||m.normalMap)?.repeat;
-  if (!rep) return;
-  for (const k of ['map','metalnessMap','roughnessMap','aoMap','normalMap']){ if (m[k]) m[k].repeat.copy(rep), m[k].needsUpdate = true; }
-}
-function setTextureRepeatForMesh(mesh, tex){
-  const tileSize = Math.max(0.1, +document.getElementById('tileSize').value || 1.0);
-  mesh.geometry.computeBoundingBox?.(); const bb = mesh.geometry.boundingBox;
-  if (!bb){ tex.repeat.set(1,1); return; }
-  const size = new THREE.Vector3().subVectors(bb.max, bb.min);
-  const dims = [{axis:'x',v:size.x},{axis:'y',v:size.y},{axis:'z',v:size.z}].sort((a,b)=>b.v-a.v);
-  tex.repeat.set(Math.max(0.0001,dims[0].v)/tileSize, Math.max(0.0001,dims[1].v)/tileSize); tex.needsUpdate = true;
-}
-
-/* ===== Material helpers ===== */
-function ensurePBR(mesh){
-  if (!(mesh.material instanceof THREE.MeshStandardMaterial || mesh.material instanceof THREE.MeshPhysicalMaterial)){
-    const {color} = mesh.material;
-    mesh.material = new THREE.MeshStandardMaterial({ color: color ?? 0xffffff, metalness: 0.5, roughness: 0.6 });
-  }
-  mesh.material.polygonOffset = true; mesh.material.polygonOffsetFactor = 1; mesh.material.polygonOffsetUnits = 1;
-}
-function ensureUV2(mesh){
-  const g = mesh.geometry;
-  if (!g.attributes.uv2 && g.attributes.uv){ g.setAttribute('uv2', new THREE.BufferAttribute(g.attributes.uv.array, 2)); g.attributes.uv2.needsUpdate = true; }
-}
-
-/* ===== Registry & params ===== */
-function getSelectedMesh(){
-  const sel = document.getElementById('meshSelect').value;
-  const rec = meshRegistry.get(sel);
-  return rec?.mesh ?? null;
-}
-function populateMeshDropdown(){
-  const sel = document.getElementById('meshSelect'); sel.innerHTML = '';
-  const items = [...meshRegistry.entries()].map(([id,rec])=>({id, label:rec.label})).sort((a,b)=>a.label.localeCompare(b.label));
-  for (const it of items){ const opt = document.createElement('option'); opt.value = it.id; opt.textContent = it.label; sel.appendChild(opt); }
-}
-function registerMesh(mesh, label){ const id = String(meshAutoId++); mesh.userData._regId = id; meshRegistry.set(id, {mesh, label}); }
-
-function setDefaults(){ params = { w:20, d:20, h:6, t:0.6, wire:false, shaft:5, walkLvl:1, entranceSide:'right' }; stackPlan = ['frameOnly']; }
-function syncUI(){
-  const s=(id,v)=>{ const el=document.getElementById(id); (el.type==='checkbox')? el.checked=v : el.value=v; };
-  s('w',params.w); s('d',params.d); s('h',params.h); s('t',params.t); s('wire',params.wire); s('shaft',params.shaft); s('walkLvl',params.walkLvl);
-  document.getElementById('entranceSide').value = params.entranceSide;
-  const withFloor = stackPlan.filter(x=>x==='withFloor').length; const frameOnly = stackPlan.length - withFloor;
-  document.getElementById('lvlInfo').textContent = `Levels: ${stackPlan.length} • with floors: ${withFloor} • frame only: ${frameOnly}`;
-  document.getElementById('walkLvl').max = Math.max(1, stackPlan.length);
-}
-let rebuildTimer=null;
-function scheduleRebuild(){
-  params = {
-    w:+document.getElementById('w').value,
-    d:+document.getElementById('d').value,
-    h:+document.getElementById('h').value,
-    t:+document.getElementById('t').value,
-    wire:document.getElementById('wire').checked,
-    shaft:+document.getElementById('shaft').value,
-    walkLvl:+document.getElementById('walkLvl').value,
-    entranceSide:document.getElementById('entranceSide').value
-  };
-  if (rebuildTimer) clearTimeout(rebuildTimer);
-  rebuildTimer = setTimeout(safeBuild, 30);
-}
-
-/* ===== Build stack ===== */
-function buildStack(){
-  // clear registry
-  meshRegistry.clear(); meshAutoId = 1;
-
-  if (stackRoot){
-    scene.remove(stackRoot);
-    stackRoot.traverse(n=>{ if(n.geometry) n.geometry.dispose?.(); if(n.material) n.material.dispose?.(); });
-    stackRoot = null;
-  }
-
-  if (params.walkLvl > stackPlan.length) params.walkLvl = stackPlan.length;
-
-  stackRoot = new THREE.Group(); stackRoot.name = 'TrussStack';
-
-  const levelOffset = params.h;
-  const BASE_H = 5.0;
-  const FLOOR_THICK = 0.5;
-  const baseMargin = Math.max(0.4, params.t * 0.9);
-
-  const base = createSolidBaseWithTunnel({
-    w: params.w + baseMargin*2,
-    d: params.d + baseMargin*2,
-    shaftW: params.shaft,
-    shaftD: params.shaft,
-    height: BASE_H,
-    side: params.entranceSide
-  });
-  stackRoot.add(base);
-
-  const lid = createBaseRoofLidWithHoles({
-    w: params.w + baseMargin*2,
-    d: params.d + baseMargin*2,
-    shaftW: params.shaft,
-    shaftD: params.shaft,
-    thickness: 0.25,
-    side: params.entranceSide
-  });
-  lid.position.y = BASE_H + 0.001; stackRoot.add(lid);
-
-  let walkwayAnchorY = null;
-  for (let i=0; i<stackPlan.length; i++){
-    const kind = stackPlan[i];
-    const baseY = BASE_H + i * levelOffset;
-
-    const wantsDoor = (i+1) === params.walkLvl;
-    const walkwayInterior = 3.2;
-    const walkwayHeight = 2.6 + 0.16*2;
-    const doorway = wantsDoor ? { side: params.entranceSide, width:walkwayInterior, height:walkwayHeight } : null;
-
-    const bay = createTrussBay({...params, doorway});
-    bay.position.y = baseY; stackRoot.add(bay);
-
-    const bracket = createBracketAndPipe({ w: params.w, d: params.d, h: params.h, t: params.t });
-    bracket.position.y = baseY; stackRoot.add(bracket);
-
-    if (kind === 'withFloor'){
-      const floor = createFloorWithShaft({ w: params.w, d: params.d, shaftW: params.shaft, shaftD: params.shaft, yTop: baseY, thickness: FLOOR_THICK });
-      stackRoot.add(floor);
-      const ceiling = createFloorWithShaft({ w: params.w, d: params.d, shaftW: params.shaft, shaftD: params.shaft, yTop: baseY + params.h, thickness: FLOOR_THICK });
-      stackRoot.add(ceiling);
-    }
-
-    if (wantsDoor) walkwayAnchorY = baseY;
-  }
-
-  const topY = BASE_H + stackPlan.length * levelOffset;
-
-  const posts = createCornerPosts({ w: params.w, d: params.d, t: Math.max(params.t*1.6, 0.3), height: topY + 1.0 });
-  stackRoot.add(posts);
-
-  const shaft = createLiftShaft({ shaftW: params.shaft, shaftD: params.shaft, postT: Math.max(0.12, params.t * 0.6), height: topY + 1.0 });
-  stackRoot.add(shaft);
-
-  const roof = createFlatRoofWithSpire({
-    w: params.w, d: params.d,
-    thickness: Math.max(0.7, params.t*1.8),
-    overhang: Math.max(0.5, params.t*0.8)
-  });
-  roof.position.y = topY; stackRoot.add(roof);
-
-  if (walkwayAnchorY !== null){
-    const walkway = createCrewAccessArm({
-      insideW: 3.2, insideH: 2.6,
-      armLen: 9.5, wallThk: 0.16, fillet: 0.1,
-      colorMetal: 0xffffff, colorGlass: 0x94a8c8
-    });
-
-    const s = params.entranceSide;
-    const halfW = params.w/2, halfD = params.d/2;
-    const y = walkwayAnchorY + (2.6 / 2 - 0.06);
-    if (s === 'front'){ walkway.rotation.y = 0; walkway.position.set(0, y, -halfD + params.t / 2 - 0.01); }
-    else if (s === 'back'){ walkway.rotation.y = Math.PI; walkway.position.set(0, y,  halfD - params.t / 2 + 0.01); }
-    else if (s === 'left'){ walkway.rotation.y =  Math.PI/2; walkway.position.set(-halfW + params.t / 2 - 0.01, y, 0); }
-    else { walkway.rotation.y = -Math.PI/2; walkway.position.set( halfW - params.t / 2 + 0.01, y, 0); }
-    stackRoot.add(walkway);
-  }
-
-  scene.add(stackRoot);
-  syncUI(); populateMeshDropdown();
-  centerView(roof.position.y + (roof._extraHeightForCamera||0));
-}
-
-function centerView(aimY=12){
-  const Y = Math.max(3, aimY * 0.55);
-  controls.target.set(0, Y, 0);
-  camera.position.set(params.w*2.0, Math.max(18, Y*1.7), params.d*2.2);
-}
-
-/* ===== Shapes + parts (helpers) ===== */
-function roundedRectShape(w, h, r){
-  const hw=w/2, hh=h/2, rr=Math.min(r, hw, hh);
-  const s = new THREE.Shape();
-  s.moveTo(-hw+rr,-hh);
-  s.lineTo(hw-rr,-hh); s.absarc(hw-rr,-hh+rr, rr, -Math.PI/2, 0);
-  s.lineTo(hw, hh-rr); s.absarc(hw-rr, hh-rr, rr, 0, Math.PI/2);
-  s.lineTo(-hw+rr, hh); s.absarc(-hw+rr, hh-rr, rr, Math.PI/2, Math.PI);
-  s.lineTo(-hw, -hh+rr); s.absarc(-hw+rr, -hh+rr, rr, Math.PI, 1.5*Math.PI);
-  return s;
-}
-
-function createFloorWithShaft({ w, d, shaftW, shaftD, yTop, thickness=0.5 }){
-  const halfW = w/2, halfD = d/2, sHalfW = shaftW/2, sHalfD = shaftD/2;
-  const shape = new THREE.Shape()
-    .moveTo(-halfW, -halfD).lineTo( halfW, -halfD).lineTo( halfW,  halfD)
-    .lineTo(-halfW,  halfD).lineTo(-halfW, -halfD);
-  const hole = new THREE.Path()
-    .moveTo(-sHalfW, -sHalfD).lineTo( sHalfW, -sHalfD).lineTo( sHalfW,  sHalfD)
-    .lineTo(-sHalfW,  sHalfD).lineTo(-sHalfW, -sHalfD);
-  shape.holes.push(hole);
-
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 8 });
-  geo.rotateX(-Math.PI/2); geo.translate(0, -thickness, 0);
-
-  const mat = new THREE.MeshStandardMaterial({ color: 0x888d95, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
-  mat.polygonOffset = true; mat.polygonOffsetFactor = 1; mat.polygonOffsetUnits = 1;
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.receiveShadow = true; mesh.position.y = yTop + 0.0005; mesh.name = 'FloorPlate';
-  registerMesh(mesh, 'Floor • plate');
-  return mesh;
-}
-
-function createSolidBaseWithTunnel({ w, d, shaftW, shaftD, height, side='right' }){
-  const halfW = w/2, halfD = d/2, sHalfW = shaftW/2, sHalfD = shaftD/2;
-  const tunnelW = Math.max(1.6, Math.min(shaftW * 0.9, Math.min(w, d) * 0.6));
-  const tunnelHalfW = tunnelW / 2;
-
-  const shape = new THREE.Shape()
-    .moveTo(-halfW, -halfD).lineTo( halfW, -halfD).lineTo( halfW,  halfD)
-    .lineTo(-halfW,  halfD).lineTo(-halfW, -halfD);
-
-  const holeShaft = new THREE.Path()
-    .moveTo(-sHalfW, -sHalfD).lineTo( sHalfW, -sHalfD).lineTo( sHalfW,  sHalfD)
-    .lineTo(-sHalfW,  sHalfD).lineTo(-sHalfW, -sHalfD);
-  shape.holes.push(holeShaft);
-
-  const holeTunnel = new THREE.Path();
-  if (side === 'front'){
-    holeTunnel.moveTo(-tunnelHalfW, -halfD).lineTo( tunnelHalfW, -halfD).lineTo( tunnelHalfW, -sHalfD)
-              .lineTo(-tunnelHalfW, -sHalfD).lineTo(-tunnelHalfW, -halfD);
-  } else if (side === 'back'){
-    holeTunnel.moveTo(-tunnelHalfW,  sHalfD).lineTo( tunnelHalfW,  sHalfD).lineTo( tunnelHalfW,  halfD)
-              .lineTo(-tunnelHalfW,  halfD).lineTo(-tunnelHalfW,  sHalfD);
-  } else if (side === 'left'){
-    holeTunnel.moveTo(-halfW, -tunnelHalfW).lineTo(-sHalfW, -tunnelHalfW).lineTo(-sHalfW, tunnelHalfW)
-              .lineTo(-halfW,  tunnelHalfW).lineTo(-halfW, -tunnelHalfW);
-  } else { // right
-    holeTunnel.moveTo( sHalfW, -tunnelHalfW).lineTo( halfW, -tunnelHalfW).lineTo( halfW,  tunnelHalfW)
-              .lineTo( sHalfW,  tunnelHalfW).lineTo( sHalfW, -tunnelHalfW);
-  }
-  shape.holes.push(holeTunnel);
-
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled:false, curveSegments: 16 });
-  geo.rotateX(-Math.PI/2);
-
-  const mat = new THREE.MeshStandardMaterial({ color: 0x6f757d, roughness: 0.95, metalness: 0.0 });
-  const base = new THREE.Mesh(geo, mat);
-  base.castShadow = base.receiveShadow = true;
-  base.position.y = height/2; base.name = 'BaseRing';
-  registerMesh(base, 'Base • ring');
-  return base;
-}
-
-function createBaseRoofLidWithHoles({ w, d, shaftW, shaftD, thickness=0.25, side='right' }){
-  const halfW = w/2, halfD = d/2, sHalfW = shaftW/2, sHalfD = shaftD/2;
-  const tunnelW = Math.max(1.6, Math.min(shaftW * 0.9, Math.min(w,d) * 0.6));
-  const tunnelHalfW = tunnelW/2;
-
-  const shape = new THREE.Shape()
-    .moveTo(-halfW, -halfD).lineTo( halfW, -halfD).lineTo( halfW,  halfD)
-    .lineTo(-halfW,  halfD).lineTo(-halfW, -halfD);
-
-  const holeShaft = new THREE.Path()
-    .moveTo(-sHalfW, -sHalfD).lineTo( sHalfW, -sHalfD).lineTo( sHalfW,  sHalfD)
-    .lineTo(-sHalfW,  sHalfD).lineTo(-sHalfW, -sHalfD);
-  shape.holes.push(holeShaft);
-
-  const holeTunnel = new THREE.Path();
-  if (side === 'front'){
-    holeTunnel.moveTo(-tunnelHalfW, -halfD).lineTo( tunnelHalfW, -halfD).lineTo( tunnelHalfW, -sHalfD)
-              .lineTo(-tunnelHalfW, -sHalfD).lineTo(-tunnelHalfW, -halfD);
-  } else if (side === 'back'){
-    holeTunnel.moveTo(-tunnelHalfW,  sHalfD).lineTo( tunnelHalfW,  sHalfD).lineTo( tunnelHalfW,  halfD)
-              .lineTo(-tunnelHalfW,  halfD).lineTo(-tunnelHalfW,  sHalfD);
-  } else if (side === 'left'){
-    holeTunnel.moveTo(-halfW, -tunnelHalfW).lineTo(-sHalfW, -tunnelHalfW).lineTo(-sHalfW,  tunnelHalfW)
-              .lineTo(-halfW,  tunnelHalfW).lineTo(-halfW, -tunnelHalfW);
-  } else { // right
-    holeTunnel.moveTo( sHalfW, -tunnelHalfW).lineTo( halfW, -tunnelHalfW).lineTo( halfW,  tunnelHalfW)
-              .lineTo( sHalfW,  tunnelHalfW).lineTo( sHalfW, -tunnelHalfW);
-  }
-  shape.holes.push(holeTunnel);
-
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled:false, curveSegments: 12 });
-  geo.rotateX(-Math.PI/2); geo.translate(0, -thickness, 0);
-
-  const mat = new THREE.MeshStandardMaterial({ color:0x5f646b, roughness:0.8 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.castShadow = mesh.receiveShadow = true; mesh.name = 'BaseRoofLid';
-  registerMesh(mesh, 'Base • roof lid');
-  return mesh;
-}
-
-function createLiftShaft({ shaftW, shaftD, postT=0.16, height }){
-  const group = new THREE.Group(); group.name='LiftShaft';
-  const hw = shaftW/2, hd = shaftD/2, t = postT;
-  const postGeo = new THREE.BoxGeometry(t, Math.max(0.01,height), t);
-  const postMat = new THREE.MeshStandardMaterial({ color:0x9aa4af, metalness:.7, roughness:.45 });
-
-  for (const [x,z] of [[-hw,-hd],[hw,-hd],[-hw,hd],[hw,hd]]){
-    const m = new THREE.Mesh(postGeo, postMat);
-    m.position.set(x, height/2, z); m.castShadow = m.receiveShadow = true; m.name = 'LiftPost';
-    registerMesh(m, 'Lift • post'); group.add(m);
-  }
-  return group;
-}
-
-function createCornerPosts({ w, d, t, height }){
-  const group = new THREE.Group(); group.name='CornerPosts';
-  const postGeo = new THREE.BoxGeometry(t, height, t);
-  const postMat = new THREE.MeshStandardMaterial({ color:0x9aa4af, metalness:.8, roughness:.42 });
-  const halfW = w/2, halfD = d/2;
-  for (const [x,z] of [[-halfW,-halfD],[halfW,-halfD],[-halfW,halfD],[halfW,halfD]]){
-    const m = new THREE.Mesh(postGeo, postMat);
-    m.position.set(x, height/2, z); m.castShadow = m.receiveShadow = true; m.name = 'CornerPost';
-    registerMesh(m, 'Frame • corner post'); group.add(m);
-  }
-  return group;
-}
-
-function createFlatRoofWithSpire({ w, d, thickness=0.9, overhang=0.6 }){
-  const group = new THREE.Group(); group.name='RoofFlat';
-  const mat = new THREE.MeshStandardMaterial({ color:0x7f8791, roughness:0.6, metalness:0.15 });
-
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(w + overhang*2, thickness, d + overhang*2), mat);
-  roof.position.y = thickness/2; roof.castShadow = roof.receiveShadow = true; roof.name = 'RoofPlate';
-  registerMesh(roof, 'Roof • plate'); group.add(roof);
-
-  const baseR = Math.max(0.45, thickness * 0.7);
-  const baseH = Math.max(0.7, thickness * 0.9);
-  const neckH = Math.max(0.8, d*0.15);
-  const tipH  = Math.max(3.5, d*0.35);
-
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(baseR*1.4, baseR*1.4, baseH, 24, 1, false), 
-                              new THREE.MeshStandardMaterial({ color:0x9aa4af, metalness:.85, roughness:.35 }));
-  base.position.y = thickness + baseH/2; base.castShadow = base.receiveShadow = true; base.name='SpireBase';
-  registerMesh(base, 'Roof • spire base');
-
-  const neck = new THREE.Mesh(new THREE.CapsuleGeometry(baseR*0.65, neckH, 8, 16),
-                              new THREE.MeshStandardMaterial({ color:0xa9b1bc, metalness:.85, roughness:.35 }));
-  neck.position.y = thickness + baseH + neckH/2; neck.castShadow = neck.receiveShadow = true; neck.name='SpireNeck';
-  registerMesh(neck, 'Roof • spire neck');
-
-  const tip  = new THREE.Mesh(new THREE.ConeGeometry(baseR*0.55, tipH, 20),
-                              new THREE.MeshStandardMaterial({ color:0xbec7d3, metalness:.9, roughness:.28 }));
-  tip.position.y = thickness + baseH + neckH + tipH/2; tip.castShadow = tip.receiveShadow = true; tip.name='SpireTip';
-  registerMesh(tip, 'Roof • spire tip');
-
-  group.add(base, neck, tip);
-  group._extraHeightForCamera = thickness + baseH + neckH + tipH + 2;
-  return group;
-}
-
-function createBracketAndPipe({ w, d, h, t }){
-  const group = new THREE.Group(); group.name='BracketPipe';
-  const x =  w/2, z =  d/2;
-  const armLen = Math.max(0.5, t*1.2);
-  const metal = new THREE.MeshStandardMaterial({ color:0x9aa4af, metalness:.85, roughness:.4 });
-
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(armLen, t, t), metal);
-  arm.position.set(x, t*0.5, z + armLen/2); arm.castShadow = arm.receiveShadow = true; arm.name = 'RearArm';
-  registerMesh(arm, 'Rear • arm'); group.add(arm);
-
-  const gus = new THREE.Mesh(new THREE.BoxGeometry(armLen*0.75, t*0.7, t),
-                             new THREE.MeshStandardMaterial({ color:0x8f98a6, metalness:.75, roughness:.5 }));
-  gus.position.set(x, t*0.9, z + armLen*0.45); gus.rotation.x = Math.PI * 0.10;
-  gus.castShadow = gus.receiveShadow = true; gus.name='RearGusset'; registerMesh(gus, 'Rear • gusset');
-  group.add(gus);
-
-  const r = Math.max(0.08, t*0.35);
-  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, false),
-                              new THREE.MeshStandardMaterial({ color:0xaeb6c2, metalness:.9, roughness:.25 }));
-  pipe.position.set(x, h/2, z + armLen); pipe.castShadow = pipe.receiveShadow = true; pipe.name='RearPipe';
-  registerMesh(pipe, 'Rear • pipe'); group.add(pipe);
-  return group;
-}
-
-function createCrewAccessArm({ insideW=3.2, insideH=2.6, armLen=9.5, wallThk=0.16, fillet=0.1, colorMetal=0xffffff, colorGlass=0x94a8c8 }){
-  const group = new THREE.Group(); group.name='AccessArm';
-
-  function beamBetween(pa, pb, thickness, material, label='Beam'){
-    const dir = new THREE.Vector3().subVectors(pb, pa);
-    const len = Math.max(0.01, dir.length());
-    const geom = new THREE.BoxGeometry(thickness, thickness, len);
-    const mesh = new THREE.Mesh(geom, material);
-    const mid = new THREE.Vector3().addVectors(pa, pb).multiplyScalar(0.5);
-    mesh.position.copy(mid);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir.clone().normalize());
-    mesh.castShadow = mesh.receiveShadow = true;
-    mesh.name = 'WalkwayTruss';
-    registerMesh(mesh, `Walkway • ${label}`);
-    return mesh;
-  }
-
-  const outer = roundedRectShape(insideW + wallThk*2, insideH + wallThk*2, fillet);
-  const inner = roundedRectShape(insideW, insideH, Math.max(0, fillet - wallThk));
-  outer.holes.push(inner);
-
-  const armGeo = new THREE.ExtrudeGeometry(outer, { depth: armLen, bevelEnabled:false, curveSegments: 16 });
-  armGeo.rotateY(Math.PI);
-  const tubeMat = new THREE.MeshStandardMaterial({ color:colorMetal, metalness:.8, roughness:.45 });
-  tubeMat.polygonOffset = true; tubeMat.polygonOffsetFactor = 1; tubeMat.polygonOffsetUnits = 1;
-
-  const arm = new THREE.Mesh(armGeo, tubeMat);
-  arm.castShadow = arm.receiveShadow = true; arm.position.z = -0.02; arm.name = 'WalkwayTube';
-  registerMesh(arm, 'Walkway • tube'); ensureUV2(arm); group.add(arm);
-
-  const paneMat = new THREE.MeshPhysicalMaterial({ color:colorGlass, roughness:0.1, metalness:0, transmission:0.6, thickness:0.03, envMapIntensity:1.0, transparent:true, opacity:0.95 });
-  const frameMat = new THREE.MeshStandardMaterial({ color:0x9aa4af, metalness:.85, roughness:.35 });
-  const rowY = [-insideH*0.20, insideH*0.20];
-  const cellW = 0.9, cellH = 0.6, gap = 0.35;
-  const cols = Math.floor((armLen-1.0) / (cellW+gap));
-
-  for (const side of [-1, +1]){
-    for (const y of rowY){
-      for (let c=0;c<cols;c++){
-        const z = -0.9 - c*(cellW+gap);
-        const frame = new THREE.Mesh(new THREE.BoxGeometry(cellW+0.06, 0.06, 0.06), frameMat);
-        frame.position.set(side*(insideW/2 + wallThk/2), y, z);
-        frame.rotateY(Math.PI/2);
-        frame.name='WalkwayWindowFrame'; registerMesh(frame, 'Walkway • window frame'); group.add(frame);
-
-        const pane = new THREE.Mesh(new THREE.PlaneGeometry(cellW, cellH), paneMat);
-        pane.position.set(side*(insideW/2+0.001), y, z);
-        pane.rotateY(side>0 ? -Math.PI/2 : Math.PI/2);
-        pane.name='WalkwayGlass'; registerMesh(pane, 'Walkway • glass'); group.add(pane);
-      }
-    }
-  }
-
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(insideW, 0.12, armLen), new THREE.MeshStandardMaterial({ color:0x6f767e, roughness:0.85 }));
-  floor.position.set(0, -insideH/2 + 0.06, -armLen/2); floor.castShadow = floor.receiveShadow = true; floor.name='WalkwayFloor';
-  registerMesh(floor, 'Walkway • floor'); group.add(floor);
-
-  const trussT = 0.25, cageOffset = wallThk + 0.06;
-  const halfX = insideW/2 + cageOffset, halfY = insideH/2 + cageOffset;
-  const L0 = 0, L1 = -armLen;
-  const matTruss = new THREE.MeshStandardMaterial({ color: 0xdfe5ec, metalness: 0.85, roughness: 0.38 });
-
-  const edge = new THREE.BoxGeometry(trussT, trussT, armLen);
-  const edges = [0,1,2,3].map(()=>new THREE.Mesh(edge, matTruss));
-  edges[0].position.set( +halfX, +halfY, (L0+L1)/2 );
-  edges[1].position.set( -halfX, +halfY, (L0+L1)/2 );
-  edges[2].position.set( +halfX, -halfY, (L0+L1)/2 );
-  edges[3].position.set( -halfX, -halfY, (L0+L1)/2 );
-  edges.forEach((m,i)=>{ m.castShadow=m.receiveShadow=true; m.name='WalkwayTrussEdge'; registerMesh(m, `Walkway • truss edge ${i+1}`); group.add(m); });
-
-  const sections = 6;
-  const ringT = trussT, braceT = trussT*0.8;
-  for (let i=0;i<=sections;i++){
-    const z = L0 + (L1-L0) * (i/sections);
-    group.add(beamBetween(new THREE.Vector3(-halfX, +halfY, z), new THREE.Vector3(+halfX, +halfY, z), ringT, matTruss, 'truss ring top'));
-    group.add(beamBetween(new THREE.Vector3(-halfX, -halfY, z), new THREE.Vector3(+halfX, -halfY, z), ringT, matTruss, 'truss ring bottom'));
-    group.add(beamBetween(new THREE.Vector3(-halfX, -halfY, z), new THREE.Vector3(-halfX, +halfY, z), ringT, matTruss, 'truss ring left'));
-    group.add(beamBetween(new THREE.Vector3(+halfX, -halfY, z), new THREE.Vector3(+halfX, +halfY, z), ringT, matTruss, 'truss ring right'));
-  }
-  for (let i=0;i<sections;i++){
-    const zA = L0 + (L1-L0) * (i/sections);
-    const zB = L0 + (L1-L0) * ((i+1)/sections);
-    group.add(beamBetween(new THREE.Vector3(-halfX, +halfY, zA), new THREE.Vector3(+halfX, +halfY, zB), braceT, matTruss, 'diag top'));
-    group.add(beamBetween(new THREE.Vector3(+halfX, +halfY, zA), new THREE.Vector3(-halfX, +halfY, zB), braceT, matTruss, 'diag top'));
-    group.add(beamBetween(new THREE.Vector3(-halfX, -halfY, zA), new THREE.Vector3(+halfX, -halfY, zB), braceT, matTruss, 'diag bottom'));
-    group.add(beamBetween(new THREE.Vector3(+halfX, -halfY, zA), new THREE.Vector3(-halfX, -halfY, zB), braceT, matTruss, 'diag bottom'));
-    group.add(beamBetween(new THREE.Vector3(-halfX, -halfY, zA), new THREE.Vector3(-halfX, +halfY, zB), braceT, matTruss, 'diag left'));
-    group.add(beamBetween(new THREE.Vector3(-halfX, +halfY, zA), new THREE.Vector3(-halfX, -halfY, zB), braceT, matTruss, 'diag left'));
-    group.add(beamBetween(new THREE.Vector3(+halfX, -halfY, zA), new THREE.Vector3(+halfX, +halfY, zB), braceT, matTruss, 'diag right'));
-    group.add(beamBetween(new THREE.Vector3(+halfX, +halfY, zA), new THREE.Vector3(+halfX, -halfY, zB), braceT, matTruss, 'diag right'));
-  }
-
-  return group;
-}
-
-function createTrussBay({ w=12, d=12, h=6, t=0.5, wire=false, doorway=null } = {}){
-  const matSteel = new THREE.MeshStandardMaterial({ name:'Steel', color:0x9aa4af, metalness:.85, roughness:.4, wireframe:wire });
-  const group = new THREE.Group();
-  const halfW = w/2, halfD = d/2;
-
-  function beamBetween(pa, pb, thickness, material, label='Beam'){
-    const dir = new THREE.Vector3().subVectors(pb, pa);
-    const len = Math.max(0.01, dir.length());
-    const geom = new THREE.BoxGeometry(thickness, thickness, len);
-    const mesh = new THREE.Mesh(geom, material);
-    const mid = new THREE.Vector3().addVectors(pa, pb).multiplyScalar(0.5);
-    mesh.position.copy(mid);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir.clone().normalize());
-    mesh.castShadow = mesh.receiveShadow = true;
-    mesh.name='FrameBeam'; registerMesh(mesh, `Beams • ${label}`); return mesh;
-  }
-
-  const yB = 0, yT = h;
-  const cornersB = [ new THREE.Vector3(-halfW, yB, -halfD), new THREE.Vector3( halfW, yB, -halfD),
-                     new THREE.Vector3( halfW, yB,  halfD), new THREE.Vector3(-halfW, yB,  halfD) ];
-  const cornersT = [ new THREE.Vector3(-halfW, yT, -halfD), new THREE.Vector3( halfW, yT, -halfD),
-                     new THREE.Vector3( halfW, yT,  halfD), new THREE.Vector3(-halfW, yT,  halfD) ];
-
-  // bottom + top rings
-  group.add(beamBetween(cornersB[0], cornersB[1], t, matSteel, 'front'));
-  group.add(beamBetween(cornersB[1], cornersB[2], t, matSteel, 'right'));
-  group.add(beamBetween(cornersB[2], cornersB[3], t, matSteel, 'back'));
-  group.add(beamBetween(cornersB[3], cornersB[0], t, matSteel, 'left'));
-  group.add(beamBetween(cornersT[0], cornersT[1], t, matSteel, 'front'));
-  group.add(beamBetween(cornersT[1], cornersT[2], t, matSteel, 'right'));
-  group.add(beamBetween(cornersT[2], cornersT[3], t, matSteel, 'back'));
-  group.add(beamBetween(cornersT[3], cornersT[0], t, matSteel, 'left'));
-
-  // wall with doorway if requested
-  if (doorway){
-    const side = doorway.side ?? 'right';
-    const gapW = doorway.width ?? 0;
-    const doorH = doorway.height ?? 0;
-    const gapHalf = gapW/2;
-    const wallThk = Math.max(0.08, t*0.6);
-
-    const wallShape = new THREE.Shape()
-      .moveTo(- (side==='left' || side==='right' ? d/2 : w/2), 0)
-      .lineTo(  (side==='left' || side==='right' ? d/2 : w/2), 0)
-      .lineTo(  (side==='left' || side==='right' ? d/2 : w/2), h)
-      .lineTo(- (side==='left' || side==='right' ? d/2 : w/2), h)
-      .lineTo(- (side==='left' || side==='right' ? d/2 : w/2), 0);
-
-    const doorHole = new THREE.Path()
-      .moveTo(-gapHalf, 0).lineTo(gapHalf, 0).lineTo(gapHalf, doorH).lineTo(-gapHalf, doorH).lineTo(-gapHalf, 0);
-    wallShape.holes.push(doorHole);
-
-    const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: wallThk, bevelEnabled:false, curveSegments: 8 });
-    const wallMat = new THREE.MeshStandardMaterial({ color:0x8a9098, metalness:0.25, roughness:0.85, side:THREE.DoubleSide });
-
-    const wall = new THREE.Mesh(wallGeo, wallMat);
-    wall.castShadow = wall.receiveShadow = true; wall.name='WallWithDoor'; registerMesh(wall, 'Wall • with door');
-
-    if (side === 'front'){ wall.rotation.y = Math.PI; wall.position.set(0, 0, -halfD + t/2 + 0.002); wall.scale.x =  w/d; }
-    else if (side === 'back'){ wall.rotation.y = 0; wall.position.set(0, 0,  halfD - t/2 - 0.002); wall.scale.x =  w/d; }
-    else if (side === 'left'){ wall.rotation.y = -Math.PI/2; wall.position.set(-halfW + t/2 + 0.002, 0, 0); wall.scale.x =  d/w; }
-    else { wall.rotation.y =  Math.PI/2; wall.position.set( halfW - t/2 - 0.002, 0, 0); wall.scale.x =  d/w; }
-
-    ensureUV2(wall); group.add(wall);
-  }
-
-  // V bracing
-  const midBack  = new THREE.Vector3(0, yB,  halfD);
-  const midLeft  = new THREE.Vector3(-halfW, yB, 0);
-  const midRight = new THREE.Vector3( halfW, yB, 0);
-  group.add(beamBetween(cornersT[3], midBack,  t*0.9, matSteel, 'V-back'));
-  group.add(beamBetween(cornersT[2], midBack,  t*0.9, matSteel, 'V-back'));
-  group.add(beamBetween(cornersT[0], midLeft,  t*0.9, matSteel, 'V-left'));
-  group.add(beamBetween(cornersT[3], midLeft,  t*0.9, matSteel, 'V-left'));
-  group.add(beamBetween(cornersT[1], midRight, t*0.9, matSteel, 'V-right'));
-  group.add(beamBetween(cornersT[2], midRight, t*0.9, matSteel, 'V-right'));
-
-  return group;
-}
-
-/* ===== Render loop & UX ===== */
-function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera); }
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1200); }
-</script>
+  input[type="range"]{padding:0}
+  button{appearance:none;background:linear-gradient(180deg, rgba(77,163,255,.22), rgba(77,163,255,.12));border:1px solid rgba(77,163,255,.35);color:var(--text);border-radius:10px;padding:8px 10px;font-weight:800}
+  .list{border:1px solid var(--panel-border);border-radius:10px;overflow:hidden}
+  .item{padding:8px 10px;border-bottom:1px solid var(--panel-border);cursor:pointer}
+  .item:last-child{border-bottom:0}
+  .item.active{background:rgba(77,163,255,.12)}
+  /* Loader overlay */
+  #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999}
+  #logo{width:120px;height:120px;margin-bottom:18px}
+  #bar{width:min(520px,80vw);height:10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);overflow:hidden}
+  #bar > span{display:block;height:100%;width:0;background:linear-gradient(90deg,#4da3ff,#77c1ff)}
+  #status{margin-top:8px;color:#cdd6e6;font:12px ui-monospace,monospace}
+</style>
+</head>
+<body>
+  <div id="loader" aria-busy="true">
+    <svg id="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Iconic">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4da3ff"/><stop offset="1" stop-color="#8fd1ff"/></linearGradient></defs>
+      <circle cx="50" cy="50" r="46" stroke="url(#g)" stroke-width="4"/>
+      <path d="M26 70 L50 22 L74 70" stroke="url(#g)" stroke-width="6" stroke-linecap="round"/>
+    </svg>
+    <div id="bar"><span></span></div>
+    <div id="status">loading…</div>
+  </div>
+
+  <div class="app" id="app" hidden>
+    <div id="toolbar"></div>
+    <div id="main">
+      <div id="viewport" role="application" aria-label="3D viewport"></div>
+      <aside id="panel">
+        <div class="tabs">
+          <button class="tab active" data-tab="scene">SCENE</button>
+          <button class="tab" data-tab="material">MATERIAL</button>
+        </div>
+        <div class="pane active" id="pane-scene"></div>
+        <div class="pane" id="pane-material"></div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Entry point -->
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>
