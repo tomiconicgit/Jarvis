@@ -14,11 +14,11 @@ export default {
       </div>
       <div class="group">
         <h3>View</h3>
-        <div class="row"><label>Background</label><input id="bg" type="color" value="#0b0c0f"/></div>
-        <div class="row"><label>Lighting</label>
+        <div class="row simple"><label>Background</label><input id="bg" type="color" value="#0b0c0f"/></div>
+        <div class="row simple"><label>Lighting</label>
           <select id="lighting"><option>Day</option><option>Night</option><option>Studio</option></select>
         </div>
-        <div class="row"><label>Gizmo</label>
+        <div class="row simple"><label>Gizmo</label>
           <select id="gizmo"><option value="translate">Translate</option><option value="rotate">Rotate</option><option value="scale">Scale</option></select>
         </div>
       </div>
