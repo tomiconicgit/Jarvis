@@ -5,20 +5,21 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const Editor = {
   init(container, bus){
-    let renderer = makeRenderer(container);
+    // -------- renderer (recreatable) --------
+    let renderer = createRenderer(container);
+
+    // block page scroll/zoom while over canvas (wheel on PC, pinch on iOS)
+    renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive:false });
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b0c0f);
 
-    const camera = new THREE.PerspectiveCamera(50, container.clientWidth/container.clientHeight, 0.1, 5000);
+    const camera = new THREE.PerspectiveCamera(50, Math.max(1,container.clientWidth)/Math.max(1,container.clientHeight), 0.1, 5000);
     camera.position.set(12, 10, 16);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.target.set(0, 2, 0);
-    controls.minDistance = 0.25;
-    controls.maxDistance = 2000;
-    controls.maxPolarAngle = Math.PI * 0.499;
+    // controls/gizmo are rebuilt whenever renderer is recreated
+    let controls, gizmo;
+    buildControls();
 
     // lights
     const hemi = new THREE.HemisphereLight(0xffffff, 0x171a1f, 0.6);
@@ -53,14 +54,6 @@ const Editor = {
       const hits = raycaster.intersectObjects(world.children, true);
       setSelected(hits[0]?.object?.parent?.isGroup ? hits[0].object.parent : hits[0]?.object || null);
     });
-
-    // gizmo
-    const gizmo = new TransformControls(camera, renderer.domElement);
-    gizmo.setSize(0.9);
-    gizmo.addEventListener('change', ()=> safeRender());
-    gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
-    gizmo.addEventListener('objectChange', ()=> { if (boxHelper) boxHelper.update(); bus.emit('transform-changed', selected); });
-    scene.add(gizmo);
 
     // bus
     bus.on('add-primitive', ({type})=>{
@@ -118,36 +111,35 @@ const Editor = {
       bus.emit('transform-changed', selected);
     });
 
-    // robust resize
+    // size management
     function onResize(){
       const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       renderer.setPixelRatio(dpr);
       renderer.setSize(w, h, false);
-      camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.aspect = w/h;
+      camera.updateProjectionMatrix();
       safeRender();
     }
     const ro = new ResizeObserver(onResize); ro.observe(container);
     window.addEventListener('orientationchange', onResize, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
 
-    // WebGL context loss protection (Safari/iOS & heavy zoom cases)
+    // context-loss: rebuild renderer + controls instantly (fixes “blank after zoom”)
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
       e.preventDefault();
-      console.warn('WebGL context lost — attempting restore');
-    }, false);
-    renderer.domElement.addEventListener('webglcontextrestored', ()=>{
-      console.warn('WebGL context restored');
-      onResize();
+      console.warn('WebGL context lost — rebuilding renderer');
+      rebuildRenderer();
     }, false);
 
     // loop
     function safeRender(){
-      try { controls.update(); renderer.render(scene, camera); }
-      catch(err){ console.error(err); /* no crash */ }
+      try { controls?.update(); renderer.render(scene, camera); }
+      catch(err){ console.error(err); }
     }
     renderer.setAnimationLoop(safeRender);
 
+    // helpers
     function frame(obj){
       const box = new THREE.Box3().setFromObject(obj);
       const sizeVec = box.getSize(new THREE.Vector3());
@@ -156,8 +148,40 @@ const Editor = {
       controls.target.copy(center);
       const dist = Math.max(1, size * 1.2 / Math.tan((camera.fov * Math.PI/180)/2));
       camera.position.copy(center).add(new THREE.Vector3(dist, dist*0.6, dist));
-      camera.near = 0.1; camera.far = Math.max(2000, dist*10); camera.updateProjectionMatrix();
+      camera.near = 0.1;
+      camera.far  = Math.max(2000, dist*10);
+      camera.updateProjectionMatrix();
       if (boxHelper) boxHelper.update();
+    }
+
+    function buildControls(){
+      controls?.dispose();
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.target.set(0, 2, 0);
+      controls.minDistance = 0.25;      // stop zoom-in NaNs
+      controls.maxDistance = 2000;
+      controls.maxPolarAngle = Math.PI * 0.499;
+
+      if (gizmo){ scene.remove(gizmo); }
+      gizmo = new TransformControls(camera, renderer.domElement);
+      gizmo.setSize(0.9);
+      gizmo.addEventListener('change', ()=> safeRender());
+      gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
+      gizmo.addEventListener('objectChange', ()=> { if (boxHelper) boxHelper.update(); bus.emit('transform-changed', selected); });
+      scene.add(gizmo);
+    }
+
+    function rebuildRenderer(){
+      const attached = gizmo?.object || null;
+      renderer.setAnimationLoop(null);
+      container.removeChild(renderer.domElement);
+      renderer.dispose();
+      renderer = createRenderer(container);
+      renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive:false });
+      buildControls();
+      if (attached) gizmo.attach(attached);
+      onResize();
     }
 
     return {
@@ -173,10 +197,12 @@ const Editor = {
 export default Editor;
 
 /* ---------- helpers ---------- */
-function makeRenderer(container){
-  const r = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:'high-performance', preserveDrawingBuffer:false });
+function createRenderer(container){
+  const r = new THREE.WebGLRenderer({
+    antialias:true, alpha:false, powerPreference:'high-performance', preserveDrawingBuffer:false
+  });
   r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  r.setSize(container.clientWidth, container.clientHeight);
+  r.setSize(Math.max(1,container.clientWidth), Math.max(1,container.clientHeight));
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.shadowMap.enabled = true;
   container.appendChild(r.domElement);
