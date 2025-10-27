@@ -70,10 +70,24 @@ export default {
     }
 
     /* ---------- File actions ---------- */
+    
+    // --- (NEW) Show confirmation modal for New Project ---
     function newProject(){
-      editor.setSelected(null);
-      [...editor.world.children].forEach(c=> editor.world.remove(c));
-      bus.emit('scene-updated');
+      const ui = modal(`
+        <h3 style="margin:0 0 10px 0">New Project</h3>
+        <p style="margin:0 0 12px 0;color:var(--muted)">Are you sure you want to start a new project? All unsaved changes will be lost.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="newCancel">Cancel</button>
+          <button id="newGo" class="primary">Start New</button>
+        </div>
+      `);
+      ui.querySelector('#newCancel').onclick = () => ui.remove();
+      ui.querySelector('#newGo').onclick = ()=>{
+        editor.setSelected(null);
+        [...editor.world.children].forEach(c=> editor.world.remove(c));
+        bus.emit('scene-updated');
+        ui.remove();
+      };
     }
 
     function saveProject(){
@@ -90,11 +104,26 @@ export default {
         const text = await f.text();
         const data = JSON.parse(text);
         if (!data || !data.world) return;
-        newProject();
-        const loader = new THREE.ObjectLoader();
-        const obj = loader.parse(data.world);
-        (obj.children||[]).forEach(child=> editor.world.add(child));
-        bus.emit('scene-updated');
+        
+        // Use the modal to confirm load
+        const ui = modal(`
+          <h3 style="margin:0 0 10px 0">Load Project</h3>
+          <p style="margin:0 0 12px 0;color:var(--muted)">Loading this project will replace your current scene. All unsaved changes will be lost.</p>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button id="loadCancel">Cancel</button>
+            <button id="loadGo" class="primary">Load Project</button>
+          </div>
+        `);
+        ui.querySelector('#loadCancel').onclick = () => ui.remove();
+        ui.querySelector('#loadGo').onclick = () => {
+          editor.setSelected(null);
+          [...editor.world.children].forEach(c=> editor.world.remove(c));
+          const loader = new THREE.ObjectLoader();
+          const obj = loader.parse(data.world);
+          (obj.children||[]).forEach(child=> editor.world.add(child));
+          bus.emit('scene-updated');
+          ui.remove();
+        };
       };
       input.click();
     }
@@ -149,7 +178,7 @@ export default {
   }
 };
 
-/* ---- (FIX) REPLACED faulty popup function ---- */
+/* ---- anchored popup that always opens ---- */
 function popup(anchor, items){
   closeActiveMenu(); // Close any menu that's already open
 
@@ -172,7 +201,7 @@ function popup(anchor, items){
       closeActiveMenu(); // Use the new closer function
     });
     // Add hover effect
-    it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,1Sort 255,.12)');
+    it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     m.appendChild(it);
   });
@@ -195,13 +224,15 @@ function popup(anchor, items){
 
 /* ---- Export helper ---- */
 function exportGLB(root, opts, baseName='iconic_scene'){
-  const exporter = new GLTFExporter();
+  const exporter = new GLTFLoader();
   exporter.parse(root, (result)=>{
     const ext = opts.binary ? 'glb' : 'gltf';
     const data = opts.binary ? result : JSON.stringify(result);
     const mime = opts.binary ? 'model/gltf-binary' : 'model/gltf+json';
     const blob = new Blob([data], { type:mime });
     downloadBlob(blob, `${baseName}.${ext}`);
+  }, (err) => {
+      console.error('An error happened during GLTF export:', err);
   }, {
     binary: !!opts.binary,
     onlyVisible: !!opts.onlyVisible,
@@ -216,7 +247,6 @@ function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
-  // Use CSS variables from index.html for consistency
   card.style.cssText = 'background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:var(--text)';
   card.innerHTML = html;
   wrap.appendChild(card);
