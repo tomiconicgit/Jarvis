@@ -58,7 +58,6 @@ const Editor = {
         boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff);
         scene.add(boxHelper);
 
-        // center controls on selection and update distance limits
         const { center, radius } = boundsOf(mesh);
         controls.target.copy(center);
         clampZoomToRadius(radius);
@@ -140,7 +139,6 @@ const Editor = {
       }
       if (boxHelper) boxHelper.update();
 
-      // keep orbit target and distance sane as the object changes
       const { center, radius } = boundsOf(selected);
       controls.target.copy(center);
       clampZoomToRadius(radius);
@@ -229,7 +227,7 @@ const Editor = {
       controls.rotateSpeed = 0.9;
       controls.maxPolarAngle = Math.PI * 0.499;
 
-      // sensible defaults (will be clamped to selection on select/transform)
+      // sane limits (clamped to selection on select/transform)
       controls.minDistance = 0.5;
       controls.maxDistance = 500;
 
@@ -261,7 +259,6 @@ const Editor = {
     }
 
     function clampZoomToRadius(radius){
-      // Keep dolly distance outside the object; give room to orbit.
       const min = Math.max(0.25, radius * 0.6);
       const max = Math.max(min + 5, radius * 40);
       controls.minDistance = min;
@@ -305,7 +302,7 @@ function boundsOf(obj){
 
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
-  let mesh, geo, params;
+  let geo, params;
 
   if (type==='sphere') {
     params = { type:'sphere', radius: 1, widthSegments: 48, heightSegments: 32 };
@@ -321,7 +318,7 @@ function makePrimitive(type='box'){
     geo = new THREE.BoxGeometry(params.width, params.height, params.depth, 2, 2, 2);
   }
 
-  mesh = new THREE.Mesh(geo, mat);
+  const mesh = new THREE.Mesh(geo, mat);
   if (type==='plane') mesh.rotation.x = -Math.PI/2;
 
   mesh.userData.geometryParams = params;
@@ -364,7 +361,6 @@ function applyDeformers(geometry, deforms) {
   const centerY = (box.min.y + box.max.y) / 2;
 
   const pos = g.attributes.position;
-  const nor = (()=>{ g.computeVertexNormals(); return g.attributes.normal; })();
 
   const tmp = new THREE.Vector3();
   const axisY = new THREE.Vector3(0,1,0);
@@ -378,7 +374,7 @@ function applyDeformers(geometry, deforms) {
   for (let i=0;i<pos.count;i++){
     tmp.fromBufferAttribute(pos, i);
 
-    const yPct = (tmp.y - centerY) / height; // -0.5 .. +0.5 approximately
+    const yPct = (tmp.y - centerY) / height; // ~ -0.5 .. +0.5
 
     // Shear/slant
     tmp.x += shearX * (tmp.y - centerY);
@@ -406,8 +402,7 @@ function applyDeformers(geometry, deforms) {
   return g;
 }
 
-/* make a thick shell by offsetting along vertex normals
-   returns a single BufferGeometry that contains outer + inner (flipped) */
+/* make a thick shell by offsetting along vertex normals */
 function thickenGeometry(geometry, thickness){
   const g = geometry.clone();
   g.computeVertexNormals();
@@ -423,7 +418,6 @@ function thickenGeometry(geometry, thickness){
     innerPos[i*3+0]=x; innerPos[i*3+1]=y; innerPos[i*3+2]=z;
   }
 
-  // merge outer + inner
   const outerPos = pos.array;
   const mergedPos = new Float32Array(outerPos.length + innerPos.length);
   mergedPos.set(outerPos, 0);
@@ -432,14 +426,12 @@ function thickenGeometry(geometry, thickness){
   const out = new THREE.BufferGeometry();
   out.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
 
-  // build indices: keep original faces, plus flipped inner faces
   const srcIndex = g.getIndex();
   const hasIndex = !!srcIndex;
   let outerIdx;
   if (hasIndex){
     outerIdx = srcIndex.array;
   } else {
-    // build a trivial index for triangles
     const triCount = (pos.count/3)|0;
     outerIdx = new Uint32Array(triCount*3);
     for (let i=0;i<outerIdx.length;i++) outerIdx[i]=i;
@@ -448,7 +440,6 @@ function thickenGeometry(geometry, thickness){
   const innerBase = pos.count;
   const innerIdx = new (outerIdx.constructor)(outerIdx.length);
   for (let i=0;i<outerIdx.length;i+=3){
-    // flip winding for inner
     innerIdx[i+0] = innerBase + outerIdx[i+0];
     innerIdx[i+1] = innerBase + outerIdx[i+2];
     innerIdx[i+2] = innerBase + outerIdx[i+1];
