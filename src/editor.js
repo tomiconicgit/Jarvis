@@ -1,4 +1,4 @@
-// editor.js — renderer / scene / camera / controls / selection / lighting / grid
+// editor.js â renderer / scene / camera / controls / selection / lighting / grid
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -125,10 +125,10 @@ const Editor = {
     window.addEventListener('orientationchange', onResize, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
 
-    // context-loss: rebuild renderer + controls instantly (fixes “blank after zoom”)
+    // context-loss: rebuild renderer + controls instantly (fixes âblank after zoomâ)
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
       e.preventDefault();
-      console.warn('WebGL context lost — rebuilding renderer');
+      console.warn('WebGL context lost â rebuilding renderer');
       rebuildRenderer();
     }, false);
 
@@ -159,8 +159,8 @@ const Editor = {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.target.set(0, 2, 0);
-      controls.minDistance = 0.25;      // stop zoom-in NaNs
-      controls.maxDistance = 2000;
+      controls.minDistance = 1;      // <-- CHANGED from 0.25
+      controls.maxDistance = 500;    // <-- CHANGED from 2000
       controls.maxPolarAngle = Math.PI * 0.499;
 
       if (gizmo){ scene.remove(gizmo); }
