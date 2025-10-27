@@ -15,7 +15,8 @@
     "imports": {
       "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
       "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-      "troika-three-text": "https://unpkg.com/troika-three-text@0.49.1/dist/troika-three-text.esm.js"
+      "troika-three-text": "https://unpkg.com/troika-three-text@0.49.1/dist/troika-three-text.esm.js",
+      "three-csg-ts": "https://unpkg.com/three-csg-ts@2.0.7/lib/three-csg.js"
     }
   }
   </script>
@@ -37,24 +38,18 @@
       font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
     html,body,#viewport{overscroll-behavior:none}
     .app{position:fixed;inset:0;display:grid;grid-template-rows:48px 1fr}
-
     #toolbar{background:var(--toolbar);border-bottom:1px solid var(--panel-border);
       display:flex;align-items:center;gap:16px;padding:0 16px;user-select:none}
     #toolbar .menu{font-weight:700;opacity:.9;cursor:pointer}
     #toolbar .menu:hover{opacity:1}
-
     #main{display:grid;grid-template-columns:1fr var(--panel-w);min-height:0}
     #viewport{position:relative;min-height:0}
-    #panel{border-left:1px solid var(--panel-border);background:var(--panel);
-      min-width:260px;overflow:auto}
-
+    #panel{border-left:1px solid var(--panel-border);background:var(--panel);min-width:260px;overflow:auto}
     @media (orientation:portrait){
       #main{grid-template-columns:1fr;grid-template-rows:55vh 45vh}
       #panel{border-left:none;border-top:1px solid var(--panel-border)}
     }
-
     canvas{display:block;width:100%;height:100%;touch-action:none}
-
     .tabs{position:sticky;top:0;background:linear-gradient(to bottom, rgba(30,30,30,.98), rgba(30,30,30,.95));
       display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--panel-border);z-index:5}
     .tab{flex:1;text-align:center;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);
@@ -65,33 +60,26 @@
     .group{border:1px solid var(--panel-border);border-radius:12px;background:rgba(255,255,255,.03);
       padding:14px;margin-bottom:10px}
     .group h3{margin:0 0 8px 0;font-size:12px;letter-spacing:.3px;opacity:.9}
-
-    .row{display:grid;grid-template-columns:90px 1fr 70px;gap:8px;align-items:center;margin:8px 0}
-    .row label{color:var(--muted);font-size:12px;white-space:nowrap;}
-    .row output{display:none;}
-    .row input[type="number"]{width:100%;padding: 8px 6px;text-align:right;}
-    .row.simple{grid-template-columns:90px 1fr;}
+    .row{display:grid;grid-template-columns:110px 1fr 70px;gap:8px;align-items:center;margin:8px 0}
+    .row.simple{grid-template-columns:110px 1fr;}
     .row.simple > input, .row.simple > select { grid-column: 2 / span 2; }
-
+    .row label{color:var(--muted);font-size:12px;white-space:nowrap;}
     input[type="range"], select, input[type="color"], input[type="file"], input[type="number"], input[type="text"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
       border-radius:10px;color:var(--text);padding:10px 12px
     }
     input[type="range"]{padding:0}
     input[type="color"]{padding: 5px 8px;}
-
     button{appearance:none;background:rgba(77,163,255,.15);
       border:1px solid rgba(77,163,255,.3);color:var(--text);border-radius:10px;
       padding:10px 12px;font-weight:800;cursor:pointer;transition:background .15s}
     button:hover{background:rgba(77,163,255,.25)}
     button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
     button.primary:hover{ background: #6ab5ff; }
-
     .list{border:1px solid var(--panel-border);border-radius:10px;overflow:hidden}
     .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer}
     .item:last-child{border-bottom:0}
     .item.active{background:rgba(77,163,255,.12)}
-
     #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;
       align-items:center;justify-content:center;z-index:999}
     #logo{width:120px;height:120px;margin-bottom:18px}
