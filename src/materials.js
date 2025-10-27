@@ -1,7 +1,7 @@
 // materials.js — full transform + material controls; texture upload + procedural choices
 import * as THREE from 'three';
 
-// --- (NEW) Helper function to link a slider and a number input ---
+// --- Helper function to link a slider and a number input ---
 function bindSliderAndNumber(root, sliderId, numberId, fixed = 2) {
   const slider = root.querySelector('#' + sliderId);
   const number = root.querySelector('#' + numberId);
@@ -18,7 +18,7 @@ function bindSliderAndNumber(root, sliderId, numberId, fixed = 2) {
   });
 }
 
-// --- (NEW) Helper to set value for both slider and number input ---
+// --- Helper to set value for both slider and number input ---
 function setSliderAndNumber(root, baseId, value, fixed = 2) {
   const slider = root.querySelector(`#${baseId}_slider`);
   const number = root.querySelector(`#${baseId}_num`);
@@ -28,7 +28,7 @@ function setSliderAndNumber(root, baseId, value, fixed = 2) {
 
 export default {
   init(root, bus, editor){
-    // --- (NEW) Rebuilt HTML with 3-column layout ---
+    // --- (CHANGED) Removed "Apply" button from Transform HTML ---
     root.innerHTML = `
       <div class="group">
         <h3>Transform</h3>
@@ -86,7 +86,7 @@ export default {
           <label>Gizmo Mode</label>
           <select id="gmode"><option value="translate">Translate</option><option value="rotate">Rotate</option><option value="scale">Scale</option></select>
         </div>
-        <div style="display:flex;gap:8px;margin-top:6px;"><button id="applyXform" class="primary">Apply</button><button id="frame">Frame</button></div>
+        <div style="display:flex;gap:8px;margin-top:6px;"><button id="frame">Frame</button></div>
       </div>
 
       <div class="group">
@@ -307,7 +307,7 @@ export default {
     }
     // --- End Geometry controls ---
 
-    // --- (NEW) Bind all sliders to their number inputs ---
+    // Bind all sliders to their number inputs
     // Transform
     bindSliderAndNumber(root, 'tx_slider', 'tx_num', 1);
     bindSliderAndNumber(root, 'ty_slider', 'ty_num', 1);
@@ -340,9 +340,36 @@ export default {
     function val(id){ return root.querySelector('#'+id).value; }
     function byUniform(){ return Math.abs(+val('su_num')-1) > 1e-6; }
 
-    root.querySelector('#applyXform').addEventListener('click', ()=> bus.emit('transform-update', readTransform()));
+    // --- (CHANGED) Wire transform sliders to update live ---
+    const transformIds = [
+      'tx_slider', 'tx_num', 'ty_slider', 'ty_num', 'tz_slider', 'tz_num',
+      'rx_slider', 'rx_num', 'ry_slider', 'ry_num', 'rz_slider', 'rz_num',
+      'sx_slider', 'sx_num', 'sy_slider', 'sy_num', 'sz_slider', 'sz_num',
+      'su_slider', 'su_num'
+    ];
+    
+    function pushTransform() {
+      bus.emit('transform-update', readTransform());
+    }
+    
+    transformIds.forEach(id => {
+      root.querySelector('#' + id)?.addEventListener('input', pushTransform);
+    });
+
     root.querySelector('#frame').addEventListener('click', ()=> bus.emit('frame-selection'));
     root.querySelector('#gmode').addEventListener('change', e=> bus.emit('set-gizmo', e.target.value));
+
+    // --- (CHANGED) Wire deformer sliders to update live ---
+    const deformerIds = [
+      'deform_twist_slider', 'deform_twist_num',
+      'deform_taper_slider', 'deform_taper_num',
+      'deform_noise_slider', 'deform_noise_num'
+    ];
+    
+    deformerIds.forEach(id => {
+      root.querySelector('#' + id)?.addEventListener('input', pushGeometryChanges);
+    });
+
 
     // material bindings
     function pushMaterial(){
@@ -362,11 +389,11 @@ export default {
     }
     // Add listeners to all number inputs and sliders
     ['mColor','wire','cast','recv','emisC'].forEach(id => {
-        root.querySelector('#'+id).addEventListener('input', pushMaterial);
+        root.querySelector('#'+id)?.addEventListener('input', pushMaterial);
     });
     ['metal', 'rough', 'emis'].forEach(id => {
-        root.querySelector(`#${id}_slider`).addEventListener('input', pushMaterial);
-        root.querySelector(`#${id}_num`).addEventListener('input', pushMaterial);
+        root.querySelector(`#${id}_slider`)?.addEventListener('input', pushMaterial);
+        root.querySelector(`#${id}_num`)?.addEventListener('input', pushMaterial);
     });
 
     // textures
@@ -416,8 +443,8 @@ export default {
         root.querySelector('#wire').value = mat.wireframe ? 'Yes' : 'No';
         root.querySelector('#cast').value = obj.castShadow ? 'Yes' : 'No';
         root.querySelector('#recv').value = obj.receiveShadow ? 'Yes' : 'No';
-        setSliderAndNumber(root, 'metal', mat.metalness || 0.1, 2);
-        setSliderAndNumber(root, 'rough', mat.roughness || 0.4, 2);
+        setSliderAndNumber(root, 'metal', mat.metalness ?? 0.1, 2);
+        setSliderAndNumber(root, 'rough', mat.roughness ?? 0.4, 2);
         setSliderAndNumber(root, 'emis', mat.emissiveIntensity || 0, 2);
         root.querySelector('#emisC').value = '#'+(mat.emissive?.getHexString?.() || '000000');
       }
