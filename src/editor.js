@@ -5,10 +5,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const Editor = {
   init(container, bus){
-    // -------- renderer (recreatable) --------
     let renderer = createRenderer(container);
-
-    // block page scroll/zoom while over canvas (wheel on PC, pinch on iOS)
     renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive:false });
 
     const scene = new THREE.Scene();
@@ -22,7 +19,6 @@ const Editor = {
     );
     camera.position.set(12, 10, 16);
 
-    // controls/gizmo are rebuilt whenever renderer is recreated
     let controls, gizmo;
     buildControls();
 
@@ -53,11 +49,9 @@ const Editor = {
       selected = mesh;
 
       if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry?.dispose?.(); boxHelper = null; }
-
       if (mesh) {
         boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff);
         scene.add(boxHelper);
-
         const { center, radius } = boundsOf(mesh);
         controls.target.copy(center);
         clampZoomToRadius(radius);
@@ -82,7 +76,7 @@ const Editor = {
       }
     });
 
-    // bus
+    // bus wiring
     bus.on('add-primitive', ({type})=>{
       const m = makePrimitive(type);
       world.add(m); setSelected(m); frame(m);
@@ -171,7 +165,7 @@ const Editor = {
       }
     });
 
-    // size management
+    // resize
     function onResize(){
       const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -185,7 +179,6 @@ const Editor = {
     window.addEventListener('orientationchange', onResize, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
 
-    // context-loss: rebuild renderer + controls (protects against “blank after zoom”)
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
       e.preventDefault();
       rebuildRenderer();
@@ -202,13 +195,11 @@ const Editor = {
     function frame(obj){
       const { center, radius } = boundsOf(obj);
       controls.target.copy(center);
-
       const dist = Math.max(1, radius * 2.2 / Math.tan((camera.fov * Math.PI/180)/2));
       camera.position.copy(center).add(new THREE.Vector3(dist, dist*0.6, dist));
       camera.near = Math.max(0.01, radius * 0.02);
       camera.far  = Math.max(2000, radius * 200);
       camera.updateProjectionMatrix();
-
       clampZoomToRadius(radius);
       if (boxHelper) boxHelper.update();
     }
@@ -218,16 +209,12 @@ const Editor = {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
-
-      // Smooth, predictable zoom:
       controls.zoomSpeed = 0.35;
-      controls.zoomToCursor = true;      // desktop: dolly toward cursor
+      controls.zoomToCursor = true;
       controls.enablePan = true;
       controls.panSpeed = 0.6;
       controls.rotateSpeed = 0.9;
       controls.maxPolarAngle = Math.PI * 0.499;
-
-      // sane limits (clamped to selection on select/transform)
       controls.minDistance = 0.5;
       controls.maxDistance = 500;
 
@@ -348,44 +335,50 @@ function createBaseGeometry(p) {
   return new THREE.BoxGeometry(2, 2, 2, 4, 4, 4);
 }
 
+/* axis-aware deformers so every shape responds */
 function applyDeformers(geometry, deforms) {
-  // 1) Hollow (thickness) -> add an inner shell with flipped winding
   const hollow = Math.max(0, +deforms.hollow || 0);
   let g = geometry;
   if (hollow > 0) g = thickenGeometry(g, hollow);
 
-  // 2) Vertex-space edits: shear/slant, taper, twist, noise
   g.computeBoundingBox();
-  const box = g.boundingBox.clone();
-  const height = Math.max(1e-6, box.max.y - box.min.y);
-  const centerY = (box.min.y + box.max.y) / 2;
+  const bb = g.boundingBox.clone();
+  const ext = new THREE.Vector3().subVectors(bb.max, bb.min); // extents
+  // choose axis with largest extent so flat planes still respond
+  const axisIndex = (ext.x >= ext.y && ext.x >= ext.z) ? 0 : (ext.y >= ext.z ? 1 : 2);
+  const axisVec = axisIndex === 0 ? new THREE.Vector3(1,0,0) : axisIndex === 1 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(0,0,1);
+  const centerAxis = (bb.min.getComponent(axisIndex) + bb.max.getComponent(axisIndex)) / 2;
+  const height = Math.max(1e-6, ext.getComponent(axisIndex));
+  const otherA = (axisIndex + 1) % 3; // two perpendicular axes
+  const otherB = (axisIndex + 2) % 3;
 
   const pos = g.attributes.position;
 
-  const tmp = new THREE.Vector3();
-  const axisY = new THREE.Vector3(0,1,0);
-
-  const shearX = +deforms.shearX || 0;
-  const shearZ = +deforms.shearZ || 0;
+  const shearA = +deforms.shearX || 0; // map “X” to first perpendicular
+  const shearB = +deforms.shearZ || 0; // map “Z” to second perpendicular
   const taper  = (deforms.taper==null) ? 1 : +deforms.taper;
   const twist  = THREE.MathUtils.degToRad(+deforms.twist || 0);
   const noise  = +deforms.noise || 0;
 
+  const tmp = new THREE.Vector3();
+
   for (let i=0;i<pos.count;i++){
     tmp.fromBufferAttribute(pos, i);
 
-    const yPct = (tmp.y - centerY) / height; // ~ -0.5 .. +0.5
+    const along = tmp.getComponent(axisIndex);
+    const yPct = (along - centerAxis) / height; // ~ -0.5 .. +0.5
 
-    // Shear/slant
-    tmp.x += shearX * (tmp.y - centerY);
-    tmp.z += shearZ * (tmp.y - centerY);
+    // Shear: move on perpendicular axes proportional to distance along main axis
+    tmp.setComponent(otherA, tmp.getComponent(otherA) + shearA * (along - centerAxis));
+    tmp.setComponent(otherB, tmp.getComponent(otherB) + shearB * (along - centerAxis));
 
-    // Taper (about Y)
+    // Taper: scale perpendicular plane as we move along main axis
     const tScale = 1.0 - (yPct + 0.5) * (1.0 - taper);
-    tmp.x *= tScale; tmp.z *= tScale;
+    tmp.setComponent(otherA, tmp.getComponent(otherA) * tScale);
+    tmp.setComponent(otherB, tmp.getComponent(otherB) * tScale);
 
-    // Twist
-    if (twist !== 0) tmp.applyAxisAngle(axisY, yPct * twist);
+    // Twist: around chosen main axis
+    if (twist !== 0) tmp.applyAxisAngle(axisVec, yPct * twist);
 
     // Noise
     if (noise > 0){
@@ -427,9 +420,8 @@ function thickenGeometry(geometry, thickness){
   out.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
 
   const srcIndex = g.getIndex();
-  const hasIndex = !!srcIndex;
   let outerIdx;
-  if (hasIndex){
+  if (srcIndex){
     outerIdx = srcIndex.array;
   } else {
     const triCount = (pos.count/3)|0;
