@@ -1,6 +1,4 @@
-// scene.js — "Scene" tab: outliner, background, lighting, gizmo mode, wireframe toggle
-import * as THREE from 'three';
-
+// scene.js — "Scene" tab: outliner, background, lighting, gizmo mode
 export default {
   init(root, bus, editor){
     root.innerHTML = `
