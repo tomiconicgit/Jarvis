@@ -1,4 +1,4 @@
-// toolbar.js â top bar menus (File, Edit, Add, View)
+// toolbar.js — top bar menus (File, Edit, Add, View)
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
@@ -22,8 +22,8 @@ export default {
       <div class="menu" data-m="edit">Edit</div>
       <div class="menu" data-m="add">Add</div>
       <div class="menu" data-m="view">View</div>
-      <div style="margin-left:auto;opacity:.8">CAMERA â¾</div>
-      <div style="opacity:.8">SOLID â¾</div>
+      <div style="margin-left:auto;opacity:.8">CAMERA ▼</div>
+      <div style="opacity:.8">SOLID ▼</div>
     `;
 
     // Click anywhere on the label triggers (desktop & iOS)
@@ -64,7 +64,7 @@ export default {
         ['New', newProject],
         ['Save', saveProject],
         ['Load', loadProject],
-        ['Exportâ¦', exportDialog],
+        ['Export…', exportDialog],
         ['Import GLB', importGLB]
       ]);
     }
@@ -172,7 +172,7 @@ function popup(anchor, items){
       closeActiveMenu(); // Use the new closer function
     });
     // Add hover effect
-    it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
+    it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,1Sort 255,.12)');
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     m.appendChild(it);
   });
@@ -216,6 +216,7 @@ function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
+  // Use CSS variables from index.html for consistency
   card.style.cssText = 'background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:var(--text)';
   card.innerHTML = html;
   wrap.appendChild(card);
