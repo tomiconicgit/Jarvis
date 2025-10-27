@@ -58,12 +58,15 @@ const Editor = {
         // Update orbit target to the center of the new selection
         const box = new THREE.Box3().setFromObject(mesh);
         const center = box.getCenter(new THREE.Vector3());
-        controls.target.copy(center); // <-- This line updates the target
+        controls.target.copy(center); // <-- Fixes target on selection
       }
       bus.emit('selection-changed', selected);
     }
 
     container.addEventListener('pointerdown', e=>{
+      // Prevent selection changes if interacting with gizmo
+      if (gizmo.dragging) return;
+
       const rect=renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
       pointer.y = -((e.clientY-rect.top)/rect.height)*2+1;
@@ -150,7 +153,7 @@ const Editor = {
       if (selected) {
           const box = new THREE.Box3().setFromObject(selected);
           const center = box.getCenter(new THREE.Vector3());
-          controls.target.copy(center); // <-- This line updates the target
+          controls.target.copy(center); // <-- Fixes target on UI transform
       }
       gizmo.attach(selected);
       // --- End Fix ---
