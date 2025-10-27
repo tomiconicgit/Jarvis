@@ -1,91 +1,37 @@
-// materials.js — full transform + material controls; texture upload + procedural choices
+// materials.js — full transform + material controls; texture upload + procedural + advanced geometry
 import * as THREE from 'three';
 
-// --- Helper function to link a slider and a number input ---
+/* small helpers */
 function bindSliderAndNumber(root, sliderId, numberId, fixed = 2) {
   const slider = root.querySelector('#' + sliderId);
   const number = root.querySelector('#' + numberId);
   if (!slider || !number) return;
-
-  // Update number when slider changes
-  slider.addEventListener('input', () => {
-    number.value = parseFloat(slider.value).toFixed(fixed);
-  });
-
-  // Update slider when number changes
-  number.addEventListener('input', () => {
-    slider.value = parseFloat(number.value);
-  });
+  slider.addEventListener('input', () => { number.value = parseFloat(slider.value).toFixed(fixed); number.dispatchEvent(new Event('input')); });
+  number.addEventListener('input', () => { slider.value = parseFloat(number.value); slider.dispatchEvent(new Event('input')); });
 }
-
-// --- Helper to set value for both slider and number input ---
 function setSliderAndNumber(root, baseId, value, fixed = 2) {
-  const slider = root.querySelector(`#${baseId}_slider`);
-  const number = root.querySelector(`#${baseId}_num`);
-  if (slider) slider.value = value;
-  if (number) number.value = parseFloat(value).toFixed(fixed);
+  const s = root.querySelector(`#${baseId}_slider`);
+  const n = root.querySelector(`#${baseId}_num`);
+  if (s) s.value = value;
+  if (n) n.value = parseFloat(value).toFixed(fixed);
 }
 
 export default {
   init(root, bus, editor){
-    // --- Rebuilt HTML with 3-column layout and removed "Apply" for Transform ---
     root.innerHTML = `
       <div class="group">
         <h3>Transform</h3>
-        <div class="row">
-          <label>Pos X</label>
-          <input id="tx_slider" type="range" min="-50" max="50" step="0.1" value="0"/>
-          <input id="tx_num" type="number" step="0.1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Pos Y</label>
-          <input id="ty_slider" type="range" min="-50" max="50" step="0.1" value="0"/>
-          <input id="ty_num" type="number" step="0.1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Pos Z</label>
-          <input id="tz_slider" type="range" min="-50" max="50" step="0.1" value="0"/>
-          <input id="tz_num" type="number" step="0.1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Tilt (X)°</label>
-          <input id="rx_slider" type="range" min="-180" max="180" step="1" value="0"/>
-          <input id="rx_num" type="number" step="1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Rotate (Y)°</label>
-          <input id="ry_slider" type="range" min="-180" max="180" step="1" value="0"/>
-          <input id="ry_num" type="number" step="1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Tilt (Z)°</label>
-          <input id="rz_slider" type="range" min="-180" max="180" step="1" value="0"/>
-          <input id="rz_num" type="number" step="1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Scale X</label>
-          <input id="sx_slider" type="range" min="0.01" max="10" step="0.01" value="1"/>
-          <input id="sx_num" type="number" step="0.01" value="1"/>
-        </div>
-        <div class="row">
-          <label>Scale Y</label>
-          <input id="sy_slider" type="range" min="0.01" max="10" step="0.01" value="1"/>
-          <input id="sy_num" type="number" step="0.01" value="1"/>
-        </div>
-        <div class="row">
-          <label>Scale Z</label>
-          <input id="sz_slider" type="range" min="0.01" max="10" step="0.01" value="1"/>
-          <input id="sz_num" type="number" step="0.01" value="1"/>
-        </div>
-        <div class="row">
-          <label>Uniform</label>
-          <input id="su_slider" type="range" min="0.01" max="10" step="0.01" value="1"/>
-          <input id="su_num" type="number" step="0.01" value="1"/>
-        </div>
-        <div class="row simple">
-          <label>Gizmo Mode</label>
-          <select id="gmode"><option value="translate">Translate</option><option value="rotate">Rotate</option><option value="scale">Scale</option></select>
-        </div>
+        <div class="row"><label>Pos X</label><input id="tx_slider" type="range" min="-50" max="50" step="0.1" value="0"/><input id="tx_num" type="number" step="0.1" value="0"/></div>
+        <div class="row"><label>Pos Y</label><input id="ty_slider" type="range" min="-50" max="50" step="0.1" value="0"/><input id="ty_num" type="number" step="0.1" value="0"/></div>
+        <div class="row"><label>Pos Z</label><input id="tz_slider" type="range" min="-50" max="50" step="0.1" value="0"/><input id="tz_num" type="number" step="0.1" value="0"/></div>
+        <div class="row"><label>Tilt X°</label><input id="rx_slider" type="range" min="-180" max="180" step="1" value="0"/><input id="rx_num" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Rotate Y°</label><input id="ry_slider" type="range" min="-180" max="180" step="1" value="0"/><input id="ry_num" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Tilt Z°</label><input id="rz_slider" type="range" min="-180" max="180" step="1" value="0"/><input id="rz_num" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Scale X</label><input id="sx_slider" type="range" min="0.01" max="10" step="0.01" value="1"/><input id="sx_num" type="number" step="0.01" value="1"/></div>
+        <div class="row"><label>Scale Y</label><input id="sy_slider" type="range" min="0.01" max="10" step="0.01" value="1"/><input id="sy_num" type="number" step="0.01" value="1"/></div>
+        <div class="row"><label>Scale Z</label><input id="sz_slider" type="range" min="0.01" max="10" step="0.01" value="1"/><input id="sz_num" type="number" step="0.01" value="1"/></div>
+        <div class="row"><label>Uniform</label><input id="su_slider" type="range" min="0.01" max="10" step="0.01" value="1"/><input id="su_num" type="number" step="0.01" value="1"/></div>
+        <div class="row simple"><label>Gizmo Mode</label><select id="gmode"><option value="translate">Translate</option><option value="rotate">Rotate</option><option value="scale">Scale</option></select></div>
         <div style="display:flex;gap:8px;margin-top:6px;"><button id="frame">Frame</button></div>
       </div>
 
@@ -95,283 +41,142 @@ export default {
         <div class="row simple"><label>Wireframe</label><select id="wire"><option>No</option><option>Yes</option></select></div>
         <div class="row simple"><label>Cast Shadows</label><select id="cast"><option>Yes</option><option>No</option></select></div>
         <div class="row simple"><label>Receive Shadows</label><select id="recv"><option>Yes</option><option>No</option></select></div>
-        <div class="row">
-          <label>Metalness</label>
-          <input id="metal_slider" type="range" min="0" max="1" step="0.01" value="0.1"/>
-          <input id="metal_num" type="number" step="0.01" value="0.1"/>
-        </div>
-        <div class="row">
-          <label>Roughness</label>
-          <input id="rough_slider" type="range" min="0" max="1" step="0.01" value="0.4"/>
-          <input id="rough_num" type="number" step="0.01" value="0.4"/>
-        </div>
-        <div class="row">
-          <label>Emissive</label>
-          <input id="emis_slider" type="range" min="0" max="3" step="0.01" value="0"/>
-          <input id="emis_num" type="number" step="0.01" value="0"/>
-        </div>
+        <div class="row"><label>Metalness</label><input id="metal_slider" type="range" min="0" max="1" step="0.01" value="0.1"/><input id="metal_num" type="number" step="0.01" value="0.1"/></div>
+        <div class="row"><label>Roughness</label><input id="rough_slider" type="range" min="0" max="1" step="0.01" value="0.4"/><input id="rough_num" type="number" step="0.01" value="0.4"/></div>
+        <div class="row"><label>Emissive</label><input id="emis_slider" type="range" min="0" max="3" step="0.01" value="0"/><input id="emis_num" type="number" step="0.01" value="0"/></div>
         <div class="row simple"><label>Emissive Color</label><input id="emisC" type="color" value="#000000"/></div>
       </div>
 
       <div class="group">
         <h3>Texture</h3>
         <div class="row simple"><label>Upload (map)</label><input id="texUpload" type="file" accept="image/*"/></div>
-        <div class="row simple"><label>Procedural</label>
-          <select id="proc"><option value="none">None</option><option value="checker">Checker</option><option value="noise">Noise</option></select>
-        </div>
+        <div class="row simple"><label>Procedural</label><select id="proc"><option value="none">None</option><option value="checker">Checker</option><option value="noise">Noise</option></select></div>
         <small class="note">Uploading an image overrides procedural.</small>
       </div>
 
       <div class="group">
-        <h3>Deformers</h3>
-        <div class="row">
-          <label>Twist (Y-axis)</label>
-          <input id="deform_twist_slider" type="range" min="-360" max="360" step="1" value="0"/>
-          <input id="deform_twist_num" type="number" step="1" value="0"/>
-        </div>
-        <div class="row">
-          <label>Taper (Y-axis)</label>
-          <input id="deform_taper_slider" type="range" min="0" max="3" step="0.01" value="1"/>
-          <input id="deform_taper_num" type="number" step="0.01" value="1"/>
-        </div>
-        <div class="row">
-          <label>Noise</label>
-          <input id="deform_noise_slider" type="range" min="0" max="1" step="0.01" value="0"/>
-          <input id="deform_noise_num" type="number" step="0.01" value="0"/>
-        </div>
+        <h3>Advanced Geometry</h3>
+        <div id="geometry-controls"><small class="note">Select a primitive to edit base geometry.</small></div>
+        <div class="row"><label>Hollow (thickness)</label><input id="adv_hollow_slider" type="range" min="0" max="0.5" step="0.01" value="0"/><input id="adv_hollow_num" type="number" step="0.01" value="0"/></div>
+        <div class="row"><label>Slant X (shear)</label><input id="adv_shearX_slider" type="range" min="-0.5" max="0.5" step="0.005" value="0"/><input id="adv_shearX_num" type="number" step="0.005" value="0"/></div>
+        <div class="row"><label>Slant Z (shear)</label><input id="adv_shearZ_slider" type="range" min="-0.5" max="0.5" step="0.005" value="0"/><input id="adv_shearZ_num" type="number" step="0.005" value="0"/></div>
+        <div class="row"><label>Twist (°)</label><input id="deform_twist_slider" type="range" min="-360" max="360" step="1" value="0"/><input id="deform_twist_num" type="number" step="1" value="0"/></div>
+        <div class="row"><label>Taper (Y)</label><input id="deform_taper_slider" type="range" min="0" max="3" step="0.01" value="1"/><input id="deform_taper_num" type="number" step="0.01" value="1"/></div>
+        <div class="row"><label>Noise</label><input id="deform_noise_slider" type="range" min="0" max="1" step="0.01" value="0"/><input id="deform_noise_num" type="number" step="0.01" value="0"/></div>
       </div>
 
       <div class="group">
         <h3>Base Geometry</h3>
-        <div id="geometry-controls">
-          <small class="note">Select a primitive (Box, Sphere, etc.) to see its geometry options.</small>
-        </div>
+        <div id="base-geo"></div>
       </div>
     `;
 
-    // --- Geometry controls ---
-    const geoControls = root.querySelector('#geometry-controls');
+    const geoControls = root.querySelector('#base-geo');
+
+    /* ---------- base geometry UI ---------- */
+    function updateGeometryUI(obj) {
+      if (!obj || !obj.userData.geometryParams) {
+        geoControls.innerHTML = '<small class="note">Select a primitive (Box, Sphere, Cylinder, Plane) to see geometry options. Imported meshes are not parametric.</small>';
+        return;
+      }
+      const p = obj.userData.geometryParams;
+      let html = '';
+
+      if (p.type === 'box') {
+        html = `
+          <div class="row"><label>Width</label><input id="geo_width_slider" type="range" min="0.1" max="50" step="0.1" value="${p.width}"/><input id="geo_width_num" type="number" step="0.1" value="${p.width}"/></div>
+          <div class="row"><label>Height</label><input id="geo_height_slider" type="range" min="0.1" max="50" step="0.1" value="${p.height}"/><input id="geo_height_num" type="number" step="0.1" value="${p.height}"/></div>
+          <div class="row"><label>Depth</label><input id="geo_depth_slider" type="range" min="0.1" max="50" step="0.1" value="${p.depth}"/><input id="geo_depth_num" type="number" step="0.1" value="${p.depth}"/></div>
+        `;
+      } else if (p.type === 'sphere') {
+        html = `
+          <div class="row"><label>Radius</label><input id="geo_radius_slider" type="range" min="0.1" max="50" step="0.1" value="${p.radius}"/><input id="geo_radius_num" type="number" step="0.1" value="${p.radius}"/></div>
+          <div class="row"><label>Width Segs</label><input id="geo_wsegs_slider" type="range" min="3" max="128" step="1" value="${p.widthSegments}"/><input id="geo_wsegs_num" type="number" step="1" value="${p.widthSegments}"/></div>
+          <div class="row"><label>Height Segs</label><input id="geo_hsegs_slider" type="range" min="2" max="128" step="1" value="${p.heightSegments}"/><input id="geo_hsegs_num" type="number" step="1" value="${p.heightSegments}"/></div>
+        `;
+      } else if (p.type === 'cylinder') {
+        html = `
+          <div class="row"><label>Radius Top</label><input id="geo_rtop_slider" type="range" min="0" max="50" step="0.1" value="${p.radiusTop}"/><input id="geo_rtop_num" type="number" step="0.1" value="${p.radiusTop}"/></div>
+          <div class="row"><label>Radius Bot</label><input id="geo_rbot_slider" type="range" min="0" max="50" step="0.1" value="${p.radiusBottom}"/><input id="geo_rbot_num" type="number" step="0.1" value="${p.radiusBottom}"/></div>
+          <div class="row"><label>Height</label><input id="geo_height_slider" type="range" min="0.1" max="100" step="0.1" value="${p.height}"/><input id="geo_height_num" type="number" step="0.1" value="${p.height}"/></div>
+          <div class="row"><label>Radial Segs</label><input id="geo_rsegs_slider" type="range" min="3" max="128" step="1" value="${p.radialSegments}"/><input id="geo_rsegs_num" type="number" step="1" value="${p.radialSegments}"/></div>
+        `;
+      } else if (p.type === 'plane') {
+        html = `
+          <div class="row"><label>Width</label><input id="geo_width_slider" type="range" min="0.1" max="100" step="0.1" value="${p.width}"/><input id="geo_width_num" type="number" step="0.1" value="${p.width}"/></div>
+          <div class="row"><label>Height</label><input id="geo_height_slider" type="range" min="0.1" max="100" step="0.1" value="${p.height}"/><input id="geo_height_num" type="number" step="0.1" value="${p.height}"/></div>
+        `;
+      }
+
+      geoControls.innerHTML = html;
+
+      // bind and push on input
+      const ids = [];
+      if (p.type==='box'){ ids.push('geo_width','geo_height','geo_depth'); }
+      if (p.type==='sphere'){ ids.push('geo_radius','geo_wsegs','geo_hsegs'); }
+      if (p.type==='cylinder'){ ids.push('geo_rtop','geo_rbot','geo_height','geo_rsegs'); }
+      if (p.type==='plane'){ ids.push('geo_width','geo_height'); }
+      ids.forEach(base=>{
+        bindSliderAndNumber(root, `${base}_slider`, `${base}_num`, base.includes('segs')?0:1);
+        root.querySelector(`#${base}_slider`)?.addEventListener('input', pushGeometryChanges);
+        root.querySelector(`#${base}_num`)?.addEventListener('input', pushGeometryChanges);
+      });
+    }
 
     function pushGeometryChanges(){
-        const obj = editor.selected;
-        if (!obj || !obj.userData.geometryParams) return;
+      const obj = editor.selected; if (!obj || !obj.userData.geometryParams) return;
 
-        const params = obj.userData.geometryParams;
-        const newParams = { ...params }; // copy
+      // base params
+      const p = { ...obj.userData.geometryParams };
+      const v = id => parseFloat(root.querySelector('#'+id)?.value ?? p[id]);
 
-        // 1. Read Base Geometry Params
-        try {
-            if (params.type === 'box') {
-                newParams.width = +val('geo_width_num');
-                newParams.height = +val('geo_height_num');
-                newParams.depth = +val('geo_depth_num');
-            } else if (params.type === 'sphere') {
-                newParams.radius = +val('geo_radius_num');
-                newParams.widthSegments = Math.max(3, +val('geo_wsegs_num'));
-                newParams.heightSegments = Math.max(2, +val('geo_hsegs_num'));
-            } else if (params.type === 'cylinder') {
-                newParams.radiusTop = +val('geo_rtop_num');
-                newParams.radiusBottom = +val('geo_rbot_num');
-                newParams.height = +val('geo_height_num');
-                newParams.radialSegments = Math.max(3, +val('geo_rsegs_num'));
-            } else if (params.type === 'plane') {
-                newParams.width = +val('geo_width_num');
-                newParams.height = +val('geo_height_num');
-            }
-        } catch (err) {
-            console.error("Error reading base geometry params:", err);
-            return;
-        }
+      if (p.type==='box'){ p.width=v('geo_width_num'); p.height=v('geo_height_num'); p.depth=v('geo_depth_num'); }
+      if (p.type==='sphere'){ p.radius=v('geo_radius_num'); p.widthSegments=Math.max(3, v('geo_wsegs_num')); p.heightSegments=Math.max(2, v('geo_hsegs_num')); }
+      if (p.type==='cylinder'){
+        p.radiusTop=v('geo_rtop_num'); p.radiusBottom=v('geo_rbot_num');
+        p.height=v('geo_height_num'); p.radialSegments=Math.max(3, v('geo_rsegs_num'));
+      }
+      if (p.type==='plane'){ p.width=v('geo_width_num'); p.height=v('geo_height_num'); }
 
-        // 2. Read Deformer Params
-        const deformParams = {
-            twist: +val('deform_twist_num'),
-            taper: +val('deform_taper_num'),
-            noise: +val('deform_noise_num')
-        };
+      // deformers / advanced
+      const deform = {
+        hollow: +root.querySelector('#adv_hollow_num').value,
+        shearX: +root.querySelector('#adv_shearX_num').value,
+        shearZ: +root.querySelector('#adv_shearZ_num').value,
+        twist:  +root.querySelector('#deform_twist_num').value,
+        taper:  +root.querySelector('#deform_taper_num').value,
+        noise:  +root.querySelector('#deform_noise_num').value
+      };
 
-        // 3. Emit event for editor to rebuild
-        bus.emit('rebuild-geometry', { base: newParams, deform: deformParams });
+      bus.emit('rebuild-geometry', { base: p, deform });
     }
 
-    function updateGeometryUI(obj) {
-        if (!obj || !obj.userData.geometryParams) {
-            geoControls.innerHTML = '<small class="note">Select a primitive (Box, Sphere, etc.) to see its geometry options. Imported models cannot be modified this way.</small>';
-            return;
-        }
+    /* ---------- binds ---------- */
 
-        const params = obj.userData.geometryParams;
-        let html = '';
-
-        if (params.type === 'box') {
-            html = `
-                <div class="row">
-                  <label>Width</label>
-                  <input id="geo_width_slider" type="range" min="0.1" max="20" step="0.1" value="${params.width}"/>
-                  <input id="geo_width_num" type="number" step="0.1" value="${params.width}"/>
-                </div>
-                <div class="row">
-                  <label>Height</label>
-                  <input id="geo_height_slider" type="range" min="0.1" max="20" step="0.1" value="${params.height}"/>
-                  <input id="geo_height_num" type="number" step="0.1" value="${params.height}"/>
-                </div>
-                <div class="row">
-                  <label>Depth</label>
-                  <input id="geo_depth_slider" type="range" min="0.1" max="20" step="0.1" value="${params.depth}"/>
-                  <input id="geo_depth_num" type="number" step="0.1" value="${params.depth}"/>
-                </div>
-            `;
-        } else if (params.type === 'sphere') {
-            html = `
-                <div class="row">
-                  <label>Radius</label>
-                  <input id="geo_radius_slider" type="range" min="0.1" max="20" step="0.1" value="${params.radius}"/>
-                  <input id="geo_radius_num" type="number" step="0.1" value="${params.radius}"/>
-                </div>
-                <div class="row">
-                  <label>Width Segs</label>
-                  <input id="geo_wsegs_slider" type="range" min="3" max="64" step="1" value="${params.widthSegments}"/>
-                  <input id="geo_wsegs_num" type="number" step="1" value="${params.widthSegments}"/>
-                </div>
-                <div class="row">
-                  <label>Height Segs</label>
-                  <input id="geo_hsegs_slider" type="range" min="2" max="64" step="1" value="${params.heightSegments}"/>
-                  <input id="geo_hsegs_num" type="number" step="1" value="${params.heightSegments}"/>
-                </div>
-            `;
-        } else if (params.type === 'cylinder') {
-            html = `
-                <div class="row">
-                  <label>Radius Top</label>
-                  <input id="geo_rtop_slider" type="range" min="0" max="20" step="0.1" value="${params.radiusTop}"/>
-                  <input id="geo_rtop_num" type="number" step="0.1" value="${params.radiusTop}"/>
-                </div>
-                <div class="row">
-                  <label>Radius Bot</label>
-                  <input id="geo_rbot_slider" type="range" min="0" max="20" step="0.1" value="${params.radiusBottom}"/>
-                  <input id="geo_rbot_num" type="number" step="0.1" value="${params.radiusBottom}"/>
-                </div>
-                <div class="row">
-                  <label>Height</label>
-                  <input id="geo_height_slider" type="range" min="0.1" max="20" step="0.1" value="${params.height}"/>
-                  <input id="geo_height_num" type="number" step="0.1" value="${params.height}"/>
-                </div>
-                <div class="row">
-                  <label>Radial Segs</label>
-                  <input id="geo_rsegs_slider" type="range" min="3" max="64" step="1" value="${params.radialSegments}"/>
-                  <input id="geo_rsegs_num" type="number" step="1" value="${params.radialSegments}"/>
-                </div>
-            `;
-        } else if (params.type === 'plane') {
-            html = `
-                <div class="row">
-                  <label>Width</label>
-                  <input id="geo_width_slider" type="range" min="0.1" max="20" step="0.1" value="${params.width}"/>
-                  <input id="geo_width_num" type="number" step="0.1" value="${params.width}"/>
-                </div>
-                <div class="row">
-                  <label>Height</label>
-                  <input id="geo_height_slider" type="range" min="0.1" max="20" step="0.1" value="${params.height}"/>
-                  <input id="geo_height_num" type="number" step="0.1" value="${params.height}"/>
-                </div>
-            `;
-        }
-
-        if (html) {
-            html += '<div style="margin-top:6px;"><button id="applyGeometry" class="primary">Apply Geometry</button></div>';
-        }
-
-        geoControls.innerHTML = html;
-
-        if(html) {
-          root.querySelector('#applyGeometry').addEventListener('click', pushGeometryChanges);
-          // Bind new sliders
-          if (params.type === 'box') {
-            bindSliderAndNumber(root, 'geo_width_slider', 'geo_width_num', 1);
-            bindSliderAndNumber(root, 'geo_height_slider', 'geo_height_num', 1);
-            bindSliderAndNumber(root, 'geo_depth_slider', 'geo_depth_num', 1);
-          } else if (params.type === 'sphere') {
-            bindSliderAndNumber(root, 'geo_radius_slider', 'geo_radius_num', 1);
-            bindSliderAndNumber(root, 'geo_wsegs_slider', 'geo_wsegs_num', 0);
-            bindSliderAndNumber(root, 'geo_hsegs_slider', 'geo_hsegs_num', 0);
-          } else if (params.type === 'cylinder') {
-            bindSliderAndNumber(root, 'geo_rtop_slider', 'geo_rtop_num', 1);
-            bindSliderAndNumber(root, 'geo_rbot_slider', 'geo_rbot_num', 1);
-            bindSliderAndNumber(root, 'geo_height_slider', 'geo_height_num', 1);
-            bindSliderAndNumber(root, 'geo_rsegs_slider', 'geo_rsegs_num', 0);
-          } else if (params.type === 'plane') {
-            bindSliderAndNumber(root, 'geo_width_slider', 'geo_width_num', 1);
-            bindSliderAndNumber(root, 'geo_height_slider', 'geo_height_num', 1);
-          }
-        }
-    }
-    // --- End Geometry controls ---
-
-    // Bind all sliders to their number inputs
-    // Transform
-    bindSliderAndNumber(root, 'tx_slider', 'tx_num', 1);
-    bindSliderAndNumber(root, 'ty_slider', 'ty_num', 1);
-    bindSliderAndNumber(root, 'tz_slider', 'tz_num', 1);
-    bindSliderAndNumber(root, 'rx_slider', 'rx_num', 0);
-    bindSliderAndNumber(root, 'ry_slider', 'ry_num', 0);
-    bindSliderAndNumber(root, 'rz_slider', 'rz_num', 0);
-    bindSliderAndNumber(root, 'sx_slider', 'sx_num', 2);
-    bindSliderAndNumber(root, 'sy_slider', 'sy_num', 2);
-    bindSliderAndNumber(root, 'sz_slider', 'sz_num', 2);
-    bindSliderAndNumber(root, 'su_slider', 'su_num', 2);
-    // Material
-    bindSliderAndNumber(root, 'metal_slider', 'metal_num', 2);
-    bindSliderAndNumber(root, 'rough_slider', 'rough_num', 2);
-    bindSliderAndNumber(root, 'emis_slider', 'emis_num', 2);
-    // Deformers
-    bindSliderAndNumber(root, 'deform_twist_slider', 'deform_twist_num', 0);
-    bindSliderAndNumber(root, 'deform_taper_slider', 'deform_taper_num', 2);
-    bindSliderAndNumber(root, 'deform_noise_slider', 'deform_noise_num', 2);
-
-
-    /* transform + material apply */
+    // transform — live
+    [
+      'tx','ty','tz','rx','ry','rz','sx','sy','sz','su'
+    ].forEach(base=>{
+      bindSliderAndNumber(root, `${base}_slider`, `${base}_num`, base.startsWith('s')?2:(base.startsWith('r')?0:1));
+      root.querySelector(`#${base}_slider`)?.addEventListener('input', pushTransform);
+      root.querySelector(`#${base}_num`)?.addEventListener('input', pushTransform);
+    });
     function readTransform(){
       return {
-        position: { x: +val('tx_num'), y: +val('ty_num'), z: +val('tz_num') },
-        rotation: { x: +val('rx_num'), y: +val('ry_num'), z: +val('rz_num') },
-        scale:    byUniform() ? { uniform:+val('su_num') } : { x:+val('sx_num'), y:+val('sy_num'), z:+val('sz_num') }
+        position: { x:+val('tx_num'), y:+val('ty_num'), z:+val('tz_num') },
+        rotation: { x:+val('rx_num'), y:+val('ry_num'), z:+val('rz_num') },
+        scale: Math.abs(+val('su_num')-1) > 1e-6
+          ? { uniform:+val('su_num') }
+          : { x:+val('sx_num'), y:+val('sy_num'), z:+val('sz_num') }
       };
     }
     function val(id){ return root.querySelector('#'+id).value; }
-    function byUniform(){ return Math.abs(+val('su_num')-1) > 1e-6; }
-
-    // --- (LIVE UPDATES) Wire transform sliders to update live ---
-    const transformIds = [
-      'tx_slider', 'tx_num', 'ty_slider', 'ty_num', 'tz_slider', 'tz_num',
-      'rx_slider', 'rx_num', 'ry_slider', 'ry_num', 'rz_slider', 'rz_num',
-      'sx_slider', 'sx_num', 'sy_slider', 'sy_num', 'sz_slider', 'sz_num',
-      'su_slider', 'su_num'
-    ];
-
-    function pushTransform() {
-      bus.emit('transform-update', readTransform());
-    }
-
-    transformIds.forEach(id => {
-      root.querySelector('#' + id)?.addEventListener('input', pushTransform);
-    });
+    function pushTransform(){ bus.emit('transform-update', readTransform()); }
 
     root.querySelector('#frame').addEventListener('click', ()=> bus.emit('frame-selection'));
     root.querySelector('#gmode').addEventListener('change', e=> bus.emit('set-gizmo', e.target.value));
 
-    // --- (LIVE UPDATES) Wire deformer sliders to update live ---
-    const deformerIds = [
-      'deform_twist_slider', 'deform_twist_num',
-      'deform_taper_slider', 'deform_taper_num',
-      'deform_noise_slider', 'deform_noise_num'
-    ];
-
-    deformerIds.forEach(id => {
-      root.querySelector('#' + id)?.addEventListener('input', pushGeometryChanges);
-    });
-
-
-    // material bindings
+    // material — live
     function pushMaterial(){
       const payload = {
         color: val('mColor'),
@@ -381,19 +186,18 @@ export default {
         metalness: +val('metal_num'),
         roughness: +val('rough_num'),
         emissive: +val('emis_num'),
-        emissiveColor: val('emisC')
+        emissiveColor: val('emisC'),
+        map: uploadedTex || proceduralMap()
       };
-      if (uploadedTex) payload.map = uploadedTex;
-      else payload.map = proceduralMap();
       bus.emit('material-update', payload);
     }
-    // Add listeners to all number inputs and sliders
-    ['mColor','wire','cast','recv','emisC'].forEach(id => {
-        root.querySelector('#'+id)?.addEventListener('input', pushMaterial);
+    ['mColor','wire','cast','recv','emisC'].forEach(id=>{
+      root.querySelector('#'+id)?.addEventListener('input', pushMaterial);
     });
-    ['metal', 'rough', 'emis'].forEach(id => {
-        root.querySelector(`#${id}_slider`)?.addEventListener('input', pushMaterial);
-        root.querySelector(`#${id}_num`)?.addEventListener('input', pushMaterial);
+    ['metal','rough','emis'].forEach(id=>{
+      bindSliderAndNumber(root, `${id}_slider`, `${id}_num`, 2);
+      root.querySelector(`#${id}_slider`)?.addEventListener('input', pushMaterial);
+      root.querySelector(`#${id}_num`)?.addEventListener('input', pushMaterial);
     });
 
     // textures
@@ -408,22 +212,27 @@ export default {
       });
     });
     root.querySelector('#proc').addEventListener('change', ()=>{ uploadedTex = null; pushMaterial(); });
-
     function proceduralMap(){
       const mode = val('proc');
-      if (mode==='checker') return makeChecker(512, 512, 32);
-      if (mode==='noise')   return makeNoise(512, 512);
+      if (mode==='checker') return makeChecker(512,512,32);
+      if (mode==='noise')   return makeNoise(512,512);
       return null;
     }
 
-    // update UI when selection changes
+    // advanced geometry binds
+    ['adv_hollow','adv_shearX','adv_shearZ','deform_twist','deform_taper','deform_noise'].forEach(base=>{
+      bindSliderAndNumber(root, `${base}_slider`, `${base}_num`, base.includes('twist')?0: (base.includes('taper')||base.includes('hollow')?2:3));
+      root.querySelector(`#${base}_slider`)?.addEventListener('input', pushGeometryChanges);
+      root.querySelector(`#${base}_num`)?.addEventListener('input', pushGeometryChanges);
+    });
+
+    /* update UI on selection */
     function fillFromSelection(obj){
       if (!obj) {
-        updateGeometryUI(null); // Clear geometry panel
+        updateGeometryUI(null);
         return;
       }
-
-      // Transform
+      // transform snapshot
       setSliderAndNumber(root, 'tx', obj.position.x, 1);
       setSliderAndNumber(root, 'ty', obj.position.y, 1);
       setSliderAndNumber(root, 'tz', obj.position.z, 1);
@@ -433,9 +242,9 @@ export default {
       setSliderAndNumber(root, 'sx', obj.scale.x, 2);
       setSliderAndNumber(root, 'sy', obj.scale.y, 2);
       setSliderAndNumber(root, 'sz', obj.scale.z, 2);
-      setSliderAndNumber(root, 'su', 1, 2); // Reset uniform slider
+      setSliderAndNumber(root, 'su', 1, 2);
 
-      // Material
+      // material
       let mat = null;
       obj.traverse(o=>{ if(!mat && o.isMesh) mat = o.material; });
       if (mat){
@@ -449,16 +258,20 @@ export default {
         root.querySelector('#emisC').value = '#'+(mat.emissive?.getHexString?.() || '000000');
       }
 
-      // Update geometry and deformer panels
+      // base + advanced geometry
       updateGeometryUI(obj);
-      const dParams = obj.userData.deformParams || { twist: 0, taper: 1, noise: 0 };
-      setSliderAndNumber(root, 'deform_twist', dParams.twist, 0);
-      setSliderAndNumber(root, 'deform_taper', dParams.taper, 2);
-      setSliderAndNumber(root, 'deform_noise', dParams.noise, 2);
+      const d = obj.userData.deformParams || { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
+      setSliderAndNumber(root, 'adv_hollow', d.hollow, 2);
+      setSliderAndNumber(root, 'adv_shearX', d.shearX, 3);
+      setSliderAndNumber(root, 'adv_shearZ', d.shearZ, 3);
+      setSliderAndNumber(root, 'deform_twist', d.twist, 0);
+      setSliderAndNumber(root, 'deform_taper', d.taper, 2);
+      setSliderAndNumber(root, 'deform_noise', d.noise, 2);
     }
 
+    bindSliderAndNumber(root, 'tx_slider','tx_num',1); // already bound above; harmless
+
     bus.on('selection-changed', obj => fillFromSelection(obj));
-    // initial fill if something selected later
     if (editor.selected) fillFromSelection(editor.selected);
   }
 };
@@ -477,7 +290,8 @@ function makeChecker(w,h,size=16){
 }
 function makeNoise(w,h){
   const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d');
-  const img=g.createImageData(w,h); for(let i=0;i<img.data.length;i+=4){ const v=180+Math.random()*50|0; img.data[i]=v; img.data[i+1]=v; img.data[i+2]=v; img.data[i+3]=255; }
+  const img=g.createImageData(w,h);
+  for(let i=0;i<img.data.length;i+=4){ const v=180+Math.random()*50|0; img.data[i]=v; img.data[i+1]=v; img.data[i+2]=v; img.data[i+3]=255; }
   g.putImageData(img,0,0);
   const tex=new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
 }
