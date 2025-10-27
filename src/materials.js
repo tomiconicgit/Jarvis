@@ -28,7 +28,7 @@ function setSliderAndNumber(root, baseId, value, fixed = 2) {
 
 export default {
   init(root, bus, editor){
-    // --- (CHANGED) Removed "Apply" button from Transform HTML ---
+    // --- Rebuilt HTML with 3-column layout and removed "Apply" for Transform ---
     root.innerHTML = `
       <div class="group">
         <h3>Transform</h3>
@@ -158,7 +158,7 @@ export default {
 
         const params = obj.userData.geometryParams;
         const newParams = { ...params }; // copy
-        
+
         // 1. Read Base Geometry Params
         try {
             if (params.type === 'box') {
@@ -189,7 +189,7 @@ export default {
             taper: +val('deform_taper_num'),
             noise: +val('deform_noise_num')
         };
-        
+
         // 3. Emit event for editor to rebuild
         bus.emit('rebuild-geometry', { base: newParams, deform: deformParams });
     }
@@ -282,7 +282,7 @@ export default {
         }
 
         geoControls.innerHTML = html;
-        
+
         if(html) {
           root.querySelector('#applyGeometry').addEventListener('click', pushGeometryChanges);
           // Bind new sliders
@@ -340,18 +340,18 @@ export default {
     function val(id){ return root.querySelector('#'+id).value; }
     function byUniform(){ return Math.abs(+val('su_num')-1) > 1e-6; }
 
-    // --- (CHANGED) Wire transform sliders to update live ---
+    // --- (LIVE UPDATES) Wire transform sliders to update live ---
     const transformIds = [
       'tx_slider', 'tx_num', 'ty_slider', 'ty_num', 'tz_slider', 'tz_num',
       'rx_slider', 'rx_num', 'ry_slider', 'ry_num', 'rz_slider', 'rz_num',
       'sx_slider', 'sx_num', 'sy_slider', 'sy_num', 'sz_slider', 'sz_num',
       'su_slider', 'su_num'
     ];
-    
+
     function pushTransform() {
       bus.emit('transform-update', readTransform());
     }
-    
+
     transformIds.forEach(id => {
       root.querySelector('#' + id)?.addEventListener('input', pushTransform);
     });
@@ -359,13 +359,13 @@ export default {
     root.querySelector('#frame').addEventListener('click', ()=> bus.emit('frame-selection'));
     root.querySelector('#gmode').addEventListener('change', e=> bus.emit('set-gizmo', e.target.value));
 
-    // --- (CHANGED) Wire deformer sliders to update live ---
+    // --- (LIVE UPDATES) Wire deformer sliders to update live ---
     const deformerIds = [
       'deform_twist_slider', 'deform_twist_num',
       'deform_taper_slider', 'deform_taper_num',
       'deform_noise_slider', 'deform_noise_num'
     ];
-    
+
     deformerIds.forEach(id => {
       root.querySelector('#' + id)?.addEventListener('input', pushGeometryChanges);
     });
@@ -422,7 +422,7 @@ export default {
         updateGeometryUI(null); // Clear geometry panel
         return;
       }
-      
+
       // Transform
       setSliderAndNumber(root, 'tx', obj.position.x, 1);
       setSliderAndNumber(root, 'ty', obj.position.y, 1);
