@@ -224,7 +224,7 @@ function popup(anchor, items){
 
 /* ---- Export helper ---- */
 function exportGLB(root, opts, baseName='iconic_scene'){
-  const exporter = new GLTFLoader();
+  const exporter = new GLTFExporter(); // <-- (BUG FIX) Was GLTFLoader
   exporter.parse(root, (result)=>{
     const ext = opts.binary ? 'glb' : 'gltf';
     const data = opts.binary ? result : JSON.stringify(result);
