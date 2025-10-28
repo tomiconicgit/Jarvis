@@ -1,12 +1,11 @@
-// editor.js — renderer / scene / camera / controls / selection / lighting / grid / duplicate / add-light / particle
+// editor.js — renderer / scene / camera / controls / selection / lighting / grid
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const Editor = {
   init(container, bus){
-    // -------- renderer (recreatable) --------
+    // renderer
     let renderer = createRenderer(container);
     renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive:false });
 
@@ -21,7 +20,7 @@ const Editor = {
     );
     camera.position.set(12, 10, 16);
 
-    // controls/gizmo are rebuilt whenever renderer is recreated
+    // controls + gizmo
     let controls, gizmo;
     buildControls();
 
@@ -47,17 +46,15 @@ const Editor = {
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
     let selected = null; let boxHelper = null;
 
-    function setSelected(mesh){
-      if (selected === mesh) return;
-      selected = mesh;
+    function setSelected(obj){
+      if (selected === obj) return;
+      selected = obj;
 
       if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry?.dispose?.(); boxHelper = null; }
-
-      if (mesh) {
-        boxHelper = new THREE.BoxHelper(mesh, 0x4da3ff);
+      if (selected) {
+        boxHelper = new THREE.BoxHelper(selected, 0x4da3ff);
         scene.add(boxHelper);
-
-        const { center, radius } = boundsOf(mesh);
+        const { center, radius } = boundsOf(selected);
         controls.target.copy(center);
         clampZoomToRadius(radius);
       }
@@ -81,63 +78,7 @@ const Editor = {
       }
     });
 
-    // bus: add/remove/duplicate
-    bus.on('add-primitive', ({type})=>{
-      const m = makePrimitive(type);
-      world.add(m); setSelected(m); frame(m);
-      bus.emit('scene-updated');
-      bus.emit('history-push', `Add ${m.name||type}`);
-    });
-
-    bus.on('duplicate-selection', ()=>{
-      if (!selected) return;
-      const clone = selected.clone(true);
-      clone.name = (selected.name || selected.type) + ' Copy';
-      clone.position.add(new THREE.Vector3(0.5, 0, 0.5));
-      clone.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-      world.add(clone);
-      setSelected(clone);
-      bus.emit('scene-updated');
-      bus.emit('history-push', 'Duplicate');
-    });
-
-    bus.on('delete-selection', ()=>{
-      if (!selected) return;
-      const rootObj = selected;
-      gizmo.detach(); setSelected(null);
-      rootObj.parent?.remove(rootObj);
-      bus.emit('scene-updated');
-      bus.emit('history-push', 'Delete');
-    });
-
-    bus.on('add-light', ({type})=>{
-      let l;
-      if (type==='directional'){ l = new THREE.DirectionalLight(0xffffff, 1.0); l.position.set(6,12,6); l.castShadow = true; }
-      else if (type==='point'){ l = new THREE.PointLight(0xffffff, 1.2, 0, 2); l.position.set(0,6,0); }
-      else if (type==='spot'){ l = new THREE.SpotLight(0xffffff, 1.2, 0, Math.PI/6, 0.25, 1.0); l.position.set(4,10,4); l.target.position.set(0,0,0); world.add(l.target); }
-      else if (type==='hemisphere'){ l = new THREE.HemisphereLight(0xffffff, 0x202225, 0.7); }
-      if (l){ world.add(l); setSelected(l); bus.emit('scene-updated'); bus.emit('history-push', `Add ${type} light`); }
-    });
-
-    bus.on('add-particle', ({ type })=>{
-      const geo = new THREE.BufferGeometry();
-      const N = 500;
-      const arr = new Float32Array(N*3);
-      for (let i=0;i<N;i++){
-        const r = Math.random()*2, t = Math.random()*Math.PI*2, u = Math.random()*Math.PI*2;
-        arr[i*3+0] = Math.cos(t)*r;
-        arr[i*3+1] = (Math.random()-0.5)*2;
-        arr[i*3+2] = Math.sin(u)*r;
-      }
-      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-      const mat = new THREE.PointsMaterial({ size: 0.07, transparent:true, opacity:0.85 });
-      const pts = new THREE.Points(geo, mat);
-      pts.name = 'Particles';
-      world.add(pts); setSelected(pts);
-      bus.emit('scene-updated');
-      bus.emit('history-push', 'Add particles');
-    });
-
+    // view / gizmo events
     bus.on('frame-selection', ()=> selected && frame(selected));
     bus.on('toggle-grid', ()=> grid.visible = !grid.visible);
     bus.on('set-background', c=> { scene.background = new THREE.Color(c); });
@@ -146,29 +87,7 @@ const Editor = {
     bus.on('attach-selected', ()=> selected ? gizmo.attach(selected) : gizmo.detach());
     bus.on('detach-gizmo', ()=> gizmo.detach());
 
-    // material updates
-    bus.on('material-update', opts=>{
-      if (!selected) return;
-      selected.traverse(o=>{
-        if (o.isMesh){
-          o.castShadow = !!opts.castShadow;
-          o.receiveShadow = !!opts.receiveShadow;
-          const mat = ensureStandard(o.material);
-          mat.wireframe = !!opts.wireframe;
-          if (opts.color) mat.color.set(opts.color);
-          if (opts.metalness != null) mat.metalness = opts.metalness;
-          if (opts.roughness != null) mat.roughness = opts.roughness;
-          if (opts.emissive != null) mat.emissiveIntensity = opts.emissive;
-          if (opts.emissiveColor) mat.emissive.set(opts.emissiveColor);
-          if (opts.map !== undefined) mat.map = opts.map || null;
-          mat.needsUpdate = true;
-        }
-      });
-      bus.emit('material-updated', selected);
-      bus.emit('history-push-debounced', 'Material');
-    });
-
-    // transform from UI
+    // transforms from outside UI
     bus.on('transform-update', t=>{
       if (!selected) return;
       if (t.position){ selected.position.set(t.position.x, t.position.y, t.position.z); }
@@ -182,54 +101,15 @@ const Editor = {
         else { selected.scale.set(t.scale.x, t.scale.y, t.scale.z); }
       }
       if (boxHelper) boxHelper.update();
-
       const { center, radius } = boundsOf(selected);
       controls.target.copy(center);
       clampZoomToRadius(radius);
-
       gizmo.attach(selected);
       bus.emit('transform-changed', selected);
       bus.emit('history-push-debounced', 'Transform');
     });
 
-    // geometry & deformers
-    bus.on('rebuild-geometry', payload => {
-      if (!selected || !selected.geometry) return;
-      const { base, deform } = payload;
-      try {
-        let geo;
-        if (base.type === 'box' && (deform.edgeRadius||0) > 0){
-          const clampedR = Math.max(0, Math.min(
-            deform.edgeRadius,
-            0.5 * Math.min(base.width, base.height, base.depth) - 1e-4
-          ));
-          const segs = Math.max(1, Math.floor(deform.edgeSegments||2));
-          geo = new RoundedBoxGeometry(base.width, base.height, base.depth, segs, clampedR);
-        } else {
-          geo = createBaseGeometry(base);
-        }
-        const after = applyDeformers(geo, deform);
-
-        selected.geometry.dispose();
-        selected.geometry = after;
-        selected.userData.geometryParams = base;
-        selected.userData.deformParams   = deform;
-        selected.geometry.computeVertexNormals();
-
-        if (boxHelper) boxHelper.update();
-        const { center, radius } = boundsOf(selected);
-        controls.target.copy(center);
-        clampZoomToRadius(radius);
-
-        bus.emit('attach-selected');
-        bus.emit('scene-updated');
-        bus.emit('history-push-debounced', 'Geometry');
-      } catch (err) {
-        console.error("Error rebuilding geometry:", err);
-      }
-    });
-
-    // size management
+    // sizing
     function onResize(){
       const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -244,26 +124,20 @@ const Editor = {
     window.addEventListener('resize', onResize, { passive:true });
 
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
-      e.preventDefault();
-      rebuildRenderer();
+      e.preventDefault(); rebuildRenderer();
     }, false);
 
-    function safeRender(){
-      try { controls?.update(); renderer.render(scene, camera); }
-      catch(err){ console.error(err); }
-    }
+    function safeRender(){ try { controls?.update(); renderer.render(scene, camera); } catch(e){} }
     renderer.setAnimationLoop(safeRender);
 
     function frame(obj){
       const { center, radius } = boundsOf(obj);
       controls.target.copy(center);
-
       const dist = Math.max(1, radius * 2.2 / Math.tan((camera.fov * Math.PI/180)/2));
       camera.position.copy(center).add(new THREE.Vector3(dist, dist*0.6, dist));
       camera.near = Math.max(0.01, radius * 0.02);
       camera.far  = Math.max(2000, radius * 200);
       camera.updateProjectionMatrix();
-
       clampZoomToRadius(radius);
       if (boxHelper) boxHelper.update();
     }
@@ -271,16 +145,10 @@ const Editor = {
     function buildControls(){
       controls?.dispose();
       controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
-      controls.zoomSpeed = 0.35;
-      controls.zoomToCursor = true;
-      controls.enablePan = true;
-      controls.panSpeed = 0.6;
-      controls.rotateSpeed = 0.9;
-      controls.maxPolarAngle = Math.PI * 0.499;
-      controls.minDistance = 0.5;
-      controls.maxDistance = 500;
+      controls.enableDamping = true; controls.dampingFactor = 0.08;
+      controls.zoomSpeed = 0.35; controls.zoomToCursor = true;
+      controls.enablePan = true; controls.panSpeed = 0.6; controls.rotateSpeed = 0.9;
+      controls.maxPolarAngle = Math.PI * 0.499; controls.minDistance = 0.5; controls.maxDistance = 500;
 
       if (gizmo){ scene.remove(gizmo); }
       gizmo = new TransformControls(camera, renderer.domElement);
@@ -336,9 +204,7 @@ export default Editor;
 
 /* ---------- helpers ---------- */
 function createRenderer(container){
-  const r = new THREE.WebGLRenderer({
-    antialias:true, alpha:false, powerPreference:'high-performance', preserveDrawingBuffer:false
-  });
+  const r = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:'high-performance' });
   r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   r.setSize(Math.max(1,container.clientWidth), Math.max(1,container.clientHeight));
   r.outputColorSpace = THREE.SRGBColorSpace;
@@ -346,179 +212,14 @@ function createRenderer(container){
   container.appendChild(r.domElement);
   return r;
 }
-
 function boundsOf(obj){
   const box = new THREE.Box3().setFromObject(obj);
   const center = box.getCenter(new THREE.Vector3());
   const radius = box.getBoundingSphere(new THREE.Sphere()).radius || 1;
   return { center, radius };
 }
-
-function makePrimitive(type='box'){
-  const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
-  let geo, params;
-  let baseType = type.replace('hollow-', '');
-  let isHollow = type.startsWith('hollow-');
-  let deformParams = {
-    hollow: isHollow ? 0.2 : 0, shearX: 0, shearZ: 0, twist: 0, taper: 1, noise: 0,
-    edgeRadius: 0, edgeSegments: 2,
-    curveX: 0, curveZ: 0
-  };
-
-  if (baseType==='sphere') {
-    params = { type:'sphere', radius: 1, widthSegments: 48, heightSegments: 32 };
-    geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-  } else if (baseType==='cylinder') {
-    params = { type:'cylinder', radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
-    geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, 8, false);
-  } else if (baseType==='plane') {
-    params = { type:'plane', width: 4, height: 4 };
-    geo = new THREE.PlaneGeometry(params.width, params.height, 8, 8);
-  } else { // box
-    params = { type:'box', width: 2, height: 2, depth: 2 };
-    geo = new THREE.BoxGeometry(params.width, params.height, params.depth, 6, 6, 6);
-  }
-
-  if (isHollow) {
-    geo = applyDeformers(geo, deformParams);
-  }
-
-  const mesh = new THREE.Mesh(geo, params.type==='plane' ? mat.clone() : mat);
-  if (params.type==='plane') mesh.rotation.x = -Math.PI/2;
-
-  mesh.userData.geometryParams = params;
-  mesh.userData.deformParams = deformParams;
-  mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
-  mesh.name = (isHollow ? 'Hollow ' : '') + baseType.charAt(0).toUpperCase() + baseType.slice(1);
-  return mesh;
-}
-
-function ensureStandard(mat){
-  if (mat && mat.isMeshStandardMaterial) return mat;
-  return new THREE.MeshStandardMaterial({ color: (mat?.color||0xffffff) });
-}
-
 function applyLightingPreset(name, {hemi, key, rim, scene}){
   if (name==='Night'){ scene.background.set(0x06070a); hemi.intensity=.25; key.intensity=.4; rim.intensity=.2; }
   else if (name==='Studio'){ scene.background.set(0x0e1116); hemi.intensity=.8; key.intensity=1.2; rim.intensity=.7; }
   else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
-}
-
-/* ---- Geometry builders / deformers (same as before) ---- */
-function createBaseGeometry(p) {
-  if (p.type === 'box')      return new THREE.BoxGeometry(p.width, p.height, p.depth, 6, 6, 6);
-  if (p.type === 'sphere')   return new THREE.SphereGeometry(p.radius, p.widthSegments, p.heightSegments);
-  if (p.type === 'cylinder') return new THREE.CylinderGeometry(p.radiusTop, p.radiusBottom, p.height, p.radialSegments, 8, false);
-  if (p.type === 'plane')    return new THREE.PlaneGeometry(p.width, p.height, 8, 8);
-  return new THREE.BoxGeometry(2, 2, 2, 4, 4, 4);
-}
-
-function applyDeformers(geometry, deforms) {
-  const hollow = Math.max(0, +deforms.hollow || 0);
-  let g = geometry;
-  if (hollow > 0) g = thickenGeometry(g, hollow);
-
-  g.computeBoundingBox();
-  const box = g.boundingBox.clone();
-  const height = Math.max(1e-6, box.max.y - box.min.y);
-  const width  = Math.max(1e-6, box.max.x - box.min.x);
-  const depth  = Math.max(1e-6, box.max.z - box.min.z);
-  const centerY = (box.min.y + box.max.y) / 2;
-  const centerX = (box.min.x + box.max.x) / 2;
-  const centerZ = (box.min.z + box.max.z) / 2;
-
-  const pos = g.attributes.position;
-  const tmp = new THREE.Vector3();
-  const axisY = new THREE.Vector3(0,1,0);
-
-  const shearX = +deforms.shearX || 0;
-  const shearZ = +deforms.shearZ || 0;
-  const taper  = (deforms.taper==null) ? 1 : +deforms.taper;
-  const twist  = THREE.MathUtils.degToRad(+deforms.twist || 0);
-  const noise  = +deforms.noise || 0;
-  const curveX = +deforms.curveX || 0;
-  const curveZ = +deforms.curveZ || 0;
-
-  for (let i=0;i<pos.count;i++){
-    tmp.fromBufferAttribute(pos, i);
-
-    const yPct = (tmp.y - centerY) / height;
-    const xPct = (tmp.x - centerX) / width;
-    const zPct = (tmp.z - centerZ) / depth;
-
-    tmp.x += shearX * (tmp.y - centerY);
-    tmp.z += shearZ * (tmp.y - centerY);
-
-    const tScale = 1.0 - (yPct + 0.5) * (1.0 - taper);
-    tmp.x *= tScale; tmp.z *= tScale;
-
-    const fadeY = 1 - Math.min(1, Math.abs(yPct)*2);
-    tmp.x += (xPct) * curveX * fadeY;
-    tmp.z += (zPct) * curveZ * fadeY;
-
-    if (twist !== 0) tmp.applyAxisAngle(axisY, yPct * twist);
-
-    if (noise > 0){
-      tmp.x += (Math.random()-0.5)*noise;
-      tmp.y += (Math.random()-0.5)*noise;
-      tmp.z += (Math.random()-0.5)*noise;
-    }
-
-    pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
-  }
-  pos.needsUpdate = true;
-  g.computeVertexNormals();
-  g.computeBoundingSphere();
-  return g;
-}
-
-function thickenGeometry(geometry, thickness){
-  const g = geometry.clone();
-  g.computeVertexNormals();
-  const pos = g.attributes.position;
-  const nor = g.attributes.normal;
-  const count = pos.count;
-
-  const innerPos = new Float32Array(count*3);
-  for (let i=0;i<count;i++){
-    const x = pos.getX(i) - nor.getX(i)*thickness;
-    const y = pos.getY(i) - nor.getY(i)*thickness;
-    const z = pos.getZ(i) - nor.getZ(i)*thickness;
-    innerPos[i*3+0]=x; innerPos[i*3+1]=y; innerPos[i*3+2]=z;
-  }
-
-  const outerPos = pos.array;
-  const mergedPos = new Float32Array(outerPos.length + innerPos.length);
-  mergedPos.set(outerPos, 0);
-  mergedPos.set(innerPos, outerPos.length);
-
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
-
-  const srcIndex = g.getIndex();
-  let outerIdx;
-  if (srcIndex){
-    outerIdx = srcIndex.array;
-  } else {
-    const triCount = (pos.count/3)|0;
-    outerIdx = new Uint32Array(triCount*3);
-    for (let i=0;i<outerIdx.length;i++) outerIdx[i]=i;
-  }
-
-  const innerBase = pos.count;
-  const innerIdx = new (outerIdx.constructor)(outerIdx.length);
-  for (let i=0;i<outerIdx.length;i+=3){
-    innerIdx[i+0] = innerBase + outerIdx[i+0];
-    innerIdx[i+1] = innerBase + outerIdx[i+2];
-    innerIdx[i+2] = innerBase + outerIdx[i+1];
-  }
-
-  const allIdx = new (outerIdx.constructor)(outerIdx.length + innerIdx.length);
-  allIdx.set(outerIdx, 0);
-  allIdx.set(innerIdx, outerIdx.length);
-
-  out.setIndex(new THREE.BufferAttribute(allIdx, 1));
-  out.computeVertexNormals();
-  out.computeBoundingBox(); out.computeBoundingSphere();
-  return out;
 }
