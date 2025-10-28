@@ -42,18 +42,18 @@ export default {
     });
 
     // Auto-switch to Inspector on selection
-    bus.on('selection-changed', (ent) => {
-      if (ent) {
-        // Find the currently active tab
-        const currentActive = panel.querySelector('.panel-tab.active');
-        // Only switch if we're not already on inspector or materials
-        if (currentActive && currentActive.dataset.tab !== 'inspector' && currentActive.dataset.tab !== 'materials') {
-          tabButtons.forEach(b => b.classList.remove('active'));
-          tabPanes.forEach(p => p.classList.remove('active'));
-          panel.querySelector('[data-tab="inspector"]').classList.add('active');
-          panel.querySelector('#pane-inspector').classList.add('active');
-        }
-      }
-    });
+    // bus.on('selection-changed', (ent) => { // <-- REMOVED THIS BLOCK
+    //   if (ent) {
+    //     // Find the currently active tab
+    //     const currentActive = panel.querySelector('.panel-tab.active');
+    //     // Only switch if we're not already on inspector or materials
+    //     if (currentActive && currentActive.dataset.tab !== 'inspector' && currentActive.dataset.tab !== 'materials') {
+    //       tabButtons.forEach(b => b.classList.remove('active'));
+    //       tabPanes.forEach(p => p.classList.remove('active'));
+    //       panel.querySelector('[data-tab="inspector"]').classList.add('active');
+    //       panel.querySelector('#pane-inspector').classList.add('active');
+    //     }
+    //   }
+    // });
   }
 };
