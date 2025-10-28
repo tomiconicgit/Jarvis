@@ -1,4 +1,4 @@
-// main.js — boot without Materials tab
+// main.js — robust boot; no materials tab; no mesh library
 import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
@@ -8,11 +8,11 @@ const App = {
 };
 
 const MANIFEST = [
-  { id: 'editor',    path: new URL('./editor.js',    import.meta.url).href },
-  { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
-  { id: 'panel',     path: new URL('./panel.js',     import.meta.url).href },
-  { id: 'scene',     path: new URL('./scene.js',     import.meta.url).href },
-  { id: 'history',   path: new URL('./history.js',   import.meta.url).href }
+  { id: 'editor',  path: new URL('./editor.js',  import.meta.url).href },
+  { id: 'toolbar', path: new URL('./toolbar.js', import.meta.url).href },
+  { id: 'panel',   path: new URL('./panel.js',   import.meta.url).href },
+  { id: 'scene',   path: new URL('./scene.js',   import.meta.url).href },
+  { id: 'history', path: new URL('./history.js', import.meta.url).href }
 ];
 
 (async function boot(){
@@ -47,7 +47,7 @@ const MANIFEST = [
 
     Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
 
-    // Scene-only panel
+    // Scene-only panel (materials tab removed)
     Panel.init({
       tabs: {
         scene: root => SceneTab.init(root, App.bus, editor)
@@ -76,6 +76,7 @@ const MANIFEST = [
     hideLoader();
     appRoot.hidden = false;
 
+    // Seed with one primitive (optional)
     App.bus.emit('add-primitive', { type:'box' });
   } catch (err) {
     console.error('BOOT FAILED:', err);
