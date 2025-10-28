@@ -1,4 +1,4 @@
-// scene.js — "Scene" tab: outliner, background, lighting, gizmo mode
+// scene.js — Outliner + basic view controls in side panel
 export default {
   init(root, bus, editor){
     root.innerHTML = `
@@ -43,7 +43,7 @@ export default {
     root.querySelector('#btn-delete').addEventListener('click', ()=> bus.emit('delete-selection'));
 
     bus.on('scene-updated', refresh);
-    bus.on('selection-changed', ()=>{ refresh(); });
+    bus.on('selection-changed', refresh);
     bus.on('selection-from-outliner', (obj)=> editor.setSelected(obj));
   }
 };
