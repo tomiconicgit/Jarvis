@@ -1,7 +1,7 @@
-// materials.js — transform/material + advanced geo; re-entrancy-safe controls
+// materials.js — transform/material + parametric geo; re-entrancy-safe controls
 import * as THREE from 'three';
 
-/* Bind a slider+number pair without recursive input storms */
+/* Bind a slider+number pair without recursive storms */
 function bindPair(root, base, fixed, onChange){
   const s = root.querySelector(`#${base}_slider`);
   const n = root.querySelector(`#${base}_num`);
@@ -9,19 +9,15 @@ function bindPair(root, base, fixed, onChange){
   let syncing = false;
   const toFixed = v => (fixed!=null ? parseFloat(v).toFixed(fixed) : String(v));
 
+  const fire = ()=> onChange?.();
+
   s.addEventListener('input', ()=>{
-    if (syncing) return;
-    syncing = true;
-    n.value = toFixed(s.value);
-    onChange?.();
-    syncing = false;
+    if (syncing) return; syncing = true;
+    n.value = toFixed(s.value); fire(); syncing = false;
   });
   n.addEventListener('input', ()=>{
-    if (syncing) return;
-    syncing = true;
-    s.value = String(n.value);
-    onChange?.();
-    syncing = false;
+    if (syncing) return; syncing = true;
+    s.value = String(n.value); fire(); syncing = false;
   });
 }
 function setPair(root, base, value, fixed = 2){
@@ -30,6 +26,10 @@ function setPair(root, base, value, fixed = 2){
   if (s) s.value = String(value);
   if (n) n.value = parseFloat(value).toFixed(fixed);
 }
+const v = (root,id,def=0)=> {
+  const el = root.querySelector('#'+id);
+  return el ? parseFloat(el.value) : def;
+};
 
 export default {
   init(root, bus, editor){
@@ -40,6 +40,9 @@ export default {
         ${row('rx','Tilt X°',-180,180,1,0)}${row('ry','Rotate Y°',-180,180,1,0)}${row('rz','Tilt Z°',-180,180,1,0)}
         ${row('sx','Scale X',0.01,10,0.01,1)}${row('sy','Scale Y',0.01,10,0.01,1)}${row('sz','Scale Z',0.01,10,0.01,1)}
         ${row('su','Uniform',0.01,10,0.01,1)}
+        <div class="row simple"><label>Thickness (Hollow)</label>${num('tf_th',0,0.5,0.01,0)}</div>
+        <div class="row simple"><label>Edge Radius</label>${num('tf_edgeR',0,2,0.01,0)}</div>
+        <div class="row simple"><label>Edge Segments</label>${num('tf_edgeSeg',1,8,1,2)}</div>
         <div class="row simple"><label>Gizmo Mode</label>
           <select id="gmode"><option value="translate">Translate</option><option value="rotate">Rotate</option><option value="scale">Scale</option></select>
         </div>
@@ -81,18 +84,52 @@ export default {
 
     const geoControls = root.querySelector('#base-geo');
 
-    /* ---------- transform (live, re-entrancy safe) ---------- */
+    /* ---------- transform (live) ---------- */
     const pushTransform = ()=> bus.emit('transform-update', {
       position: { x:+val('tx_num'), y:+val('ty_num'), z:+val('tz_num') },
       rotation: { x:+val('rx_num'), y:+val('ry_num'), z:+val('rz_num') },
-      scale:    Math.abs(+val('su_num')-1) > 1e-6
+      scale:    (Math.abs(+val('su_num')-1) > 1e-6)
         ? { uniform:+val('su_num') }
         : { x:+val('sx_num'), y:+val('sy_num'), z:+val('sz_num') }
     });
     ['tx','ty','tz','rx','ry','rz','sx','sy','sz','su']
       .forEach(b=> bindPair(root,b, b.startsWith('r')?0:(b.startsWith('s')?2:1), pushTransform));
+
+    // Make axis scales always work even after uniform was used
+    ['sx','sy','sz'].forEach(id=>{
+      ['_slider','_num'].forEach(suf=>{
+        root.querySelector('#'+id+suf).addEventListener('input', ()=>{
+          setPair(root,'su',1,2); // disable uniform
+          pushTransform();
+        });
+      });
+    });
+    // When uniform changes, mirror it into X/Y/Z so gizmo & UI stay consistent
+    ['_slider','_num'].forEach(suf=>{
+      root.querySelector('#su'+suf).addEventListener('input', ()=>{
+        const u = +val('su_num')||1;
+        setPair(root,'sx',u,2); setPair(root,'sy',u,2); setPair(root,'sz',u,2);
+        pushTransform();
+      });
+    });
+
     root.querySelector('#gmode').addEventListener('change', e=> bus.emit('set-gizmo', e.target.value));
     root.querySelector('#frame').addEventListener('click', ()=> bus.emit('frame-selection'));
+
+    /* ---------- quick geometry controls inside Transform ---------- */
+    const pushQuickGeo = ()=>{
+      const obj = editor.selected;
+      if (!obj || !obj.userData?.geometryParams) return;
+      const base = { ...obj.userData.geometryParams };
+      const d = { ...(obj.userData.deformParams || {}) };
+      d.hollow       = v(root,'tf_th_num', d.hollow || 0);
+      d.edgeRadius   = v(root,'tf_edgeR_num', d.edgeRadius || 0);
+      d.edgeSegments = Math.max(1, v(root,'tf_edgeSeg_num', d.edgeSegments || 2));
+      // Keep advanced controls in sync too:
+      setPair(root,'adv_hollow', d.hollow, 2);
+      bus.emit('rebuild-geometry', { base, deform: d });
+    };
+    ['tf_th','tf_edgeR','tf_edgeSeg'].forEach(b=> bindPair(root,b, b==='tf_edgeSeg'?0:2, pushQuickGeo));
 
     /* ---------- material (live) ---------- */
     let uploadedTex = null;
@@ -159,14 +196,14 @@ export default {
 
       const pushGeometryChanges = ()=>{
         const base = { ...obj.userData.geometryParams };
-        const v = id => parseFloat(root.querySelector('#'+id)?.value ?? base[id]);
-        if (base.type==='box'){ base.width=v('geo_width_num'); base.height=v('geo_height_num'); base.depth=v('geo_depth_num'); }
-        if (base.type==='sphere'){ base.radius=v('geo_radius_num'); base.widthSegments=Math.max(3, v('geo_wsegs_num')); base.heightSegments=Math.max(2, v('geo_hsegs_num')); }
+        const valnum = id => parseFloat(root.querySelector('#'+id)?.value ?? base[id]);
+        if (base.type==='box'){ base.width=valnum('geo_width_num'); base.height=valnum('geo_height_num'); base.depth=valnum('geo_depth_num'); }
+        if (base.type==='sphere'){ base.radius=valnum('geo_radius_num'); base.widthSegments=Math.max(3, valnum('geo_wsegs_num')); base.heightSegments=Math.max(2, valnum('geo_hsegs_num')); }
         if (base.type==='cylinder'){
-          base.radiusTop=v('geo_rtop_num'); base.radiusBottom=v('geo_rbot_num');
-          base.height=v('geo_height_num'); base.radialSegments=Math.max(3, v('geo_rsegs_num'));
+          base.radiusTop=valnum('geo_rtop_num'); base.radiusBottom=valnum('geo_rbot_num');
+          base.height=valnum('geo_height_num'); base.radialSegments=Math.max(3, valnum('geo_rsegs_num'));
         }
-        if (base.type==='plane'){ base.width=v('geo_width_num'); base.height=v('geo_height_num'); }
+        if (base.type==='plane'){ base.width=valnum('geo_width_num'); base.height=valnum('geo_height_num'); }
 
         const deform = {
           hollow:+val('adv_hollow_num'),
@@ -174,19 +211,20 @@ export default {
           shearZ:+val('adv_shearZ_num'),
           twist:+val('deform_twist_num'),
           taper:+val('deform_taper_num'),
-          noise:+val('deform_noise_num')
+          noise:+val('deform_noise_num'),
+          // mirror the quick controls (if present)
+          edgeRadius: v(root,'tf_edgeR_num', obj.userData.deformParams?.edgeRadius || 0),
+          edgeSegments: Math.max(1, v(root,'tf_edgeSeg_num', obj.userData.deformParams?.edgeSegments || 2))
         };
         bus.emit('rebuild-geometry', { base, deform });
       };
 
-      // bind created rows
       const ids = [];
       if (p.type==='box') ids.push('geo_width','geo_height','geo_depth');
       if (p.type==='sphere') ids.push('geo_radius','geo_wsegs','geo_hsegs');
       if (p.type==='cylinder') ids.push('geo_rtop','geo_rbot','geo_height','geo_rsegs');
       if (p.type==='plane') ids.push('geo_width','geo_height');
       ids.forEach(b=> bindPair(root,b, b.includes('segs')?0:1, pushGeometryChanges));
-      // also bind advanced (already present in DOM)
       ['adv_hollow','adv_shearX','adv_shearZ','deform_twist','deform_taper','deform_noise']
         .forEach(b=> bindPair(root,b, b.includes('twist')?0:(b.includes('taper')||b.includes('hollow')?2:3), pushGeometryChanges));
     }
@@ -210,13 +248,18 @@ export default {
       }
 
       updateGeometryUI(obj);
-      const d = obj.userData.deformParams || { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
+
+      const d = obj.userData.deformParams || { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0, edgeRadius:0, edgeSegments:2 };
+      // keep advanced + quick in sync
       setPair(root,'adv_hollow', d.hollow, 2);
       setPair(root,'adv_shearX', d.shearX, 3);
       setPair(root,'adv_shearZ', d.shearZ, 3);
       setPair(root,'deform_twist', d.twist, 0);
       setPair(root,'deform_taper', d.taper, 2);
       setPair(root,'deform_noise', d.noise, 2);
+      setPair(root,'tf_th', d.hollow, 2);
+      setPair(root,'tf_edgeR', d.edgeRadius || 0, 2);
+      setPair(root,'tf_edgeSeg', d.edgeSegments || 2, 0);
     }
 
     bus.on('selection-changed', obj => fillFromSelection(obj));
@@ -226,7 +269,7 @@ export default {
   }
 };
 
-/* ---------- minimal row generator ---------- */
+/* ---------- UI row makers ---------- */
 function row(base, label, min, max, step, value){
   return `
     <div class="row">
@@ -235,6 +278,9 @@ function row(base, label, min, max, step, value){
       <input id="${base}_num" type="number" step="${step}" value="${value}"/>
     </div>
   `;
+}
+function num(base, min, max, step, value){
+  return `<input id="${base}_num" type="number" min="${min}" max="${max}" step="${step}" value="${value}"/>`;
 }
 
 /* ---------- procedural textures ---------- */
