@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Iconic Editor — Hybrid Three.js</title>
   <meta name="theme-color" content="#0a0a0a" />
 
@@ -14,64 +11,66 @@
   {
     "imports": {
       "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-      "troika-three-text": "https://unpkg.com/troika-three-text@0.49.1/dist/troika-three-text.esm.js",
-      "three-csg-ts": "https://unpkg.com/three-csg-ts@2.0.7/lib/three-csg.js"
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
     }
   }
   </script>
 
   <style>
     :root{
-      --bg:#121212;
-      --panel:#1E1E1E;
-      --panel-border:#2A2A2A;
-      --text:#F5F5F5;
-      --muted:#888888;
-      --accent:#4da3ff;
-      --toolbar:#1E1E1E;
-      --input-bg:#252525;
+      --bg:#121212; --panel:#1E1E1E; --panel-border:#2A2A2A;
+      --text:#F5F5F5; --muted:#888; --accent:#4da3ff; --toolbar:#1E1E1E; --input-bg:#252525;
       --panel-w:380px;
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
       font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
     html,body,#viewport{overscroll-behavior:none}
-    .app{position:fixed;inset:0;display:grid;grid-template-rows:48px 1fr}
-    #toolbar{background:var(--toolbar);border-bottom:1px solid var(--panel-border);
-      display:flex;align-items:center;gap:16px;padding:0 16px;user-select:none}
+
+    .app{position:fixed;inset:0;display:grid;grid-template-rows:48px 1fr;min-height:0}
+    #toolbar{
+      background:var(--toolbar);border-bottom:1px solid var(--panel-border);
+      display:flex;align-items:center;gap:16px;padding:0 16px;user-select:none
+    }
     #toolbar .menu{font-weight:700;opacity:.9;cursor:pointer}
     #toolbar .menu:hover{opacity:1}
+
     #main{display:grid;grid-template-columns:1fr var(--panel-w);min-height:0}
     #viewport{position:relative;min-height:0}
-    #panel{border-left:1px solid var(--panel-border);background:var(--panel);min-width:260px;overflow:auto}
+    #panel{
+      border-left:1px solid var(--panel-border);background:var(--panel);
+      min-width:260px;display:flex;flex-direction:column;min-height:0;overflow:hidden;
+    }
+    #pane-scene{flex:1;min-height:0;overflow:auto;padding:10px}
+
     @media (orientation:portrait){
       #main{grid-template-columns:1fr;grid-template-rows:55vh 45vh}
       #panel{border-left:none;border-top:1px solid var(--panel-border)}
     }
+
     canvas{display:block;width:100%;height:100%;touch-action:none}
 
-    /* Shared panel UI */
     .group{border:1px solid var(--panel-border);border-radius:12px;background:rgba(255,255,255,.03);
-      padding:14px;margin:10px}
+      padding:14px;margin:10px 0}
     .group h3{margin:0 0 8px 0;font-size:12px;letter-spacing:.3px;opacity:.9}
     .list{border:1px solid var(--panel-border);border-radius:10px;overflow:hidden}
     .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer}
     .item:last-child{border-bottom:0}
     .item.active{background:rgba(77,163,255,.12)}
-    .row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin:8px 10px}
+    .row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin:8px 0}
     .row.simple{grid-template-columns:110px 1fr;}
     .row label{color:var(--muted);font-size:12px;white-space:nowrap;}
-    input[type="color"], select{
+    select, input[type="color"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
       border-radius:10px;color:var(--text);padding:10px 12px
     }
-    button{appearance:none;background:rgba(77,163,255,.15);
+    button{
+      appearance:none;background:rgba(77,163,255,.15);
       border:1px solid rgba(77,163,255,.3);color:var(--text);border-radius:10px;
-      padding:10px 12px;font-weight:800;cursor:pointer;transition:background .15s;margin:0 10px 10px}
+      padding:10px 12px;font-weight:800;cursor:pointer;transition:background .15s
+    }
     button:hover{background:rgba(77,163,255,.25)}
-    button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
-    button.primary:hover{ background: #6ab5ff; }
+    button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
 
     /* Loader */
     #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;
@@ -92,7 +91,7 @@
       <path d="M26 70 L50 22 L74 70" stroke="url(#g)" stroke-width="6" stroke-linecap="round"/>
     </svg>
     <div id="bar"><span></span></div>
-    <div id="status">loading...</div>
+    <div id="status">loading…</div>
   </div>
 
   <div class="app" id="app" hidden>
@@ -100,7 +99,6 @@
     <div id="main">
       <div id="viewport" role="application" aria-label="3D viewport"></div>
       <aside id="panel">
-        <!-- Scene-only panel (Materials tab removed) -->
         <div id="pane-scene"></div>
       </aside>
     </div>
