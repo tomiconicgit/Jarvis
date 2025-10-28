@@ -3,35 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Iconic Editor — Hybrid Three.js</title>
+  <title>Iconic Editor — Rebuilt</title>
   <meta name="theme-color" content="#0a0a0a" />
 
-  <!-- IMPORTANT: use CORS-friendly CDN + anonymous CORS -->
   <script src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js" crossorigin="anonymous"></script>
 
-  <!-- Switch imports to jsDelivr to avoid CORS issues on submodule loads -->
   <script type="importmap">
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.4/build/index.module.js",
+      "@gkjohnson/three-bvh-csg": "https://unpkg.com/@gkjohnson/three-bvh-csg@0.0.8/build/index.module.js"
     }
   }
   </script>
 
   <style>
+    /* --- Base Layout & Theme (from Iconic) --- */
     :root{
       --bg:#121212; --panel:#1E1E1E; --panel-border:#2A2A2A;
       --text:#F5F5F5; --muted:#888; --accent:#4da3ff; --toolbar:#1E1E1E; --input-bg:#252525;
-      --panel-w:340px; /* Reduced panel width */
-      --radius-sm: 4px; /* For buttons/inputs */
-      --radius-md: 0px;  /* For containers */
+      --panel-w:340px;
+      --radius-sm: 4px;
+      --radius-md: 0px;
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
       font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif
     }
     html,body,#viewport{overscroll-behavior:none}
+    canvas{display:block;width:100%;height:100%;touch-action:none}
 
     .app{position:fixed;inset:0;display:grid;grid-template-rows:48px 1fr;min-height:0}
     #toolbar{
@@ -51,7 +53,6 @@
       min-width:260px;display:flex;flex-direction:column;min-height:0;overflow:hidden;
     }
     
-    /* --- New Panel Tab Styles --- */
     #panel-tabs{ display:flex; background:var(--bg); border-bottom:1px solid var(--panel-border); user-select:none; }
     .panel-tab{
       padding: 10px 16px; font-weight:600; cursor:pointer;
@@ -60,77 +61,50 @@
     .panel-tab.active{ opacity:1; border-bottom-color:var(--accent); }
     .panel-tab:hover{ background:rgba(255,255,255,.03); }
 
-    /* Panel Panes */
-    .panel-pane{ display:none; flex:1; min-height:0; overflow:auto; }
+    .panel-pane{ display:none; flex:1; min-height:0; overflow:auto; padding:12px; }
     .panel-pane.active{ display:block; }
-    #pane-scene{ padding: 16px; }
-    #pane-transform{ padding: 16px; }
-    /* --- End New Panel Tab Styles --- */
-
+    
     @media (max-width:768px){
       :root{ --panel-w: auto; }
-      #main{
-        grid-template-columns:1fr;
-        grid-template-rows:60vh 40vh;
-      }
+      #main{ grid-template-columns:1fr; grid-template-rows:60vh 40vh; }
       #panel{border-left:none;border-top:1px solid var(--panel-border)}
-      #pane-scene, #pane-transform {padding: 12px;}
     }
-
-    canvas{display:block;width:100%;height:100%;touch-action:none}
-
+    
+    /* --- Component Styles (from Launch Tower) --- */
     .group{
       border:1px solid var(--panel-border);
       border-radius:var(--radius-md);
       background:rgba(255,255,255,.03);
-      padding:16px;margin:12px 0;
+      padding:12px;margin:12px 0;
     }
     .group h3{
       margin:0 0 12px 0;font-size:12px;
       font-weight:600;text-transform:uppercase;
       letter-spacing:.5px;opacity:.7;
     }
+    
     .list{
+      max-height:220px; overflow:auto;
       border:1px solid var(--panel-border);
       border-radius:var(--radius-md);
-      overflow:hidden;
     }
-    .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer}
+    .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer; display:flex; justify-content:space-between; align-items:center;}
     .item:last-child{border-bottom:0}
-    .item.active{background:rgba(77,163,255,.12)}
+    .item.active, .item:hover{background:rgba(77,163,255,.12)}
     
-    .row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin:10px 0}
-    .row.simple{grid-template-columns:110px 1fr;}
+    .row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;margin:10px 0}
     .row label{color:var(--muted);font-size:13px;white-space:nowrap;opacity:.9}
+    .row output{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
     
-    select, input[type="color"]{
+    select, input[type="text"], input[type="range"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
       border-radius:var(--radius-sm);
       color:var(--text);padding:8px 12px;
     }
-    input[type="color"]{ min-height: 38px; }
-
-    .row.slider{
-      grid-template-columns: 24px 1fr 60px;
-      gap: 8px; margin: 10px 0;
-    }
-    .row.slider label{
-      font-weight:600; color:var(--text); text-align:center;
-      opacity: .8; font-size: 13px;
-    }
-    .row.slider input[type="range"]{
-      width:100%; margin:0; accent-color: var(--accent);
-    }
-    .row.slider input[type="number"]{
-      width:100%; padding: 4px 8px; font-size: 13px;
-      background:var(--input-bg); border:1px solid var(--panel-border);
-      border-radius:var(--radius-sm); color:var(--text); -moz-appearance: textfield;
-    }
-    .row.slider input[type="number"]::-webkit-outer-spin-button,
-    .row.slider input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="range"]{ padding: 0; accent-color: var(--accent); }
     
     button{
-      appearance:none;
+      appearance:none; width: 100%;
       background:var(--input-bg);
       border:1px solid var(--panel-border);
       color:var(--accent);
@@ -140,21 +114,27 @@
       cursor:pointer;
       transition:background .15s, border-color .15s;
     }
-    button:hover{
-      background:var(--input-bg);
-      border-color:var(--accent);
-    }
+    .btnbar{ display:flex; gap:8px; }
+    .btnbar button{ width: auto; flex: 1; }
+    
+    button:hover{ border-color:var(--accent); }
     button.primary{
       background:var(--accent);
       border-color:var(--accent);
       color:var(--bg);
     }
-    button.primary:hover{
-      background: #6ab0ff;
-      border-color: #6ab0ff;
-    }
+    button.primary:hover{ background: #6ab0ff; border-color: #6ab0ff; }
+    small.note{display:block;color:var(--muted);margin-top:6px; font-size: 12px;}
+    
+    /* --- HUD & D-Pad (from Launch Tower) --- */
+    .hud{position:absolute;left:10px;top:10px;z-index:3;pointer-events:none;font-size:12px;color:#cfd6e6;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12)}
+    .dpad{position:absolute;right:10px;bottom:10px;z-index:6;display:grid;grid-template-columns:48px 48px 48px;gap:6px;user-select:none; opacity: 0.8;}
+    .dpad button,.dpad .step{appearance:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:var(--text);border-radius:10px;padding:10px;font-weight:800; width:auto; font-size: 16px;}
+    .dpad .wide{grid-column:1 / span 3}
+    .dpad .step{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}
+    .dpad small{opacity:.8; font-size: 12px;}
 
-    /* Loader */
+    /* Loader (from Iconic) */
     #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;
       align-items:center;justify-content:center;z-index:999}
     #logo{width:120px;height:120px;margin-bottom:18px}
@@ -179,16 +159,37 @@
   <div class="app" id="app" hidden>
     <div id="toolbar"></div>
     <div id="main">
-      <div id="viewport" role="application" aria-label="3D viewport"></div>
+      <div id="viewport" role="application" aria-label="3D viewport">
+        <div class="hud">Tap a component in Outliner → D-Pad to nudge. “Step” sets move/rotate increment. Export GLB in Project.</div>
+        <div class="dpad" id="dpad">
+          <div class="step wide">
+            <small>Step</small>
+            <input id="stepSize" type="range" min="0.01" max="2" step="0.01" value="0.25" style="width:120px">
+            <output id="stepOut">0.25</output>
+          </div>
+          <button data-act="up">▲</button>
+          <button data-act="in">Z+</button>
+          <button data-act="rotL">⟲</button>
+          <button data-act="left">◀</button>
+          <button data-act="down">▼</button>
+          <button data-act="right">▶</button>
+          <button data-act="rotR">⟳</button>
+          <button data-act="out">Z−</button>
+          <button data-act="yup">Y+</button>
+          <button class="wide" data-act="ydown">Y−</button>
+        </div>
+      </div>
       <aside id="panel"></aside>
     </div>
   </div>
 
-  <!-- Optional: warn if opened as file:// which breaks CORS for modules -->
   <script>
-    if (location.protocol === 'file:') {
-      console.warn('[Iconic] Open via http://, not file:// — modules need CORS headers.');
-    }
+    const __errBox = document.createElement('pre');
+    __errBox.style.cssText = 'position:fixed;left:8px;bottom:8px;max-width:90vw;max-height:40vh;overflow:auto;background:rgba(0,0,0,.7);color:#fff;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);font:12px/1.4 ui-monospace,monospace;z-index:9999;display:none';
+    document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(__errBox));
+    function __logErr(msg){ __errBox.style.display='block'; __errBox.textContent += msg + '\n'; }
+    window.addEventListener('error', e => __logErr('Error: ' + e.message));
+    window.addEventListener('unhandledrejection', e => __logErr('Promise: ' + (e.reason?.message || e.reason)));
   </script>
 
   <script type="module" src="./src/main.js"></script>
