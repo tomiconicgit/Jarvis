@@ -14,6 +14,24 @@ const state = {
   selected: null 
 };
 
+/**
+ * Helper to recursively dispose of geometries and materials
+ */
+function disposeObject(obj) {
+  if (!obj) return;
+  obj.traverse(o => {
+    if (o.isMesh) {
+      o.geometry?.dispose();
+      if (Array.isArray(o.material)) {
+        o.material.forEach(m => m.dispose());
+      } else {
+        o.material?.dispose();
+      }
+    }
+  });
+  obj.parent?.remove(obj);
+}
+
 export function initState(editor, bus, registry) { 
   editorRef = editor; 
   busRef = bus;
@@ -84,8 +102,9 @@ export function rebuildEntity(id) {
   const reg = registryRef.Registry.get(ent.type);
   
   const parent = ent.object.parent || editorRef.world;
-  parent.remove(ent.object);
-  // TODO: Properly dispose of geometry/materials
+  
+  // ENHANCEMENT: Properly dispose of old object
+  disposeObject(ent.object);
   
   const obj = reg.builder(ent.params);
   obj.userData.__entId = id;
@@ -111,8 +130,8 @@ export function deleteEntity(id) {
     selectEntity(null);
   }
   
-  ent.object.parent?.remove(ent.object);
-  // TODO: Properly dispose
+  // ENHANCEMENT: Properly dispose
+  disposeObject(ent.object);
   state.entities.delete(id);
   
   busRef.emit('state-changed');
@@ -123,7 +142,8 @@ export function deleteAllEntities() {
   selectEntity(null);
   for (const id of [...state.entities.keys()]) {
     const ent = state.entities.get(id);
-    ent.object.parent?.remove(ent.object);
+    // ENHANCEMENT: Properly dispose
+    disposeObject(ent.object);
     state.entities.delete(id);
   }
   busRef.emit('state-changed');
