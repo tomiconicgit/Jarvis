@@ -1,7 +1,7 @@
 /*
 File: src/editor.js
 */
-// editor.js — renderer / scene / camera / controls / selection / lighting / grid
+// editor.js — renderer / scene / camera / controls / gizmo
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -21,51 +21,40 @@ const Editor = {
       0.1,
       5000
     );
-    camera.position.set(12, 10, 16);
+    camera.position.set(28, 30, 44);
 
     // controls + gizmo
     let controls, gizmo;
     buildControls();
 
-    // lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x171a1f, 0.6);
-    const key  = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(10,20,12); key.castShadow = true;
-    const rim  = new THREE.DirectionalLight(0x88bbff, 0.5); rim.position.set(-18,18,-10);
-    scene.add(hemi, key, rim);
-
-    // grid + ground
-    const grid = new THREE.GridHelper(400, 400, 0x334, 0x223);
-    grid.position.y = 0; scene.add(grid);
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(400,400),
-      new THREE.MeshStandardMaterial({ color:0x111315, roughness:1 })
-    );
-    ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+    // lights (from Launch Tower)
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x202028, .9));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(30,60,40); scene.add(key);
+    const rim = new THREE.DirectionalLight(0x99ccff, .5); rim.position.set(-40,50,-20); scene.add(rim);
+    
+    // grid
+    const grid = new THREE.GridHelper(400, 200, 0x335, 0x224); grid.position.y = -0.01; scene.add(grid);
 
     // world root
     const world = new THREE.Group(); world.name = 'World'; scene.add(world);
 
-    // selection
+    // selection highlighting
     const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
-    let selected = null; let boxHelper = null;
+    let boxHelper = null;
 
-    function setSelected(obj){
-      if (selected === obj) return;
-      selected = obj;
-
+    bus.on('selection-changed', (ent) => {
       if (boxHelper) { scene.remove(boxHelper); boxHelper.geometry?.dispose?.(); boxHelper = null; }
-      if (selected) {
-        boxHelper = new THREE.BoxHelper(selected, 0x4da3ff);
+      if (ent) {
+        boxHelper = new THREE.BoxHelper(ent.object, 0x4da3ff);
         scene.add(boxHelper);
-        const { center, radius } = boundsOf(selected);
+        const { center, radius } = boundsOf(ent.object);
         controls.target.copy(center);
         clampZoomToRadius(radius);
       }
-      bus.emit('selection-changed', selected);
-    }
+    });
 
     container.addEventListener('pointerdown', e=>{
-      if (gizmo.dragging) return;
+      if (gizmo.dragging || e.target !== renderer.domElement) return;
       const rect=renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
       pointer.y = -((e.clientY-rect.top)/rect.height)*2+1;
@@ -73,74 +62,40 @@ const Editor = {
       const hits = raycaster.intersectObjects(world.children, true);
 
       let hitObject = hits[0]?.object;
+      let entId = null;
       if (hitObject) {
-        while (hitObject.parent && hitObject.parent !== world) hitObject = hitObject.parent;
-        setSelected(hitObject.parent === world ? hitObject : null);
-      } else {
-        setSelected(null);
+        while (hitObject && hitObject !== world) {
+          if (hitObject.userData.__entId) {
+            entId = hitObject.userData.__entId;
+            break;
+          }
+          hitObject = hitObject.parent;
+        }
       }
+      bus.emit('select-entity-by-id', entId);
     });
 
     // view / gizmo events
-    bus.on('frame-selection', ()=> selected && frame(selected));
-    bus.on('toggle-grid', ()=> grid.visible = !grid.visible);
+    bus.on('frame-selection', (ent)=> ent && frame(ent.object));
+    bus.on('set-grid-visible', (vis)=> grid.visible = !!vis);
     bus.on('set-background', c=> { scene.background = new THREE.Color(c); });
-    bus.on('set-lighting', name=> applyLightingPreset(name, { hemi, key, rim, scene }));
+    bus.on('set-fov', fov => { camera.fov = fov; camera.updateProjectionMatrix(); });
     bus.on('set-gizmo', mode=> gizmo.setMode(mode));
-    bus.on('attach-selected', ()=> selected ? gizmo.attach(selected) : gizmo.detach());
-    bus.on('detach-gizmo', ()=> gizmo.detach());
+    bus.on('gizmo-attach', (obj)=> gizmo.attach(obj));
+    bus.on('gizmo-detach', ()=> gizmo.detach());
 
-    // --- New Listeners ---
-    bus.on('delete-selection', ()=>{
-      if (!selected) return;
-      const toDelete = selected;
-      setSelected(null); // Deselect first
-      gizmo.detach();
-      world.remove(toDelete);
-      // TODO: Add proper disposal of geometry/material/textures
-      bus.emit('scene-updated');
-      bus.emit('history-push', 'Delete');
-    });
-
-    bus.on('duplicate-selection', ()=>{
-      if (!selected) return;
-      const clone = selected.clone(true);
-      clone.name = (selected.name || 'Object') + '_copy';
-      
-      // Offset the clone
-      const box = new THREE.Box3().setFromObject(clone);
-      const size = box.getSize(new THREE.Vector3());
-      clone.position.x += Math.max(0.5, size.x * 0.2); // Offset by 20% of its width or 0.5 units
-
-      world.add(clone);
-      setSelected(clone); // Select the new clone
-      gizmo.attach(clone);
-      bus.emit('scene-updated');
-      bus.emit('history-push', 'Duplicate');
-    });
-    
-    bus.on('toggle-object-wireframe', ()=>{
-      if (!selected) return;
-      
-      // Find the current state from the first material we find
-      let currentState = false;
-      let foundMaterial = false;
-      selected.traverse(child => {
+    bus.on('toggle-object-wireframe', (ent)=>{
+      if (!ent) return;
+      let currentState = false; let foundMaterial = false;
+      ent.object.traverse(child => {
         if (!foundMaterial && child.isMesh && child.material) {
           const mat = Array.isArray(child.material) ? child.material[0] : child.material;
-          if (mat) {
-            currentState = mat.wireframe;
-            foundMaterial = true;
-          }
+          if (mat) { currentState = mat.wireframe; foundMaterial = true; }
         }
       });
-
-      if (!foundMaterial) return; // No materials to toggle
-
+      if (!foundMaterial) return;
       const newState = !currentState;
-      
-      // Apply new state to all materials
-      selected.traverse(child => {
+      ent.object.traverse(child => {
         if (child.isMesh && child.material) {
           if (Array.isArray(child.material)) {
             child.material.forEach(m => m.wireframe = newState);
@@ -149,29 +104,6 @@ const Editor = {
           }
         }
       });
-    });
-    // --- End New Listeners ---
-
-    // transforms from outside UI
-    bus.on('transform-update', t=>{
-      if (!selected) return;
-      if (t.position){ selected.position.set(t.position.x, t.position.y, t.position.z); }
-      if (t.rotation){ selected.rotation.set(
-        THREE.MathUtils.degToRad(t.rotation.x),
-        THREE.MathUtils.degToRad(t.rotation.y),
-        THREE.MathUtils.degToRad(t.rotation.z)
-      ); }
-      if (t.scale){
-        if (t.scale.uniform != null){ selected.scale.setScalar(t.scale.uniform); }
-        else { selected.scale.set(t.scale.x, t.scale.y, t.scale.z); }
-      }
-      if (boxHelper) boxHelper.update();
-      const { center, radius } = boundsOf(selected);
-      controls.target.copy(center);
-      clampZoomToRadius(radius);
-      gizmo.attach(selected);
-      bus.emit('transform-changed', selected);
-      bus.emit('history-push-debounced', 'Transform');
     });
 
     // sizing
@@ -184,9 +116,8 @@ const Editor = {
       camera.updateProjectionMatrix();
       safeRender();
     }
-    const ro = new ResizeObserver(onResize); ro.observe(container);
-    window.addEventListener('orientationchange', onResize, { passive:true });
-    window.addEventListener('resize', onResize, { passive:true });
+    new ResizeObserver(onResize).observe(container);
+    onResize();
 
     renderer.domElement.addEventListener('webglcontextlost', (e)=>{
       e.preventDefault(); rebuildRenderer();
@@ -213,7 +144,9 @@ const Editor = {
       controls.enableDamping = true; controls.dampingFactor = 0.08;
       controls.zoomSpeed = 0.35; controls.zoomToCursor = true;
       controls.enablePan = true; controls.panSpeed = 0.6; controls.rotateSpeed = 0.9;
-      controls.maxPolarAngle = Math.PI * 0.499; controls.minDistance = 0.5; controls.maxDistance = 500;
+      controls.maxPolarAngle = Math.PI * 0.95; // Allow slightly more rotation
+      controls.minDistance = 0.5; controls.maxDistance = 500;
+      controls.target.set(0, 25, 0); // From Launch Tower
 
       if (gizmo){ scene.remove(gizmo); }
       gizmo = new TransformControls(camera, renderer.domElement);
@@ -222,10 +155,14 @@ const Editor = {
       gizmo.addEventListener('dragging-changed', e=> controls.enabled = !e.value);
       gizmo.addEventListener('objectChange', ()=>{
         if (boxHelper) boxHelper.update();
-        const { center, radius } = boundsOf(gizmo.object);
+        const obj = gizmo.object; if (!obj) return;
+        const entId = obj.userData.__entId; if (!entId) return;
+        
+        const { center, radius } = boundsOf(obj);
         controls.target.copy(center);
         clampZoomToRadius(radius);
-        bus.emit('transform-changed', selected);
+        
+        bus.emit('transform-changed-by-gizmo', { id: entId, object: obj }); 
         bus.emit('history-push-debounced', 'Transform');
       });
       scene.add(gizmo);
@@ -256,15 +193,12 @@ const Editor = {
     return {
       get scene(){ return scene; },
       get world(){ return world; },
-      get selected(){ return selected; },
       get camera(){ return camera; },
       get renderer(){ return renderer; },
-      setSelected, frame,
-      listObjects(){ return world.children.slice(); }
+      frame
     };
   }
 };
-
 export default Editor;
 
 /* ---------- helpers ---------- */
@@ -282,9 +216,4 @@ function boundsOf(obj){
   const center = box.getCenter(new THREE.Vector3());
   const radius = box.getBoundingSphere(new THREE.Sphere()).radius || 1;
   return { center, radius };
-}
-function applyLightingPreset(name, {hemi, key, rim, scene}){
-  if (name==='Night'){ scene.background.set(0x06070a); hemi.intensity=.25; key.intensity=.4; rim.intensity=.2; }
-  else if (name==='Studio'){ scene.background.set(0x0e1116); hemi.intensity=.8; key.intensity=1.2; rim.intensity=.7; }
-  else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
 }
