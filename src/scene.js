@@ -1,9 +1,12 @@
-// scene.js — Outliner + basic view controls in side panel
+/*
+File: src/scene.js
+*/
+// scene.js — Scene list + basic view controls in side panel
 export default {
   init(root, bus, editor){
     root.innerHTML = `
       <div class="group">
-        <h3>Outliner</h3>
+        <h3>Scene</h3>
         <div class="list" id="outliner"></div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <button id="btn-attach">Attach Gizmo</button>
