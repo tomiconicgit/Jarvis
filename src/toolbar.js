@@ -120,19 +120,28 @@ function popup(anchor, items){
   const m = document.createElement('div');
   m.style.cssText = `
     position:fixed;top:${Math.round(top)}px;left:${Math.round(left)}px;z-index:200;
-    background:#15171d;border:1px solid rgba(255,255,255,.12);border-radius:10px;min-width:220px;overflow:hidden;
-    box-shadow:0 10px 30px rgba(0,0,0,.4);color:#fff
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius-sm);
+    min-width:220px;overflow:hidden;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);
+    color:var(--text);
+    font-size: 14px;
   `;
   items.forEach(([label,fn],i)=>{
     const it = document.createElement('div');
     it.textContent = label;
-    it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
+    it.style.cssText = `
+      padding:9px 14px;
+      cursor:pointer;
+      border-bottom:1px solid var(--panel-border)
+    `;
     it.addEventListener('click', e=>{ e.stopPropagation(); fn(e); m.remove(); });
     it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     if (i===items.length-1) it.style.borderBottom='0';
     m.appendChild(it);
-  });
+De  });
   document.body.appendChild(m);
   const closer = ev => { if (!m.contains(ev.target)) m.remove(); };
   setTimeout(()=> document.addEventListener('click', closer, { once:true, capture:true }), 0);
@@ -143,8 +152,11 @@ function modal(html){
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
   card.style.cssText = `
-    background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;
-    padding:14px;max-width:1100px;width:clamp(320px, 92vw, 1100px);
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:var(--radius-sm); /* Use small radius for modals too */
+    padding:16px; /* Match panel padding */
+    max-width:400px; /* Constrain modal width */
+    width:clamp(320px, 92vw, 400px);
     height:auto;color:var(--text);
   `;
   card.innerHTML = html;
@@ -154,8 +166,8 @@ function modal(html){
 }
 function confirmModal(message, confirmLabel, onConfirm){
   const ui = modal(`
-    <h3 style="margin:0 0 10px 0">Confirm</h3>
-    <p style="margin:0 0 12px 0;color:var(--muted)">${message}</p>
+    <h3 style="margin:0 0 10px 0; font-weight:600;">Confirm</h3>
+    <p style="margin:0 0 16px 0;color:var(--muted);font-size:14px;">${message}</p>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button id="cCancel">Cancel</button>
       <button id="cGo" class="primary">${confirmLabel}</button>
