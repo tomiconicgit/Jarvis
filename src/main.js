@@ -21,7 +21,7 @@ const MANIFEST = [
   { id: 'outliner',  path: new URL('./outliner.js',  import.meta.url).href },
   { id: 'inspector', path: new URL('./inspector.js', import.meta.url).href },
   { id: 'project',   path: new URL('./project.js',   import.meta.url).href },
-  { id: 'dpad',      path: new URL('./dpad.js',      import.meta.url).href }
+  // { id: 'dpad',      path: new URL('./dpad.js',      import.meta.url).href } // REMOVED
 ];
 
 (async function boot(){
@@ -39,7 +39,7 @@ const MANIFEST = [
     const OutlinerTab = mods.outliner?.default;
     const InspectorTab= mods.inspector?.default;
     const ProjectTab  = mods.project?.default;
-    const DPad        = mods.dpad?.default;
+    // const DPad        = mods.dpad?.default; // REMOVED
     
     // Check for missing modules
     const missing = [
@@ -53,7 +53,7 @@ const MANIFEST = [
       ['outliner', OutlinerTab?.init],
       ['inspector', InspectorTab?.init],
       ['project', ProjectTab?.init],
-      ['dpad', DPad?.init]
+      // ['dpad', DPad?.init] // REMOVED
     ].find(([name, ok]) => !ok);
     if (missing) throw new Error(`Module "${missing[0]}" is missing or invalid.`);
 
@@ -80,7 +80,7 @@ const MANIFEST = [
       }
     }, App.bus);
     
-    DPad.init(App.bus, State);
+    // DPad.init(App.bus, State); // REMOVED
 
     // shortcuts
     window.addEventListener('keydown', e=>{
