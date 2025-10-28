@@ -131,7 +131,7 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
       const makeLabel = (ent) => `${Registry.get(ent.type).label} (${ent.id})`;
       // Add a 'None' option
       const oNone=document.createElement('option');
-      oNone.value=''; oNone.textContent='— None —'; input.appendChild(oNone);
+      oNone.value=''; oNone.textContent='â None â'; input.appendChild(oNone);
       // Populate from state
       for (const ent of state.entities.values()){
         if(where && !where.includes(ent.type)) continue;
@@ -395,7 +395,7 @@ register(
   'piping','Piping',
   {
     count:{type:'range',label:'Count',min:1,max:12,step:1,default:2},
-    angleStart:{type:'range',label:'Start Angle°',min:0,max:360,step:1,default:0},
+    angleStart:{type:'range',label:'Start AngleÂ°',min:0,max:360,step:1,default:0},
     radius:{type:'range',label:'Pipe Radius',min:0.05,max:0.8,step:0.01,default:0.18},
     riserH:{type:'range',label:'Riser Height',min:4,max:120,step:0.5,default:30},
     elbowR:{type:'range',label:'Elbow Radius',min:0.5,max:8,step:0.1,default:2.5},
@@ -711,7 +711,7 @@ register(
     const Hh=new THREE.Vector3( L/2, -H/2, -W/2);
     // chords
     g.add(cylBetween(A,B,p.chordR), cylBetween(C,D,p.chordR), cylBetween(E,F,p.chordR), cylBetween(G,Hh,p.chordR));
-    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.chordR), cylBetween(D,Hh,p.chordR)); // <-- TYPO FIX: p.ChordR -> p.chordR
+    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.G), cylBetween(D,Hh,p.chordR)); // <-- TYPO FIX: p.G -> p.chordR
     // diagonals each bay
     const bays = Math.max(1, Math.round(L/p.bay));
     for(let i=0;i<bays;i++){
@@ -732,5 +732,88 @@ register(
 );
 /* ================================================================================
 END COMPONENT DEFINITIONS
+================================================================================
+*/
+
+/* ================================================================================
+START PRIMITIVE SHAPES
+================================================================================
+*/
+
+/* Box */
+register(
+  'shape.box', 'Box',
+  {
+    width: { type: 'range', label: 'Width', min: 0.1, max: 20, step: 0.1, default: 2 },
+    height: { type: 'range', label: 'Height', min: 0.1, max: 20, step: 0.1, default: 2 },
+    depth: { type: 'range', label: 'Depth', min: 0.1, max: 20, step: 0.1, default: 2 }
+  },
+  (p) => {
+    const geo = new THREE.BoxGeometry(p.width, p.height, p.depth);
+    return new THREE.Mesh(geo, metalMat); // Will be cloned in state.js
+  }
+);
+
+/* Sphere */
+register(
+  'shape.sphere', 'Sphere',
+  {
+    radius: { type: 'range', label: 'Radius', min: 0.1, max: 10, step: 0.1, default: 1 },
+    widthSeg: { type: 'range', label: 'Width Segments', min: 3, max: 64, step: 1, default: 32 },
+    heightSeg: { type: 'range', label: 'Height Segments', min: 2, max: 32, step: 1, default: 16 }
+  },
+  (p) => {
+    const geo = new THREE.SphereGeometry(p.radius, p.widthSeg, p.heightSeg);
+    return new THREE.Mesh(geo, metalMat);
+  }
+);
+
+/* Cylinder */
+register(
+  'shape.cylinder', 'Cylinder',
+  {
+    radiusTop: { type: 'range', label: 'Top Radius', min: 0.0, max: 10, step: 0.1, default: 1 },
+    radiusBottom: { type: 'range', label: 'Bottom Radius', min: 0.0, max: 10, step: 0.1, default: 1 },
+    height: { type: 'range', label: 'Height', min: 0.1, max: 20, step: 0.1, default: 2 },
+    radialSeg: { type: 'range', label: 'Radial Segments', min: 3, max: 64, step: 1, default: 32 }
+  },
+  (p) => {
+    const geo = new THREE.CylinderGeometry(p.radiusTop, p.radiusBottom, p.height, p.radialSeg);
+    return new THREE.Mesh(geo, metalMat);
+  }
+);
+
+/* Torus */
+register(
+  'shape.torus', 'Torus',
+  {
+    radius: { type: 'range', label: 'Radius', min: 0.1, max: 10, step: 0.1, default: 1 },
+    tube: { type: 'range', label: 'Tube Radius', min: 0.01, max: 5, step: 0.01, default: 0.4 },
+    radialSeg: { type: 'range', label: 'Radial Segments', min: 3, max: 64, step: 1, default: 16 },
+    tubularSeg: { type: 'range', label: 'Tubular Segments', min: 3, max: 128, step: 1, default: 64 }
+  },
+  (p) => {
+    const geo = new THREE.TorusGeometry(p.radius, p.tube, p.radialSeg, p.tubularSeg);
+    return new THREE.Mesh(geo, metalMat);
+  }
+);
+
+/* Plane */
+register(
+  'shape.plane', 'Plane',
+  {
+    width: { type: 'range', label: 'Width', min: 0.1, max: 20, step: 0.1, default: 2 },
+    height: { type: 'range', label: 'Height (Z)', min: 0.1, max: 20, step: 0.1, default: 2 }
+  },
+  (p) => {
+    const geo = new THREE.PlaneGeometry(p.width, p.height);
+    const mesh = new THREE.Mesh(geo, metalMat);
+    mesh.rotation.x = -Math.PI / 2; // Lay it flat
+    return mesh;
+  }
+);
+    
+/* ================================================================================
+END PRIMITIVE SHAPES
 ================================================================================
 */
