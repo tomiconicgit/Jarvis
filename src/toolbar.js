@@ -69,7 +69,6 @@ export default {
     }
     function showToolsMenu(anchor){
       popup(anchor, [
-        ['Cut Out', startCutOut]
       ]);
     }
 
