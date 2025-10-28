@@ -78,7 +78,7 @@ const Editor = {
     // view / gizmo events
     bus.on('frame-selection', (ent)=> ent && frame(ent.object));
     bus.on('set-grid-visible', (vis)=> grid.visible = !!vis);
-    bus.on('set-background', c=> { scene.background = new THREE.Color(c); });
+    // bus.on('set-background', c=> { scene.background = new THREE.Color(c); }); // Removed: Dead code
     bus.on('set-fov', fov => { camera.fov = fov; camera.updateProjectionMatrix(); });
     bus.on('set-gizmo', mode=> gizmo.setMode(mode));
     bus.on('gizmo-attach', (obj)=> gizmo.attach(obj));
@@ -158,9 +158,9 @@ const Editor = {
         const obj = gizmo.object; if (!obj) return;
         const entId = obj.userData.__entId; if (!entId) return;
         
-        const { center, radius } = boundsOf(obj);
-        controls.target.copy(center);
-        clampZoomToRadius(radius);
+        // *** BUG FIX ***
+        // Removed logic that moved the camera target on gizmo/slider change.
+        // The camera target should only move on selection change or 'frame'.
         
         bus.emit('transform-changed-by-gizmo', { id: entId, object: obj }); 
         bus.emit('history-push-debounced', 'Transform');
