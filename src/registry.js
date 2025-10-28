@@ -711,7 +711,7 @@ register(
     const Hh=new THREE.Vector3( L/2, -H/2, -W/2);
     // chords
     g.add(cylBetween(A,B,p.chordR), cylBetween(C,D,p.chordR), cylBetween(E,F,p.chordR), cylBetween(G,Hh,p.chordR));
-    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.ChordR), cylBetween(D,Hh,p.chordR));
+    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.chordR), cylBetween(D,Hh,p.chordR)); // <-- TYPO FIX: p.ChordR -> p.chordR
     // diagonals each bay
     const bays = Math.max(1, Math.round(L/p.bay));
     for(let i=0;i<bays;i++){
