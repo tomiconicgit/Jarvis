@@ -42,15 +42,15 @@ export default {
 
     function showViewMenu(anchor){
       popup(anchor, [
-        ['Toggle Grid',           ()=> bus.emit('toggle-grid')],
+        ['Toggle Grid',             ()=> bus.emit('toggle-grid')],
         ['Toggle Object Wireframe', ()=> bus.emit('toggle-object-wireframe')]
       ]);
     }
-    
+
     function showAddMenu(anchor){
       popup(anchor, [
-        ['Cube', ()=> bus.emit('add-object', { type: 'cube' })]
-        // Future: ['Sphere', ()=> bus.emit('add-object', { type: 'sphere' })]
+        ['Cube',   ()=> bus.emit('add-object', { type: 'cube' })],
+        ['Sphere', ()=> bus.emit('add-object', { type: 'sphere' })]
       ]);
     }
 
@@ -121,7 +121,7 @@ export default {
   }
 };
 
-/* ---------- tiny UI helpers ---------- */
+/* ---------- tiny UI helpers (same as before) ---------- */
 function popup(anchor, items){
   const r = anchor.getBoundingClientRect();
   const top  = r.bottom + 6;
@@ -155,16 +155,15 @@ function popup(anchor, items){
   const closer = ev => { if (!m.contains(ev.target)) m.remove(); };
   setTimeout(()=> document.addEventListener('click', closer, { once:true, capture:true }), 0);
 }
-
 function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
   card.style.cssText = `
     background:var(--panel);border:1px solid var(--panel-border);
-    border-radius:var(--radius-sm); /* Use small radius for modals too */
-    padding:16px; /* Match panel padding */
-    max-width:400px; /* Constrain modal width */
+    border-radius:var(--radius-sm);
+    padding:16px;
+    max-width:400px;
     width:clamp(320px, 92vw, 400px);
     height:auto;color:var(--text);
   `;
