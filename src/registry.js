@@ -487,10 +487,9 @@ register(
     const g=new THREE.Group();
     // Frame (outer rect with inner hole)
     const s=roundedRectShape(p.width, p.height, Math.min(0.3, Math.min(p.width,p.height)*0.1));
-    const hole=new THREE.Path();
     const iw=p.width - p.frameW*2, ih=p.height - p.frameW*2;
     const ish=roundedRectShape(iw, ih, Math.max(0, Math.min(iw,ih)*0.1 - p.frameW*0.5));
-    hole.fromPoints(ish.getPoints(64)); s.holes.push(hole);
+    s.holes.push(ish); // <-- *** FIX IS HERE ***
     const frame = new THREE.ExtrudeGeometry(s, { depth:p.frameT, bevelEnabled:false });
     addPlanarUV(frame,'xy');
     const frameMesh=new THREE.Mesh(frame, metalMat); frameMesh.position.z = -p.frameT/2; g.add(frameMesh);
@@ -682,7 +681,7 @@ register(
   (p)=>{
     const outer=roundedRectShape(p.width, p.height, p.radius);
     const inner=roundedRectShape(Math.max(0.1,p.width-2*p.wall), Math.max(0.1,p.height-2*p.wall), Math.max(0,p.radius-p.wall*0.6));
-    const hole=new THREE.Path(); hole.fromPoints(inner.getPoints(64)); outer.holes.push(hole);
+    outer.holes.push(inner); // <-- *** FIX IS HERE ***
     const eg=new THREE.ExtrudeGeometry(outer,{depth:p.length, bevelEnabled:false});
     addPlanarUV(eg,'xy'); const m=new THREE.Mesh(eg, metalMat); m.rotation.x = -Math.PI/2; m.position.z = -p.length/2; m.name='solid'; return m;
   }
@@ -712,7 +711,7 @@ register(
     const Hh=new THREE.Vector3( L/2, -H/2, -W/2);
     // chords
     g.add(cylBetween(A,B,p.chordR), cylBetween(C,D,p.chordR), cylBetween(E,F,p.chordR), cylBetween(G,Hh,p.chordR));
-    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.chordR), cylBetween(D,Hh,p.chordR));
+    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.ChordR), cylBetween(D,Hh,p.chordR));
     // diagonals each bay
     const bays = Math.max(1, Math.round(L/p.bay));
     for(let i=0;i<bays;i++){
