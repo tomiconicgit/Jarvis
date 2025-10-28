@@ -70,6 +70,14 @@ const CutOut = {
       const poly = selectedIds.map(i => vertsWorld[i].clone());
       const { origin, normal, u, v } = planeBasisFromPolygon(poly);
 
+      // Auto-correct normal to point towards camera (outward)
+      let w = normal.clone().normalize();
+      const toCamera = camera.position.clone().sub(origin).normalize();
+      if (w.dot(toCamera) < 0) {
+        w.negate();
+        u.negate(); // Preserve right-handed basis
+      }
+
       // 2D project points -> Shape
       const pts2 = poly.map(p=>{
         const rel = p.clone().sub(origin);
@@ -77,11 +85,10 @@ const CutOut = {
       });
       const shape = new THREE.Shape(pts2);
 
-      // Extrude along -normal
+      // Extrude along -normal (inward, assuming w is outward)
       const extrude = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled:false, steps:1 });
       extrude.translate(0,0,-depth/2);
       // Build world transform for cutter: basis columns [u,v,w=normal]
-      const w = normal.clone().normalize();
       const basis = new THREE.Matrix4().makeBasis(u, v, w);
       const cutter = new THREE.Mesh(extrude, new THREE.MeshStandardMaterial({ color:0xff4444 }));
       cutter.applyMatrix4(basis);
