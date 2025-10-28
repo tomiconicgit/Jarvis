@@ -11,8 +11,8 @@ export default {
       <div class="group">
         <h3>Save / Load</h3>
         <div class="btnbar">
-          <button id="saveBtn">Save (local)</button>
-          <button id="loadBtn">Load (local)</button>
+          <button id="saveBtn">Save (to Device)</button>
+          <button id="loadBtn">Load (from Device)</button>
         </div>
       </div>
       <div class="group">
@@ -39,7 +39,7 @@ export default {
       bus.emit('project-save');
     });
     loadBtn.addEventListener('click', () => {
-      if (confirm('Load project from local storage? This will overwrite your current scene.')) {
+      if (confirm('Load project from file? This will overwrite your current scene.')) {
         bus.emit('project-load');
       }
     });
@@ -47,21 +47,59 @@ export default {
     // Listen for toolbar shortcuts
     bus.on('project-save', () => {
       try {
-        // ENHANCEMENT: Call State directly instead of hacky localstorage read
-        const lastState = State.serializeState();
-        localStorage.setItem('tower_sandbox_project', lastState);
-        alert('Saved to local storage.');
+        const jsonString = State.serializeState();
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = Object.assign(document.createElement('a'), { 
+          href: url, 
+          download: 'iconic_project.json' 
+        });
+        document.body.appendChild(a); // Needs to be in DOM for firefox
+        a.click();
+        URL.revokeObjectURL(url);
+        a.remove();
       } catch (e) {
         alert('Save failed: ' + e.message);
+        __logErr('Save failed: ' + e.message);
       }
     });
     
     bus.on('project-load', () => {
-      const s = localStorage.getItem('tower_sandbox_project');
-      if (!s) return alert('No save found in local storage.');
-      // ENHANCEMENT: Call State directly. 'history-restore-state' was not implemented.
-      State.deserializeState(s);
-      bus.emit('history-push', 'Load'); // Seed the history stack
+      try {
+        const input = Object.assign(document.createElement('input'), {
+          type: 'file',
+          accept: '.json, application/json'
+        });
+
+        input.addEventListener('change', (e) => {
+          const file = input.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (readEvent) => {
+            try {
+              const jsonString = readEvent.target.result;
+              State.deserializeState(jsonString);
+              bus.emit('history-push', 'Load'); // Seed the history stack
+            } catch (loadErr) {
+              console.error("Failed to load state from file", loadErr);
+              __logErr("Load failed: " + loadErr.message);
+              alert('Failed to read or parse file: ' + loadErr.message);
+            }
+          };
+          reader.onerror = () => {
+            alert('Error reading file.');
+            __logErr('Error reading file.');
+          };
+          reader.readAsText(file);
+        });
+        
+        input.click();
+
+      } catch (e) {
+        alert('Load failed: ' + e.message);
+        __logErr('Load failed: ' + e.message);
+      }
     });
 
     // Export
