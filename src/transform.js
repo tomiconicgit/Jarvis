@@ -1,11 +1,11 @@
 /*
 File: src/transform.js
 */
-// Transform tab — rewritten as an "inspector-style" panel (range + live value) like your previous PWA
+// Transform tab — inspector-style panel (range + live value)
 import * as THREE from 'three';
 import { ensureStructure, rebuildRoundedBox, applyDeforms } from './modifiers.js';
 
-const R_MIN = -50, R_MAX = 50, R_STEP = 0.1;   // Position
+const R_MIN = -100, R_MAX = 100, R_STEP = 0.1; // Position (±100)
 const D_MIN = -360, D_MAX = 360, D_STEP = 1;   // Rotation (deg)
 const S_MIN = 0.01, S_MAX = 10, S_STEP = 0.01; // Scale
 const SU_MIN = 0.01, SU_MAX = 20, SU_STEP = 0.01;
@@ -62,19 +62,8 @@ export default {
         row('subdiv','Subdivision Level', 0,3,1,'range',1),
         check('adaptive','Adaptive Subdivision')
       ])}
-      ${group('Procedural Modifiers (placeholders)', [
-        disabledRow('boolDepth','Boolean Cut Depth'),
-        disabledRow('boolAxis','Boolean Axis'),
-        disabledRow('boolShape','Boolean Shape'),
-        disabledRow('inset','Inset Faces'),
-        disabledRow('extrude','Extrude Faces'),
-        checkDisabled('mirrorX','Mirror X'),
-        checkDisabled('mirrorY','Mirror Y'),
-        checkDisabled('mirrorZ','Mirror Z')
-      ])}
     `;
 
-    // Wire inputs in the panel to an object model
     const ui = collectUI(root);
 
     // --- Core Transforms ---
@@ -90,28 +79,25 @@ export default {
     link(ui.scaleY, v => emitTransform({ scale:{ y:v } }));
     link(ui.scaleZ, v => emitTransform({ scale:{ z:v } }));
 
-    link(ui.scaleU, v => {
-      // Uniform scale
-      setValue(ui.scaleX, v);
-      setValue(ui.scaleY, v);
-      setValue(ui.scaleZ, v);
-      emitTransform({ scale:{ uniform:v } });
+    // FIXED: Uniform scale now updates fields + applies uniform
+    ui.scaleU.addEventListener('input', ()=>{
+      const v = get(ui.scaleU);
+      reflect(ui.scaleX, v);
+      reflect(ui.scaleY, v);
+      reflect(ui.scaleZ, v);
+      emitTransform({ scale:{ uniform: v } });
     });
 
     function emitTransform(partial){
       const sel = editor.selected; if (!sel) return;
-
-      // Build payload from current UI quickly
       const p = {
         position: { x: get(ui.posX), y: get(ui.posY), z: get(ui.posZ) },
         rotation: { x: get(ui.rotX), y: get(ui.rotY), z: get(ui.rotZ) },
         scale:    { x: get(ui.scaleX), y: get(ui.scaleY), z: get(ui.scaleZ) }
       };
-      // Merge partial override
       if (partial.position) Object.assign(p.position, partial.position);
       if (partial.rotation) Object.assign(p.rotation, partial.rotation);
       if (partial.scale)    Object.assign(p.scale,    partial.scale);
-
       bus.emit('transform-update', p);
     }
 
@@ -132,9 +118,10 @@ export default {
       });
     });
 
-    // All deform/structure sliders update the mesh live
+    // Deform + structure updates
     const deformKeys = [
-      'tiltX','tiltY','shearX','shearY','shearZ','taperTop','taperBottom','twistY','bendX','bendZ','bulge',
+      'tiltX','tiltY','shearX','shearY','shearZ','taperTop','taperBottom',
+      'twistY','bendX','bendZ','bulge',
       'bevelRadius','bevelSegments','cornerRound',
       'edgeNoise','edgeNoiseScale','edgeNoiseSeed',
       'resX','resY','resZ','subdiv'
@@ -154,7 +141,7 @@ export default {
       if (!mesh || !mesh.isMesh) return;
 
       const mods = ensureMods(selected);
-      // Pull from UI
+      // Deforms
       mods.tiltX = get(ui.tiltX); mods.tiltY = get(ui.tiltY);
       mods.shearX = get(ui.shearX); mods.shearY = get(ui.shearY); mods.shearZ = get(ui.shearZ);
       mods.taperTop = get(ui.taperTop); mods.taperBottom = get(ui.taperBottom);
@@ -184,7 +171,7 @@ export default {
       bus.emit('history-push-debounced','Deform');
     }
 
-    // Sync UI from selection/gizmo moves (like previous PWA inspector feel)
+    // Sync UI from selection/gizmo moves
     function updateUI(obj){
       if (!obj) return;
       const mesh = obj.getObjectByName('Mesh');
@@ -232,9 +219,7 @@ export default {
       reflect(ui.subdiv, mods.subdivLevel);
       if (ui.adaptive) ui.adaptive.checked = !!mods.adaptiveSubdiv;
 
-      // Ensure base geometry slots exist (e.g., from loaded scenes)
       if (mesh && !mesh.userData._basePositions) rebuildRoundedBox(mesh, mods);
-      // Make sure current deforms are visible after gizmo edits
       applyMods(obj);
     }
 
@@ -243,14 +228,9 @@ export default {
   }
 };
 
-/* ---------------- UI helpers (inspector-like) ---------------- */
+/* ---------------- UI helpers ---------------- */
 function group(title, rows){
-  return `
-    <div class="group">
-      <h3>${title}</h3>
-      ${rows.join('\n')}
-    </div>
-  `;
+  return `<div class="group"><h3>${title}</h3>${rows.join('\n')}</div>`;
 }
 function row(id, label, min, max, step, kind='range', dp=2){
   return `
@@ -263,29 +243,8 @@ function row(id, label, min, max, step, kind='range', dp=2){
     </div>
   `;
 }
-function disabledRow(id, label){
-  return `
-    <div class="row simple" style="opacity:.5;pointer-events:none">
-      <label>${label}</label>
-      <input id="${id}" type="range" disabled>
-    </div>
-  `;
-}
 function check(id,label){
-  return `
-    <div class="row simple">
-      <label>${label}</label>
-      <input id="${id}" type="checkbox">
-    </div>
-  `;
-}
-function checkDisabled(id,label){
-  return `
-    <div class="row simple" style="opacity:.5;pointer-events:none">
-      <label>${label}</label>
-      <input id="${id}" type="checkbox" disabled>
-    </div>
-  `;
+  return `<div class="row simple"><label>${label}</label><input id="${id}" type="checkbox"></div>`;
 }
 function collectUI(root){
   const q = id => root.querySelector('#'+id);
