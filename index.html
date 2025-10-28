@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-t" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  
+  <meta http-equiv="Content-Security-Policy" 
+        content="script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;">
   <title>Iconic Editor â Rebuilt</title>
   <meta name="theme-color" content="#0a0a0a" />
 
@@ -104,11 +107,26 @@
     .row label{color:var(--muted);font-size:13px;white-space:nowrap;opacity:.9}
     .row output{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
     
-    select, input[type="text"], input[type="range"]{
+    select, input[type="text"], input[type="range"], input[type="file"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
       border-radius:var(--radius-sm);
       color:var(--text);padding:8px 12px;
     }
+    /* Style file input */
+    input[type="file"] { color: var(--muted); }
+    input[type="file"]::file-selector-button {
+      background: var(--input-bg);
+      color: var(--accent);
+      border: 1px solid var(--panel-border);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      margin-right: 12px;
+      cursor: pointer;
+    }
+    input[type="file"]::file-selector-button:hover {
+      border-color: var(--accent);
+    }
+
     input[type="range"]{ padding: 0; accent-color: var(--accent); }
     
     button{
