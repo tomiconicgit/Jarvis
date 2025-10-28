@@ -141,7 +141,7 @@ function popup(anchor, items){
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     if (i===items.length-1) it.style.borderBottom='0';
     m.appendChild(it);
-De  });
+  }); // <-- This was the broken line
   document.body.appendChild(m);
   const closer = ev => { if (!m.contains(ev.target)) m.remove(); };
   setTimeout(()=> document.addEventListener('click', closer, { once:true, capture:true }), 0);
