@@ -76,7 +76,7 @@ const MANIFEST = [
         library:   root => LibraryTab.init(root, App.bus, State, Registry),
         outliner:  root => OutlinerTab.init(root, App.bus, State, Registry),
         inspector: root => InspectorTab.init(root, App.bus, State, Registry),
-        project:   root => ProjectTab.init(root, App.bus, editor, Registry)
+        project:   root => ProjectTab.init(root, App.bus, editor, State, Registry) // <-- ENHANCEMENT: Passed State
       }
     }, App.bus);
     
