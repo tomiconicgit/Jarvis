@@ -132,8 +132,13 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
       // Add a 'None' option
       const oNone=document.createElement('option');
       oNone.value=''; oNone.textContent='â None â'; input.appendChild(oNone);
+      
       // Populate from state
-      for (const ent of state.entities.values()){
+      // *** THIS IS THE FIX ***
+      // 'state' is the stateAPI object { entities: ... }
+      // 'state.entities' is the iterator from State.getEntities()
+      for (const ent of state.entities){ // <-- Removed .values()
+        // *** END FIX ***
         if(where && !where.includes(ent.type)) continue;
         const o=document.createElement('option');
         o.value=ent.id; o.textContent=makeLabel(ent);
@@ -711,7 +716,7 @@ register(
     const Hh=new THREE.Vector3( L/2, -H/2, -W/2);
     // chords
     g.add(cylBetween(A,B,p.chordR), cylBetween(C,D,p.chordR), cylBetween(E,F,p.chordR), cylBetween(G,Hh,p.chordR));
-    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.G), cylBetween(D,Hh,p.chordR)); // <-- TYPO FIX: p.G -> p.chordR
+    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.chordR), cylBetween(D,Hh,p.chordR)); // <-- TYPO FIX: p.G -> p.chordR
     // diagonals each bay
     const bays = Math.max(1, Math.round(L/p.bay));
     for(let i=0;i<bays;i++){
