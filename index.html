@@ -61,7 +61,15 @@
     .panel-tab.active{ opacity:1; border-bottom-color:var(--accent); }
     .panel-tab:hover{ background:rgba(255,255,255,.03); }
 
-    .panel-pane{ display:none; flex:1; min-height:0; overflow:auto; padding:12px; }
+    /* --- PANEL SCROLLING FIX --- */
+    .panel-pane{ 
+      display:none; 
+      flex:1; 
+      min-height:0; 
+      overflow-y:auto; /* Changed from 'auto' */
+      overflow-x:hidden;
+      padding:12px; 
+    }
     .panel-pane.active{ display:block; }
     
     @media (max-width:768px){
@@ -126,13 +134,31 @@
     button.primary:hover{ background: #6ab0ff; border-color: #6ab0ff; }
     small.note{display:block;color:var(--muted);margin-top:6px; font-size: 12px;}
     
-    /* --- HUD & D-Pad (from Launch Tower) --- */
+    /* --- HUD (from Launch Tower) --- */
     .hud{position:absolute;left:10px;top:10px;z-index:3;pointer-events:none;font-size:12px;color:#cfd6e6;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12)}
-    .dpad{position:absolute;right:10px;bottom:10px;z-index:6;display:grid;grid-template-columns:48px 48px 48px;gap:6px;user-select:none; opacity: 0.8;}
-    .dpad button,.dpad .step{appearance:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:var(--text);border-radius:10px;padding:10px;font-weight:800; width:auto; font-size: 16px;}
-    .dpad .wide{grid-column:1 / span 3}
-    .dpad .step{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}
-    .dpad small{opacity:.8; font-size: 12px;}
+
+    /* --- SLIDER ROW CSS (NEW) --- */
+    .row input[type="number"] {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 8px 12px;
+      -moz-appearance: textfield;
+      font-size: 13px;
+    }
+    .row input[type="number"]::-webkit-outer-spin-button,
+    .row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    
+    .row.slider {
+        grid-template-columns: 100px 1fr 70px; /* Label, Slider, Number */
+        gap: 8px;
+        margin: 10px 0;
+    }
+    .row.slider input[type="range"] { padding: 0; }
+    .row.slider input[type="number"] { padding: 8px; }
+    .row.slider label { font-size: 13px; }
 
     /* Loader (from Iconic) */
     #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;
@@ -160,25 +186,9 @@
     <div id="toolbar"></div>
     <div id="main">
       <div id="viewport" role="application" aria-label="3D viewport">
-        <div class="hud">Tap a component in Outliner → D-Pad to nudge. “Step” sets move/rotate increment. Export GLB in Project.</div>
-        <div class="dpad" id="dpad">
-          <div class="step wide">
-            <small>Step</small>
-            <input id="stepSize" type="range" min="0.01" max="2" step="0.01" value="0.25" style="width:120px">
-            <output id="stepOut">0.25</output>
-          </div>
-          <button data-act="up">▲</button>
-          <button data-act="in">Z+</button>
-          <button data-act="rotL">⟲</button>
-          <button data-act="left">◀</button>
-          <button data-act="down">▼</button>
-          <button data-act="right">▶</button>
-          <button data-act="rotR">⟳</button>
-          <button data-act="out">Z−</button>
-          <button data-act="yup">Y+</button>
-          <button class="wide" data-act="ydown">Y−</button>
+        <div class="hud">Tap a component in Outliner → Use Gizmo to transform. Export GLB in Project.</div>
+        
         </div>
-      </div>
       <aside id="panel"></aside>
     </div>
   </div>
@@ -188,7 +198,7 @@
     __errBox.style.cssText = 'position:fixed;left:8px;bottom:8px;max-width:90vw;max-height:40vh;overflow:auto;background:rgba(0,0,0,.7);color:#fff;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);font:12px/1.4 ui-monospace,monospace;z-index:9999;display:none';
     document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(__errBox));
     function __logErr(msg){ __errBox.style.display='block'; __errBox.textContent += msg + '\n'; }
-    window.addEventListener('error', e => __logErr('Error: ' + e.message));
+    window.addEventListener('error', e => __logErr('Error: 'D + e.message));
     window.addEventListener('unhandledrejection', e => __logErr('Promise: ' + (e.reason?.message || e.reason)));
   </script>
 
