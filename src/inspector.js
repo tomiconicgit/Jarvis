@@ -103,7 +103,7 @@ export default {
       );
       ent.object.scale.set(parseFloat(inputs.sx_n.value), parseFloat(inputs.sy_n.value), parseFloat(inputs.sz_n.value));
       
-      bus.emit('gizmo-attach', ent.object);
+      // bus.emit('gizmo-attach', ent.object); // Removed: Unnecessary
       bus.emit('history-push-debounced', 'Transform');
     }
     
