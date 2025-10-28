@@ -6,12 +6,15 @@
   <title>Iconic Editor — Hybrid Three.js</title>
   <meta name="theme-color" content="#0a0a0a" />
 
-  <script src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js"></script>
+  <!-- IMPORTANT: use CORS-friendly CDN + anonymous CORS -->
+  <script src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js" crossorigin="anonymous"></script>
+
+  <!-- Switch imports to jsDelivr to avoid CORS issues on submodule loads -->
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
     }
   }
   </script>
@@ -26,7 +29,6 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      /* Adjusted font size and line height */
       font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif
     }
     html,body,#viewport{overscroll-behavior:none}
@@ -65,34 +67,32 @@
     #pane-transform{ padding: 16px; }
     /* --- End New Panel Tab Styles --- */
 
-
     @media (max-width:768px){
       :root{ --panel-w: auto; }
       #main{
         grid-template-columns:1fr;
-        grid-template-rows:60vh 40vh; /* Adjusted mobile split */
+        grid-template-rows:60vh 40vh;
       }
       #panel{border-left:none;border-top:1px solid var(--panel-border)}
-      #pane-scene, #pane-transform {padding: 12px;} /* Tighter padding on mobile */
+      #pane-scene, #pane-transform {padding: 12px;}
     }
 
     canvas{display:block;width:100%;height:100%;touch-action:none}
 
     .group{
       border:1px solid var(--panel-border);
-      border-radius:var(--radius-md); /* Removed radius */
+      border-radius:var(--radius-md);
       background:rgba(255,255,255,.03);
-      padding:16px;margin:12px 0; /* Adjusted spacing */
+      padding:16px;margin:12px 0;
     }
     .group h3{
       margin:0 0 12px 0;font-size:12px;
-      /* Updated heading style */
       font-weight:600;text-transform:uppercase;
       letter-spacing:.5px;opacity:.7;
     }
     .list{
       border:1px solid var(--panel-border);
-      border-radius:var(--radius-md); /* Removed radius */
+      border-radius:var(--radius-md);
       overflow:hidden;
     }
     .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer}
@@ -105,14 +105,13 @@
     
     select, input[type="color"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
-      border-radius:var(--radius-sm); /* Small radius */
-      color:var(--text);padding:8px 12px; /* Adjusted padding */
+      border-radius:var(--radius-sm);
+      color:var(--text);padding:8px 12px;
     }
-    input[type="color"]{ min-height: 38px; } /* Match select height */
+    input[type="color"]{ min-height: 38px; }
 
-    /* --- New Slider Row Styles --- */
     .row.slider{
-      grid-template-columns: 24px 1fr 60px; /* Label(X), Slider, Number Input */
+      grid-template-columns: 24px 1fr 60px;
       gap: 8px; margin: 10px 0;
     }
     .row.slider label{
@@ -129,30 +128,29 @@
     }
     .row.slider input[type="number"]::-webkit-outer-spin-button,
     .row.slider input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    /* --- End New Slider Row Styles --- */
     
     button{
       appearance:none;
-      background:var(--input-bg); /* Changed bg */
-      border:1px solid var(--panel-border); /* Changed border */
-      color:var(--accent); /* Changed text color */
-      border-radius:var(--radius-sm); /* Small radius */
-      padding:9px 14px; /* Adjusted padding */
-      font-weight:600; /* Reduced weight */
+      background:var(--input-bg);
+      border:1px solid var(--panel-border);
+      color:var(--accent);
+      border-radius:var(--radius-sm);
+      padding:9px 14px;
+      font-weight:600;
       cursor:pointer;
       transition:background .15s, border-color .15s;
     }
     button:hover{
-      background:var(--input-bg); /* Keep bg on hover */
-      border-color:var(--accent); /* Highlight border */
+      background:var(--input-bg);
+      border-color:var(--accent);
     }
     button.primary{
       background:var(--accent);
       border-color:var(--accent);
-      color:var(--bg); /* High contrast text */
+      color:var(--bg);
     }
     button.primary:hover{
-      background: #6ab0ff; /* Lighter accent on hover */
+      background: #6ab0ff;
       border-color: #6ab0ff;
     }
 
@@ -182,10 +180,16 @@
     <div id="toolbar"></div>
     <div id="main">
       <div id="viewport" role="application" aria-label="3D viewport"></div>
-      <aside id="panel">
-        </aside>
+      <aside id="panel"></aside>
     </div>
   </div>
+
+  <!-- Optional: warn if opened as file:// which breaks CORS for modules -->
+  <script>
+    if (location.protocol === 'file:') {
+      console.warn('[Iconic] Open via http://, not file:// — modules need CORS headers.');
+    }
+  </script>
 
   <script type="module" src="./src/main.js"></script>
 </body>
