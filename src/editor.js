@@ -1,7 +1,7 @@
 /*
 File: src/editor.js
 */
-// editor.js — renderer / scene / camera / controls / gizmo
+// editor.js â renderer / scene / camera / controls / gizmo
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -25,7 +25,24 @@ const Editor = {
 
     // controls + gizmo
     let controls, gizmo;
+    let zoomSlider = null; // <-- ADDED
     buildControls();
+
+    // --- NEW: Zoom Slider ---
+    zoomSlider = document.createElement('input');
+    zoomSlider.type = 'range';
+    zoomSlider.className = 'zoom-slider';
+    zoomSlider.min = controls.minDistance;
+    zoomSlider.max = controls.maxDistance;
+    zoomSlider.step = 0.1;
+    container.appendChild(zoomSlider);
+
+    zoomSlider.addEventListener('input', (e) => {
+      const newDist = parseFloat(e.target.value);
+      const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+      camera.position.copy(controls.target).addScaledVector(dir, newDist);
+    });
+    // --- END NEW ---
 
     // lights (from Launch Tower)
     scene.add(new THREE.HemisphereLight(0xffffff, 0x202028, .9));
@@ -49,7 +66,7 @@ const Editor = {
         scene.add(boxHelper);
         const { center, radius } = boundsOf(ent.object);
         controls.target.copy(center);
-        clampZoomToRadius(radius);
+        clampZoomToRadius(radius); // This will update the slider's range
       }
     });
 
@@ -123,7 +140,24 @@ const Editor = {
       e.preventDefault(); rebuildRenderer();
     }, false);
 
-    function safeRender(){ try { controls?.update(); renderer.render(scene, camera); } catch(e){} }
+    function safeRender(){ 
+      try { 
+        controls?.update(); 
+        // --- ADDED: Update zoom slider value ---
+        if (zoomSlider && controls) {
+          const dist = camera.position.distanceTo(controls.target);
+          // Only update if the distance is within the slider's current range
+          if (dist >= parseFloat(zoomSlider.min) && dist <= parseFloat(zoomSlider.max)) {
+            // Check if user is NOT dragging slider, to prevent fighting
+            if (document.activeElement !== zoomSlider) {
+              zoomSlider.value = dist;
+            }
+          }
+        }
+        // --- END ADDED ---
+        renderer.render(scene, camera); 
+      } catch(e){} 
+    }
     renderer.setAnimationLoop(safeRender);
 
     function frame(obj){
@@ -134,7 +168,7 @@ const Editor = {
       camera.near = Math.max(0.01, radius * 0.02);
       camera.far  = Math.max(2000, radius * 200);
       camera.updateProjectionMatrix();
-      clampZoomToRadius(radius);
+      clampZoomToRadius(radius); // This will update the slider's range
       if (boxHelper) boxHelper.update();
     }
 
@@ -185,6 +219,14 @@ const Editor = {
       const max = Math.max(min + 5, radius * 40);
       controls.minDistance = min;
       controls.maxDistance = max;
+      
+      // --- ADDED: Update zoom slider range ---
+      if (zoomSlider) {
+        zoomSlider.min = min;
+        zoomSlider.max = max;
+      }
+      // --- END ADDED ---
+      
       camera.near = Math.max(0.01, radius * 0.02);
       camera.far  = Math.max(2000, radius * 200);
       camera.updateProjectionMatrix();
