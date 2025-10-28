@@ -52,36 +52,31 @@ function cylBetween(a,b,r,mat){
   m.position.copy(a).addScaledVector(dir,0.5); m.quaternion.setFromUnitVectors(up, dir.normalize()); return m;
 }
 
-/* ---------- CSG loader with fallback ---------- */
+/* ---------- CSG loader (Simplified) ---------- */
+// *** THIS IS THE MODIFIED FUNCTION ***
 async function loadCSGModule() {
-  const tries = [
-    'https://cdn.jsdelivr.net/npm/three-csg-ts@1.1.6/build/three-csg-ts.esm.js',
-    'https://unpkg.com/three-csg-ts@1.1.6/build/three-csg-ts.esm.js'
-  ];
-  for (const url of tries) {
-    try { const mod = await import(url); return { lib: 'three-csg-ts', mod }; } catch (_) {}
-  }
   try {
+    // ONLY try loading via import map using the bare specifier
     const mod = await import('@gkjohnson/three-bvh-csg');
-    return { lib: 'bvh-csg', mod };
-  } catch (e) {}
-  throw new Error('CSG libraries failed to load');
-}
-async function subtractCSGInPlace(targetMesh, cutters /* array of Mesh */) {
-  const { lib, mod } = await loadCSGModule();
-  if (lib === 'three-csg-ts') {
-    const { CSG } = mod;
-    for (const cutter of cutters) {
-      const res = CSG.subtract(targetMesh, cutter);
-      const geom = res?.geometry || (res?.isBufferGeometry ? res : null);
-      if (!geom) throw new Error('three-csg-ts returned no geometry');
-      targetMesh.geometry.dispose();
-      targetMesh.geometry = geom;
-      targetMesh.geometry.computeVertexNormals();
+    // Ensure the necessary exports exist
+    if (!mod || !mod.Brush || !mod.Evaluator || !mod.SUBTRACTION) {
+        throw new Error('Required exports not found in @gkjohnson/three-bvh-csg module');
     }
-    return;
+    return { lib: 'bvh-csg', mod };
+  } catch (e) {
+     console.error("Failed to load CSG module (@gkjohnson/three-bvh-csg) via import map:", e);
+     // Add more specific error logging
+     __logErr('CSG Lib Load Fail: ' + e.message);
+     throw new Error('CSG library failed to load');
   }
-  // BVH-CSG path
+}
+// *** END MODIFIED FUNCTION ***
+
+async function subtractCSGInPlace(targetMesh, cutters /* array of Mesh */) {
+  // Now loadCSGModule only returns the bvh-csg version or throws
+  const { mod } = await loadCSGModule();
+
+  // BVH-CSG path is the only path now
   const { Brush, Evaluator, SUBTRACTION } = mod;
   for (const cutter of cutters) {
     targetMesh.updateWorldMatrix(true, true);
@@ -90,19 +85,26 @@ async function subtractCSGInPlace(targetMesh, cutters /* array of Mesh */) {
     const b = new Brush(cutter.geometry, cutter.matrixWorld);
     const evaluator = new Evaluator();
     const result = evaluator.evaluate(a, b, SUBTRACTION);
+
+    // Check if result geometry exists
+    if (!result || !result.geometry) {
+        throw new Error('CSG operation returned no geometry');
+    }
+
     const newGeom = result.geometry;
     targetMesh.geometry.dispose();
     targetMesh.geometry = newGeom;
     targetMesh.geometry.computeVertexNormals();
     const inv = new THREE.Matrix4().copy(targetMesh.matrixWorld).invert();
     targetMesh.geometry.applyMatrix4(inv);
+    targetMesh.matrixWorldNeedsUpdate = true; // Flag world matrix as needing update
   }
 }
 
 /* ---------- Registry (plugins) ---------- */
 export const Registry = new Map();
-export function register(type, label, schema, builder, actions=[]) { 
-  Registry.set(type, { type, label, schema, builder, actions }); 
+export function register(type, label, schema, builder, actions=[]) {
+  Registry.set(type, { type, label, schema, builder, actions });
 }
 
 /**
@@ -111,7 +113,7 @@ export function register(type, label, schema, builder, actions=[]) {
 export function buildInspectorUI(rootEl, type, values, onChange, onAction, state){
   rootEl.innerHTML='';
   const schema = Registry.get(type).schema;
-  
+
   for(const [key, def] of Object.entries(schema)){
     const row=document.createElement('div'); row.className='row';
     const lab=document.createElement('label'); lab.textContent=def.label || key; row.appendChild(lab);
@@ -131,12 +133,12 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
       const makeLabel = (ent) => `${Registry.get(ent.type).label} (${ent.id})`;
       // Add a 'None' option
       const oNone=document.createElement('option');
-      oNone.value=''; oNone.textContent='â None â'; input.appendChild(oNone);
-      
+      oNone.value=''; oNone.textContent='— None —'; input.appendChild(oNone);
+
       // Populate from state
       // 'state' is the stateAPI object { entities: ... }
       // 'state.entities' is the iterator from State.getEntities()
-      for (const ent of state.entities){ 
+      for (const ent of state.entities){
         if(where && !where.includes(ent.type)) continue;
         const o=document.createElement('option');
         o.value=ent.id; o.textContent=makeLabel(ent);
@@ -149,9 +151,9 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
       input=document.createElement('input'); input.type='range';
       input.min=def.min; input.max=def.max; input.step=def.step??0.1; input.value=String(val);
       out.textContent=Number(input.value).toFixed(2);
-      input.addEventListener('input', ()=>{ 
-        out.textContent=Number(input.value).toFixed(2); 
-        onChange(key, parseFloat(input.value)); 
+      input.addEventListener('input', ()=>{
+        out.textContent=Number(input.value).toFixed(2);
+        onChange(key, parseFloat(input.value));
       });
     } else if(def.type==='select'){
       input=document.createElement('select');
@@ -170,7 +172,7 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
       out=document.createElement('span');
     }
 
-    row.appendChild(input); 
+    row.appendChild(input);
     if (out.tagName === 'OUTPUT') row.appendChild(out);
     rootEl.appendChild(row);
   }
@@ -398,7 +400,7 @@ register(
   'piping','Piping',
   {
     count:{type:'range',label:'Count',min:1,max:12,step:1,default:2},
-    angleStart:{type:'range',label:'Start AngleÂ°',min:0,max:360,step:1,default:0},
+    angleStart:{type:'range',label:'Start Angle°',min:0,max:360,step:1,default:0},
     radius:{type:'range',label:'Pipe Radius',min:0.05,max:0.8,step:0.01,default:0.18},
     riserH:{type:'range',label:'Riser Height',min:4,max:120,step:0.5,default:30},
     elbowR:{type:'range',label:'Elbow Radius',min:0.5,max:8,step:0.1,default:2.5},
@@ -458,15 +460,11 @@ register(
   [
     {
       key:'APPLY',
-      // *** THIS IS THE FIX ***
-      // 'state' is now the full 'State' module from inspector.js
       run: async (ent, State)=>{
         try{
           const targetId = ent.params.target?.trim(); if(!targetId) return alert('Pick a Target.');
-          // Use the correct State.getEntity function
-          const tgt = State.getEntity(targetId); 
+          const tgt = State.getEntity(targetId);
           if(!tgt) return alert('Target not found');
-          // *** END FIX ***
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
           const cutters = [];
           ent.object.updateWorldMatrix(true,true);
@@ -497,7 +495,7 @@ register(
     const s=roundedRectShape(p.width, p.height, Math.min(0.3, Math.min(p.width,p.height)*0.1));
     const iw=p.width - p.frameW*2, ih=p.height - p.frameW*2;
     const ish=roundedRectShape(iw, ih, Math.max(0, Math.min(iw,ih)*0.1 - p.frameW*0.5));
-    s.holes.push(ish); 
+    s.holes.push(ish);
     const frame = new THREE.ExtrudeGeometry(s, { depth:p.frameT, bevelEnabled:false });
     addPlanarUV(frame,'xy');
     const frameMesh=new THREE.Mesh(frame, metalMat); frameMesh.position.z = -p.frameT/2; g.add(frameMesh);
@@ -571,15 +569,11 @@ register(
   [
     {
       key:'APPLY',
-      // *** THIS IS THE FIX ***
-      // 'state' is now the full 'State' module from inspector.js
       run: async (ent, State)=>{
         try{
           const targetId = ent.params.target?.trim(); if(!targetId) return alert('Pick a Target.');
-          // Use the correct State.getEntity function
           const tgt = State.getEntity(targetId);
           if(!tgt) return alert('Target not found');
-          // *** END FIX ***
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
           const cutters = [];
           ent.object.updateWorldMatrix(true,true);
@@ -694,7 +688,7 @@ register(
   (p)=>{
     const outer=roundedRectShape(p.width, p.height, p.radius);
     const inner=roundedRectShape(Math.max(0.1,p.width-2*p.wall), Math.max(0.1,p.height-2*p.wall), Math.max(0,p.radius-p.wall*0.6));
-    outer.holes.push(inner); 
+    outer.holes.push(inner);
     const eg=new THREE.ExtrudeGeometry(outer,{depth:p.length, bevelEnabled:false});
     addPlanarUV(eg,'xy'); const m=new THREE.Mesh(eg, metalMat); m.rotation.x = -Math.PI/2; m.position.z = -p.length/2; m.name='solid'; return m;
   }
@@ -825,7 +819,7 @@ register(
     return mesh;
   }
 );
-    
+
 /* ================================================================================
 END PRIMITIVE SHAPES
 ================================================================================
