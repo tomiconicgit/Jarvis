@@ -17,8 +17,11 @@ export default {
     const pivot = new THREE.Group();
     pivot.name = 'Cube';
 
-    // Start with a rounded box (radius 0 → sharp)
-    const geo = new RoundedBoxGeometry(1, 1, 1, 1, 0.0);
+    // Start with a rounded box (radius 0 â sharp)
+    // VVV FIX THIS LINE VVV
+    const geo = new RoundedBoxGeometry(1, 1, 1, 2, 0.0); // Changed segments from 1 to 2
+    // ^^^ FIX THIS LINE ^^^
+    
     const mesh = new THREE.Mesh(geo, DEFAULT_MAT);
     mesh.name = 'Mesh';
     mesh.castShadow = true;
