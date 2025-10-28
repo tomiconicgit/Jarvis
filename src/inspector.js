@@ -160,7 +160,10 @@ export default {
         async (actionKey) => { // onAction
           const act = (reg.actions || []).find(a => a.key === actionKey);
           if (act) {
-            await act.run(ent, { entities: State.getEntities() }); // Pass the state API
+            // *** THIS IS THE FIX ***
+            // Pass the entire State module, not just the iterator
+            await act.run(ent, State); 
+            // *** END FIX ***
             bus.emit('history-push', 'Action: ' + actionKey);
           }
         },
