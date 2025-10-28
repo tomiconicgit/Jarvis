@@ -1,3 +1,6 @@
+/*
+File: src/editor.js
+*/
 // editor.js — renderer / scene / camera / controls / selection / lighting / grid
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -86,6 +89,68 @@ const Editor = {
     bus.on('set-gizmo', mode=> gizmo.setMode(mode));
     bus.on('attach-selected', ()=> selected ? gizmo.attach(selected) : gizmo.detach());
     bus.on('detach-gizmo', ()=> gizmo.detach());
+
+    // --- New Listeners ---
+    bus.on('delete-selection', ()=>{
+      if (!selected) return;
+      const toDelete = selected;
+      setSelected(null); // Deselect first
+      gizmo.detach();
+      world.remove(toDelete);
+      // TODO: Add proper disposal of geometry/material/textures
+      bus.emit('scene-updated');
+      bus.emit('history-push', 'Delete');
+    });
+
+    bus.on('duplicate-selection', ()=>{
+      if (!selected) return;
+      const clone = selected.clone(true);
+      clone.name = (selected.name || 'Object') + '_copy';
+      
+      // Offset the clone
+      const box = new THREE.Box3().setFromObject(clone);
+      const size = box.getSize(new THREE.Vector3());
+      clone.position.x += Math.max(0.5, size.x * 0.2); // Offset by 20% of its width or 0.5 units
+
+      world.add(clone);
+      setSelected(clone); // Select the new clone
+      gizmo.attach(clone);
+      bus.emit('scene-updated');
+      bus.emit('history-push', 'Duplicate');
+    });
+    
+    bus.on('toggle-object-wireframe', ()=>{
+      if (!selected) return;
+      
+      // Find the current state from the first material we find
+      let currentState = false;
+      let foundMaterial = false;
+      selected.traverse(child => {
+        if (!foundMaterial && child.isMesh && child.material) {
+          const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+          if (mat) {
+            currentState = mat.wireframe;
+            foundMaterial = true;
+          }
+        }
+      });
+
+      if (!foundMaterial) return; // No materials to toggle
+
+      const newState = !currentState;
+      
+      // Apply new state to all materials
+      selected.traverse(child => {
+        if (child.isMesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.wireframe = newState);
+          } else {
+            child.material.wireframe = newState;
+          }
+        }
+      });
+    });
+    // --- End New Listeners ---
 
     // transforms from outside UI
     bus.on('transform-update', t=>{
