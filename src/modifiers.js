@@ -1,54 +1,37 @@
 /*
 File: src/modifiers.js
 */
-// No external SubdivisionModifier — safer on CDNs.
-// We rebuild a RoundedBoxGeometry with enough segments based on resX/Y/Z + subdivLevel,
-// then apply non-affine deforms + normal-directed noise.
+// Supports both cube (RoundedBox) and sphere geometry builds.
+// No external SubdivisionModifier used.
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 export function rebuildRoundedBox(mesh, mods) {
-  const rad = THREE.MathUtils.clamp(mods.bevelRadius || 0, 0, 0.49);
-
-  // Map resX/Y/Z + subdivLevel to a single safe segment count (uniform).
-  // This mimics “more mesh = more fidelity” without importing SubdivisionModifier.
-  const rx = clampInt(mods.resX ?? 2, 1, 12);
-  const ry = clampInt(mods.resY ?? 2, 1, 12);
-  const rz = clampInt(mods.resZ ?? 2, 1, 12);
-  const maxRes = Math.max(rx, ry, rz);
-
-  // Each extra res step adds 2 rings; subdivLevel adds more.
-  // Cap to keep mobile perf sane.
-  const seg = THREE.MathUtils.clamp(1 + (maxRes - 1) * 2 + (mods.subdivLevel ?? 0) * 2, 1, 40);
-
-  let geo = new RoundedBoxGeometry(1, 1, 1, seg, rad);
-
-  mesh.geometry.dispose?.();
-  mesh.geometry = geo;
-  mesh.geometry.computeVertexNormals();
-
-  mesh.userData._basePositions = geo.attributes.position.array.slice();
-  mesh.userData._structCache = {
-    resX: rx, resY: ry, resZ: rz,
-    bevelRadius: rad,
-    bevelSegments: clampInt(mods.bevelSegments ?? 1, 1, 6),
-    subdivLevel: clampInt(mods.subdivLevel ?? 0, 0, 6)
-  };
+  // Route by shape type (default to cube)
+  const shape = mesh.userData.shapeType || 'cube';
+  if (shape === 'sphere') return rebuildSphere(mesh, mods);
+  return rebuildCube(mesh, mods);
 }
 
 export function ensureStructure(mesh, mods) {
   const c = mesh.userData._structCache || {};
-  if (
-    c.resX !== (mods.resX ?? 2) ||
-    c.resY !== (mods.resY ?? 2) ||
-    c.resZ !== (mods.resZ ?? 2) ||
-    c.bevelRadius !== (mods.bevelRadius ?? 0) ||
-    c.bevelSegments !== clampInt(mods.bevelSegments ?? 1, 1, 6) ||
-    c.subdivLevel !== clampInt(mods.subdivLevel ?? 0, 0, 6)
-  ) {
-    rebuildRoundedBox(mesh, mods);
-  }
+  const shape = mesh.userData.shapeType || 'cube';
+
+  // Common fields
+  const rx = clampInt(mods.resX ?? 2, 1, 12);
+  const ry = clampInt(mods.resY ?? 2, 1, 12);
+  const rz = clampInt(mods.resZ ?? 2, 1, 12);
+  const sub = clampInt(mods.subdivLevel ?? 0, 0, 6);
+  const bevR = mods.bevelRadius ?? 0;
+  const bevS = clampInt(mods.bevelSegments ?? 1, 1, 6);
+
+  const needs =
+    c.resX !== rx || c.resY !== ry || c.resZ !== rz || c.subdivLevel !== sub ||
+    (shape === 'cube' && (c.bevelRadius !== bevR || c.bevelSegments !== bevS)) ||
+    c.shape !== shape;
+
+  if (needs) rebuildRoundedBox(mesh, mods);
 }
 
 export function applyDeforms(mesh, mods) {
@@ -68,6 +51,7 @@ export function applyDeforms(mesh, mods) {
     let y0 = src[i3 + 1];
     let z0 = src[i3 + 2];
 
+    // Normalized height in [-0.5..0.5] domain
     const tY = y0 + 0.5;
 
     // Taper
@@ -128,7 +112,7 @@ export function applyDeforms(mesh, mods) {
   pos.needsUpdate = true;
   geo.computeVertexNormals();
 
-  // Edge Noise / Irregularity (normal-directed)
+  // Normal-directed noise
   const nStrength = mods.noiseStrength || 0;
   if (nStrength) {
     const normals = geo.attributes.normal;
@@ -152,7 +136,49 @@ export function applyDeforms(mesh, mods) {
   geo.computeBoundingSphere();
 }
 
+/* ---------- shape-specific rebuilds ---------- */
+
+function rebuildCube(mesh, mods) {
+  const rx = clampInt(mods.resX ?? 2, 1, 12);
+  const ry = clampInt(mods.resY ?? 2, 1, 12);
+  const rz = clampInt(mods.resZ ?? 2, 1, 12);
+  const maxRes = Math.max(rx, ry, rz);
+  const sub = clampInt(mods.subdivLevel ?? 0, 0, 6);
+  const seg = THREE.MathUtils.clamp(1 + (maxRes - 1) * 2 + sub * 2, 1, 40);
+  const rad = THREE.MathUtils.clamp(mods.bevelRadius || 0, 0, 0.49);
+
+  const geo = new RoundedBoxGeometry(1, 1, 1, seg, rad);
+  swapGeometry(mesh, geo, { shape: 'cube', resX: rx, resY: ry, resZ: rz, subdivLevel: sub, bevelRadius: rad, bevelSegments: clampInt(mods.bevelSegments ?? 1, 1, 6) });
+}
+
+function rebuildSphere(mesh, mods) {
+  const rx = clampInt(mods.resX ?? 2, 1, 12);
+  const ry = clampInt(mods.resY ?? 2, 1, 12);
+  const rz = clampInt(mods.resZ ?? 2, 1, 12);
+  const maxRes = Math.max(rx, ry, rz);
+  const sub = clampInt(mods.subdivLevel ?? 0, 0, 6);
+
+  // Map to UV-sphere segments (cap for mobile)
+  const base = 12;
+  const seg = THREE.MathUtils.clamp(base + (maxRes - 1) * 8 + sub * 6, 8, 128);
+  const widthSeg = seg;
+  const heightSeg = Math.max(6, Math.round(seg * 0.66));
+
+  const geo = new THREE.SphereGeometry(0.5, widthSeg, heightSeg);
+  // mark shape for cache
+  swapGeometry(mesh, geo, { shape: 'sphere', resX: rx, resY: ry, resZ: rz, subdivLevel: sub, seg });
+}
+
 /* ---------- helpers ---------- */
+
+function swapGeometry(mesh, geo, cache){
+  mesh.geometry.dispose?.();
+  mesh.geometry = geo;
+  mesh.geometry.computeVertexNormals();
+  mesh.userData._basePositions = geo.attributes.position.array.slice();
+  mesh.userData._structCache = cache;
+}
+
 function smoothstep(a, b, x) {
   const t = THREE.MathUtils.clamp((x - a) / Math.max(1e-6, b - a), 0, 1);
   return t * t * (3 - 2 * t);
@@ -170,25 +196,16 @@ function valueNoise3(x, y, z, seed) {
   const u = xf * xf * (3 - 2 * xf);
   const v = yf * yf * (3 - 2 * yf);
   const w = zf * zf * (3 - 2 * zf);
-
   function h(xx, yy, zz) { return hash32(xx, yy, zz, seed); }
-
-  const c000 = h(xi+0, yi+0, zi+0);
-  const c100 = h(xi+1, yi+0, zi+0);
-  const c010 = h(xi+0, yi+1, zi+0);
-  const c110 = h(xi+1, yi+1, zi+0);
-  const c001 = h(xi+0, yi+0, zi+1);
-  const c101 = h(xi+1, yi+0, zi+1);
-  const c011 = h(xi+0, yi+1, zi+1);
-  const c111 = h(xi+1, yi+1, zi+1);
-
+  const c000 = h(xi+0, yi+0, zi+0), c100 = h(xi+1, yi+0, zi+0);
+  const c010 = h(xi+0, yi+1, zi+0), c110 = h(xi+1, yi+1, zi+0);
+  const c001 = h(xi+0, yi+0, zi+1), c101 = h(xi+1, yi+0, zi+1);
+  const c011 = h(xi+0, yi+1, zi+1), c111 = h(xi+1, yi+1, zi+1);
   const x00 = THREE.MathUtils.lerp(c000, c100, u);
   const x10 = THREE.MathUtils.lerp(c010, c110, u);
   const x01 = THREE.MathUtils.lerp(c001, c101, u);
   const x11 = THREE.MathUtils.lerp(c011, c111, u);
-
   const y0 = THREE.MathUtils.lerp(x00, x10, v);
   const y1 = THREE.MathUtils.lerp(x01, x11, v);
-
   return THREE.MathUtils.lerp(y0, y1, w);
 }
