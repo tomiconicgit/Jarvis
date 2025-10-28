@@ -311,14 +311,21 @@ function boundsOf(obj){
 function makePrimitive(type='box'){
   const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 });
   let geo, params;
+  let baseType = type.replace('hollow-', '');
+  let isHollow = type.startsWith('hollow-');
+  let deformParams = {
+    hollow: isHollow ? 0.2 : 0, shearX: 0, shearZ: 0, twist: 0, taper: 1, noise: 0,
+    edgeRadius: 0, edgeSegments: 2,
+    curveX: 0, curveZ: 0
+  };
 
-  if (type==='sphere') {
+  if (baseType==='sphere') {
     params = { type:'sphere', radius: 1, widthSegments: 48, heightSegments: 32 };
     geo = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-  } else if (type==='cylinder') {
+  } else if (baseType==='cylinder') {
     params = { type:'cylinder', radiusTop: 1, radiusBottom: 1, height: 2, radialSegments: 48 };
     geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, 8, false);
-  } else if (type==='plane') {
+  } else if (baseType==='plane') {
     params = { type:'plane', width: 4, height: 4 };
     geo = new THREE.PlaneGeometry(params.width, params.height, 8, 8);
   } else { // box
@@ -326,17 +333,17 @@ function makePrimitive(type='box'){
     geo = new THREE.BoxGeometry(params.width, params.height, params.depth, 6, 6, 6);
   }
 
+  if (isHollow) {
+    geo = applyDeformers(geo, deformParams);
+  }
+
   const mesh = new THREE.Mesh(geo, params.type==='plane' ? mat.clone() : mat);
   if (params.type==='plane') mesh.rotation.x = -Math.PI/2;
 
   mesh.userData.geometryParams = params;
-  mesh.userData.deformParams = {
-    hollow: 0, shearX: 0, shearZ: 0, twist: 0, taper: 1, noise: 0,
-    edgeRadius: 0, edgeSegments: 2,
-    curveX: 0, curveZ: 0
-  };
+  mesh.userData.deformParams = deformParams;
   mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
-  mesh.name = params.type.charAt(0).toUpperCase() + params.type.slice(1);
+  mesh.name = (isHollow ? 'Hollow ' : '') + baseType.charAt(0).toUpperCase() + baseType.slice(1);
   return mesh;
 }
 
