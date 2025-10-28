@@ -1,303 +1,119 @@
-// src/mesh.js — Mesh Library modal (no property sliders; pick & add)
+// src/mesh.js — Mesh Library (list only; no preview, no categories)
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-/* ---------- responsive modal shell ---------- */
 function modalShell(){
   const wrap = document.createElement('div');
   wrap.style.cssText = `
-    position:fixed;inset:0;z-index:350;
-    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-             max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    background:rgba(0,0,0,.55);
-    display:grid;place-items:center;
+    position:fixed;inset:0;z-index:350;background:rgba(0,0,0,.55);
+    display:grid;place-items:center;padding:env(safe-area-inset-top) 8px env(safe-area-inset-bottom);
   `;
-
   const card = document.createElement('div');
   card.style.cssText = `
-    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;overflow:hidden;
-    width:min(100vw - 16px, 1120px);
-    height:min(100svh - 16px, 880px);
-    display:grid;
-    grid-template-columns: 260px 1fr;
-    grid-template-rows: 56px 1fr 64px;
-    grid-template-areas:
-      "title title"
-      "left  right"
-      "footer footer";
-    color:var(--text);
+    background:var(--panel);border:1px solid var(--panel-border);
+    color:var(--text);border-radius:12px;overflow:hidden;
+    width:100vw;height:100svh;max-width:640px;
+    display:grid;grid-template-rows:56px 1fr 64px;
   `;
-
   card.innerHTML = `
-    <div style="grid-area:title;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--panel-border)">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--panel-border)">
       <strong style="font-size:16px;letter-spacing:.3px">Mesh Library</strong>
       <span style="opacity:.7;font-size:12px">Pick an asset, then add.</span>
     </div>
-
-    <div style="grid-area:left;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--panel-border)">
-      <div id="cats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px"></div>
-      <div style="font-size:12px;opacity:.7;padding:0 10px 10px">Categories</div>
-      <div id="items" style="flex:1;min-height:0;overflow:auto;border-top:1px solid var(--panel-border)"></div>
-    </div>
-
-    <div style="grid-area:right;min-width:0;position:relative;">
-      <canvas id="preview" style="width:100%;height:100%;display:block"></canvas>
-    </div>
-
-    <div style="grid-area:footer;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px;border-top:1px solid var(--panel-border)">
+    <div id="list" style="overflow:auto;padding:8px;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px;border-top:1px solid var(--panel-border)">
       <button id="libClose">Close</button>
       <button id="libAdd" class="primary">Add to scene</button>
     </div>
   `;
-
   wrap.appendChild(card);
   document.body.appendChild(wrap);
-
-  // Portrait / narrow: stack panels; full height/width; no rounded corners
-  function applyLayout(){
-    const portrait = window.matchMedia('(orientation: portrait)').matches;
-    const narrow   = window.innerWidth <= 820;
-    const cats = card.querySelector('#cats');
-
-    if (portrait || narrow){
-      card.style.width = '100vw';
-      card.style.height = '100svh';
-      card.style.borderRadius = '0';
-      card.style.gridTemplateColumns = '1fr';
-      card.style.gridTemplateRows = '56px 45svh 1fr 64px';
-      card.style.gridTemplateAreas = `"title" "left" "right" "footer"`;
-      cats.style.gridTemplateColumns = 'repeat(2,1fr)';
-    } else {
-      card.style.width = 'min(100vw - 16px, 1120px)';
-      card.style.height = 'min(100svh - 16px, 880px)';
-      card.style.borderRadius = '14px';
-      card.style.gridTemplateColumns = '260px 1fr';
-      card.style.gridTemplateRows = '56px 1fr 64px';
-      card.style.gridTemplateAreas = `"title title" "left right" "footer footer"`;
-      cats.style.gridTemplateColumns = 'repeat(3,1fr)';
-    }
-  }
-  applyLayout();
-  window.addEventListener('resize', applyLayout, { passive:true });
-
   return { wrap, card };
 }
 
-/* ---------- catalog (defaults only) ---------- */
-function catalog(THREERef){
-  return {
-    Shapes: [
-      { id:'box', name:'Box', params:{ w:2,h:2,d:2, r:0 },
-        build(p){ return new THREERef.Mesh(
-          p.r>0 ? new RoundedBoxGeometry(p.w,p.h,p.d,3,Math.min(p.r, Math.min(p.w,p.h,p.d)/2-1e-3))
-                : new THREERef.BoxGeometry(p.w,p.h,p.d, 6,6,6),
-          new THREERef.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 })
-        );}
-      },
-      { id:'sphere', name:'Sphere', params:{ r:1.2, ws:48, hs:32 },
-        build(p){ return new THREERef.Mesh(
-          new THREERef.SphereGeometry(p.r, p.ws, p.hs),
-          new THREERef.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 })
-        );}
-      },
-      { id:'cylinder', name:'Cylinder', params:{ rt:1, rb:1, h:2, rs:48 },
-        build(p){ return new THREERef.Mesh(
-          new THREERef.CylinderGeometry(p.rt,p.rb,p.h,p.rs,8,false),
-          new THREERef.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4 })
-        );}
-      }
-    ],
-    Nature: [
-      { id:'rock', name:'Rock', params:{ r:1.2, noise:0.35 },
-        build(p){
-          const geo = new THREE.IcosahedronGeometry(p.r, 2);
-          const pos = geo.attributes.position;
-          for (let i=0;i<pos.count;i++){
-            const nx=(Math.random()-0.5)*p.noise, ny=(Math.random()-0.5)*p.noise, nz=(Math.random()-0.5)*p.noise;
-            pos.setXYZ(i, pos.getX(i)+nx, pos.getY(i)+ny, pos.getZ(i)+nz);
-          }
-          pos.needsUpdate = true; geo.computeVertexNormals();
-          return new THREERef.Mesh(geo, new THREERef.MeshStandardMaterial({ color:0xb8c1c9, roughness:.9, metalness:.0 }));
-        }
-      }
-    ],
-    Furniture: [
-      { id:'table', name:'Table', params:{ w:3,d:1.6,h:1, t:0.12, leg:0.12 },
-        build(p){
-          const g = new THREERef.Group();
-          const mat = new THREERef.MeshStandardMaterial({ color:0xffffff, roughness:.6, metalness:.05 });
-          const top = new THREERef.Mesh(new THREERef.BoxGeometry(p.w,p.t,p.d), mat); top.position.y = p.h; g.add(top);
-          const legGeo = new THREERef.BoxGeometry(p.leg,p.h,p.leg);
-          [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
-            const lg = new THREERef.Mesh(legGeo, mat);
-            lg.position.set((p.w/2 - p.leg/2)*sx, p.h/2, (p.d/2 - p.leg/2)*sz);
-            g.add(lg);
-          });
-          g.name = 'Table';
-          return g;
-        }
-      }
-    ],
-    Technology: [
-      { id:'lightbar', name:'Light Bar', params:{ len:3, thick:0.15, emissive:1.5 },
-        build(p){
-          const geo = new THREERef.BoxGeometry(p.len, p.thick, p.thick);
-          const mat = new THREERef.MeshStandardMaterial({ color:0xffffff, emissive: new THREERef.Color(0xffffff), emissiveIntensity: p.emissive, metalness:.1, roughness:.2 });
-          const m = new THREERef.Mesh(geo, mat); m.name='Light Bar'; return m;
-        }
-      }
-    ],
-    Construction: [
-      { id:'stairs', name:'Stairs', params:{ w:2, d:3, h:1.6, steps:8 },
-        build(p){
-          const group = new THREERef.Group();
-          const mat = new THREERef.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.5 });
-          for (let i=0;i<p.steps;i++){
-            const stepH = (p.h/p.steps), stepD = (p.d/p.steps);
-            const m = new THREERef.Mesh(new THREERef.BoxGeometry(p.w, stepH, stepD), mat);
-            m.position.set(0, stepH/2 + i*stepH, -p.d/2 + stepD/2 + i*stepD);
-            group.add(m);
-          }
-          group.name = 'Stairs';
-          return group;
-        }
-      }
-    ],
-    Vehicles: [
-      { id:'wheel', name:'Wheel', params:{ r:0.8, tube:0.3, seg:28 },
-        build(p){
-          const m = new THREERef.Mesh(
-            new THREERef.TorusGeometry(p.r, p.tube, 16, p.seg),
-            new THREERef.MeshStandardMaterial({ color:0xeeeeee, roughness:.5, metalness:.2 })
-          );
-          m.rotation.x = Math.PI/2; m.name='Wheel'; return m;
-        }
-      }
-    ]
-  };
+// Items that use Editor.makePrimitive(type)
+const PRIMS = [
+  { label:'Box',            type:'box' },
+  { label:'Hollow Box',     type:'hollow-box' },
+  { label:'Sphere',         type:'sphere' },
+  { label:'Hollow Sphere',  type:'hollow-sphere' },
+  { label:'Cylinder',       type:'cylinder' },
+  { label:'Hollow Cylinder',type:'hollow-cylinder' },
+  { label:'Plane',          type:'plane' },
+];
+
+// Custom builders (kept simple; transform sliders still work)
+function makeWheel(){
+  const m = new THREE.Mesh(
+    new THREE.TorusGeometry(0.8, 0.3, 16, 28),
+    new THREE.MeshStandardMaterial({ color:0xeeeeee, roughness:.5, metalness:.2 })
+  );
+  m.rotation.x = Math.PI/2; m.name = 'Wheel'; m.castShadow = m.receiveShadow = true;
+  return m;
 }
-
-/* ---------- preview renderer ---------- */
-function createPreview(canvas){
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111318);
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(3.2,2.2,3.2);
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x22252a, 0.8);
-  const dir  = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(4,6,3);
-  scene.add(hemi, dir);
-
-  const grid = new THREE.GridHelper(12, 12, 0x335, 0x224);
-  grid.position.y = 0; scene.add(grid);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12,12), new THREE.MeshStandardMaterial({ color:0x0f1115, roughness:1 }));
-  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
-
-  const wrap = new THREE.Group(); wrap.position.y = 0.01; scene.add(wrap);
-
-  function setObject(obj){
-    wrap.clear();
-    if (!obj) return;
-    obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
-    wrap.add(obj);
-    fit(); render();
-  }
-  function fit(){
-    const box = new THREE.Box3().setFromObject(wrap);
-    const r = box.getBoundingSphere(new THREE.Sphere()).radius || 1;
-    camera.position.set(r*2.2, r*1.6, r*2.2);
-    camera.lookAt(box.getCenter(new THREE.Vector3()));
-    camera.updateProjectionMatrix();
-  }
-  function resize(){
-    const rect = canvas.getBoundingClientRect();
-    const w = Math.max(1, rect.width);
-    const h = Math.max(1, rect.height);
-    renderer.setSize(w,h,false);
-    camera.aspect = w/h;
-    camera.updateProjectionMatrix();
-    render();
-  }
-  const ro = new ResizeObserver(resize); ro.observe(canvas);
-  function render(){ renderer.render(scene, camera); }
-  return { setObject, render, resize };
+function makeLightBar(){
+  const geo = new THREE.BoxGeometry(3, 0.15, 0.15);
+  const mat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:new THREE.Color(0xffffff), emissiveIntensity:1.5, roughness:.2, metalness:.1 });
+  const m = new THREE.Mesh(geo, mat); m.name='Light Bar'; m.castShadow = m.receiveShadow = true; return m;
 }
+function makeStairs(){
+  const g = new THREE.Group(); g.name = 'Stairs';
+  const mat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.5 });
+  const W=2, D=3, H=1.6, STEPS=8;
+  for (let i=0;i<STEPS;i++){
+    const stepH = H/STEPS, stepD = D/STEPS;
+    const s = new THREE.Mesh(new THREE.BoxGeometry(W, stepH, stepD), mat);
+    s.position.set(0, stepH/2 + i*stepH, -D/2 + stepD/2 + i*stepD);
+    s.castShadow = s.receiveShadow = true;
+    g.add(s);
+  }
+  return g;
+}
+const CUSTOMS = [
+  { label:'Wheel',     build: makeWheel },
+  { label:'Light Bar', build: makeLightBar },
+  { label:'Stairs',    build: makeStairs }
+];
 
-/* ---------- main ---------- */
 const MeshLibrary = {
   open(bus, editor){
     const { wrap, card } = modalShell();
-    const catsEl = card.querySelector('#cats');
-    const itemsEl = card.querySelector('#items');
-    const canvas = card.querySelector('#preview');
+    const list = card.querySelector('#list');
 
-    const cat = catalog(THREE);
-    const catNames = Object.keys(cat);
+    const items = [...PRIMS, ...CUSTOMS];
+    let selected = null;
 
-    // categories
-    catNames.forEach(name=>{
-      const b = document.createElement('button');
-      b.textContent = name;
-      b.style.cssText = 'padding:10px;border-radius:10px;border:1px solid var(--panel-border);background:rgba(255,255,255,.05);color:var(--text);font-weight:700;cursor:pointer';
-      b.onclick = ()=> loadCategory(name);
-      catsEl.appendChild(b);
+    items.forEach(def=>{
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.style.cssText = `
+        display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--panel-border);
+        border-radius:10px;margin:6px 4px;cursor:pointer;background:rgba(255,255,255,.04)
+      `;
+      row.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--panel-border)"></div>
+                       <div style="font-weight:700">${def.label}</div>`;
+      row.onclick = ()=>{
+        [...list.children].forEach(c=> c.classList.remove('active'));
+        row.classList.add('active'); row.style.background='rgba(77,163,255,.12)';
+        selected = def;
+      };
+      list.appendChild(row);
+      if (!selected){ row.click(); } // preselect first
     });
 
-    const preview = createPreview(canvas);
-    let currentItemDef = null;
-    let currentParams = null;
-
-    function loadCategory(name){
-      itemsEl.innerHTML = '';
-      cat[name].forEach(def=>{
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--panel-border);cursor:pointer;min-width:0';
-        row.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--panel-border)"></div>
-                         <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${def.name}</div>`;
-        row.onclick = ()=> selectItem(def);
-        itemsEl.appendChild(row);
-      });
-      if (cat[name][0]) selectItem(cat[name][0]);
-    }
-
-    function selectItem(def){
-      currentItemDef = def;
-      currentParams = { ...def.params }; // defaults only
-      const obj = currentItemDef.build(currentParams);
-      preview.setObject(obj);
-    }
-
-    // init
-    loadCategory('Shapes');
-
-    // footer
     card.querySelector('#libClose').onclick = ()=> wrap.remove();
     card.querySelector('#libAdd').onclick = ()=>{
-      if (!currentItemDef) return;
-      const obj = currentItemDef.build(currentParams);
-      obj.position.y += 1;
-      obj.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-
-      // expose parametric info (so you can edit later in the side panel)
-      if (obj.isMesh) {
-        if (currentItemDef.id==='box'){
-          obj.userData.geometryParams = { type:'box', width:currentParams.w, height:currentParams.h, depth:currentParams.d };
-          obj.userData.deformParams = { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
-        } else if (currentItemDef.id==='sphere'){
-          obj.userData.geometryParams = { type:'sphere', radius:currentParams.r, widthSegments:currentParams.ws, heightSegments:currentParams.hs };
-          obj.userData.deformParams = { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
-        } else if (currentItemDef.id==='cylinder'){
-          obj.userData.geometryParams = { type:'cylinder', radiusTop:currentParams.rt, radiusBottom:currentParams.rb, height:currentParams.h, radialSegments:currentParams.rs };
-          obj.userData.deformParams = { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
-        }
+      if (!selected) return;
+      if (selected.type){
+        // standard primitive (parametric/hollow handled in Editor.makePrimitive)
+        bus.emit('add-primitive', { type: selected.type });
+      } else if (selected.build){
+        const obj = selected.build();
+        editor.world.add(obj);
+        editor.setSelected(obj);
+        editor.frame(obj);
+        bus.emit('scene-updated');
       }
-
-      editor.world.add(obj);
-      editor.setSelected(obj);
-      editor.frame(obj);
-      bus.emit('scene-updated');
-      bus.emit('history-push', `Add ${currentItemDef.name}`);
+      bus.emit('history-push', `Add ${selected.label}`);
       wrap.remove();
     };
   }
