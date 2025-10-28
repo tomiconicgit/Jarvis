@@ -2,11 +2,7 @@
 import * as THREE from 'three';
 
 const MAX_STACK = 50;
-
-function debounce(fn, ms=250){
-  let t=null;
-  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
-}
+const debounce = (fn, ms=250)=>{ let t=null; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
 export default {
   init(bus, editor){
@@ -19,10 +15,9 @@ export default {
         const payload = { json, label, ts: Date.now() };
         past.push(payload);
         if (past.length > MAX_STACK) past.shift();
-        future.length = 0; // clear redo when new action happens
+        future.length = 0;
       }catch(e){ console.error('[history] snapshot failed', e); }
     }
-
     const pushDebounced = debounce((why)=> snapshot(why), 250);
 
     function restore(state){
@@ -36,16 +31,14 @@ export default {
       }catch(e){ console.error('[history] restore failed', e); }
     }
 
-    // public events
     bus.on('history-push', (why)=> snapshot(why||'manual'));
     bus.on('history-push-debounced', (why)=> pushDebounced(why||'change'));
 
     bus.on('history-undo', ()=>{
-      if (past.length <= 1) return; // keep at least initial
+      if (past.length <= 1) return;
       const current = past.pop();
       future.push(current);
-      const prev = past[past.length-1];
-      restore(prev);
+      restore(past[past.length-1]);
     });
 
     bus.on('history-redo', ()=>{
@@ -55,8 +48,7 @@ export default {
       restore(next);
     });
 
-    // seed initial state shortly after boot (when first box is added)
-    const seed = debounce(()=> snapshot('initial'), 100);
-    bus.on('scene-updated', ()=> seed());
+    // seed initial empty scene
+    snapshot('initial');
   }
 };
