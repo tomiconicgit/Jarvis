@@ -1,4 +1,4 @@
-// main.js — robust boot; no double-imports; defensive init checks
+// main.js — boot without Materials tab
 import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
@@ -12,7 +12,6 @@ const MANIFEST = [
   { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
   { id: 'panel',     path: new URL('./panel.js',     import.meta.url).href },
   { id: 'scene',     path: new URL('./scene.js',     import.meta.url).href },
-  { id: 'materials', path: new URL('./materials.js', import.meta.url).href },
   { id: 'history',   path: new URL('./history.js',   import.meta.url).href }
 ];
 
@@ -22,19 +21,17 @@ const MANIFEST = [
 
     const mods = await loadManifest(MANIFEST, reportProgress);
 
-    const Editor      = mods.editor?.default;
-    const Toolbar     = mods.toolbar?.default;
-    const Panel       = mods.panel?.default;
-    const SceneTab    = mods.scene?.default;
-    const MaterialTab = mods.materials?.default;
-    const History     = mods.history?.default;
+    const Editor   = mods.editor?.default;
+    const Toolbar  = mods.toolbar?.default;
+    const Panel    = mods.panel?.default;
+    const SceneTab = mods.scene?.default;
+    const History  = mods.history?.default;
 
     const missing = [
-      ['editor', Editor?.init],
+      ['editor',  Editor?.init],
       ['toolbar', Toolbar?.init],
-      ['panel', Panel?.init],
-      ['scene', SceneTab?.init],
-      ['materials', MaterialTab?.init],
+      ['panel',   Panel?.init],
+      ['scene',   SceneTab?.init],
       ['history', History?.init]
     ].find(([name, ok]) => !ok);
     if (missing) throw new Error(`Module "${missing[0]}" missing default .init`);
@@ -50,10 +47,10 @@ const MANIFEST = [
 
     Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
 
+    // Scene-only panel
     Panel.init({
       tabs: {
-        scene:    root => SceneTab.init(root, App.bus, editor),
-        material: root => MaterialTab.init(root, App.bus, editor)
+        scene: root => SceneTab.init(root, App.bus, editor)
       }
     });
 
