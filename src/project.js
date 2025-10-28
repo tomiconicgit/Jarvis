@@ -6,7 +6,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import * as THREE from 'three';
 
 export default {
-  init(root, bus, editor) {
+  init(root, bus, editor, State) { // <-- ENHANCEMENT: Added State
     root.innerHTML = `
       <div class="group">
         <h3>Save / Load</h3>
@@ -47,14 +47,10 @@ export default {
     // Listen for toolbar shortcuts
     bus.on('project-save', () => {
       try {
-        const payload = bus.emit('history-push', 'Save'); // Force a snapshot
-        const s = localStorage.getItem('tower_sandbox_history_past'); // Hacky: get from history
-        if (s) {
-           const past = JSON.parse(s);
-           const lastState = past[past.length-1].json;
-           localStorage.setItem('tower_sandbox_project', lastState);
-           alert('Saved to local storage.');
-        }
+        // ENHANCEMENT: Call State directly instead of hacky localstorage read
+        const lastState = State.serializeState();
+        localStorage.setItem('tower_sandbox_project', lastState);
+        alert('Saved to local storage.');
       } catch (e) {
         alert('Save failed: ' + e.message);
       }
@@ -63,8 +59,9 @@ export default {
     bus.on('project-load', () => {
       const s = localStorage.getItem('tower_sandbox_project');
       if (!s) return alert('No save found in local storage.');
-      bus.emit('history-restore-state', s);
-      bus.emit('history-push', 'Load');
+      // ENHANCEMENT: Call State directly. 'history-restore-state' was not implemented.
+      State.deserializeState(s);
+      bus.emit('history-push', 'Load'); // Seed the history stack
     });
 
     // Export
