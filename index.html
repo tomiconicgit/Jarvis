@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-t" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Iconic Editor — Rebuilt</title>
+  <title>Iconic Editor â Rebuilt</title>
   <meta name="theme-color" content="#0a0a0a" />
 
   <script src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js" crossorigin="anonymous"></script>
@@ -160,6 +160,21 @@
     .row.slider input[type="number"] { padding: 8px; }
     .row.slider label { font-size: 13px; }
 
+    /* --- ZOOM SLIDER (NEW) --- */
+    .zoom-slider {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      width: 200px;
+      z-index: 10;
+      accent-color: var(--accent);
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .zoom-slider:hover {
+      opacity: 1;
+    }
+
     /* Loader (from Iconic) */
     #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;
       align-items:center;justify-content:center;z-index:999}
@@ -179,14 +194,14 @@
       <path d="M26 70 L50 22 L74 70" stroke="url(#g)" stroke-width="6" stroke-linecap="round"/>
     </svg>
     <div id="bar"><span></span></div>
-    <div id="status">loading…</div>
+    <div id="status">loadingâ¦</div>
   </div>
 
   <div class="app" id="app" hidden>
     <div id="toolbar"></div>
     <div id="main">
       <div id="viewport" role="application" aria-label="3D viewport">
-        <div class="hud">Tap a component in Outliner → Use Gizmo to transform. Export GLB in Project.</div>
+        <div class="hud">Tap a component in Outliner â Use Gizmo to transform. Export GLB in Project.</div>
         
         </div>
       <aside id="panel"></aside>
