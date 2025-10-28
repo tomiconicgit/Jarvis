@@ -1,7 +1,7 @@
 /*
 File: src/panel.js
 */
-// panel.js — tabbed interface manager
+// panel.js â tabbed interface manager
 export default {
   init({ tabs }, bus){
     const panel = document.getElementById('panel');
@@ -10,11 +10,13 @@ export default {
         <div class="panel-tab active" data-tab="library">Library</div>
         <div class="panel-tab" data-tab="outliner">Outliner</div>
         <div class="panel-tab" data-tab="inspector">Inspector</div>
+        <div class="panel-tab" data-tab="materials">Materials</div>
         <div class="panel-tab" data-tab="project">Project</div>
       </div>
       <div id="pane-library" class="panel-pane active"></div>
       <div id="pane-outliner" class="panel-pane"></div>
       <div id="pane-inspector" class="panel-pane"></div>
+      <div id="pane-materials" class="panel-pane"></div>
       <div id="pane-project" class="panel-pane"></div>
     `;
 
@@ -25,6 +27,7 @@ export default {
     tabs.library?.(panel.querySelector('#pane-library'));
     tabs.outliner?.(panel.querySelector('#pane-outliner'));
     tabs.inspector?.(panel.querySelector('#pane-inspector'));
+    tabs.materials?.(panel.querySelector('#pane-materials')); // <-- ADDED
     tabs.project?.(panel.querySelector('#pane-project'));
 
     // Tab switching logic
@@ -43,8 +46,8 @@ export default {
       if (ent) {
         // Find the currently active tab
         const currentActive = panel.querySelector('.panel-tab.active');
-        // Only switch if we're not already on inspector
-        if (currentActive && currentActive.dataset.tab !== 'inspector') {
+        // Only switch if we're not already on inspector or materials
+        if (currentActive && currentActive.dataset.tab !== 'inspector' && currentActive.dataset.tab !== 'materials') {
           tabButtons.forEach(b => b.classList.remove('active'));
           tabPanes.forEach(p => p.classList.remove('active'));
           panel.querySelector('[data-tab="inspector"]').classList.add('active');
