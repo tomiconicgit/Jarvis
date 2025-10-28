@@ -1,4 +1,7 @@
-// main.js — clean boot (no auto primitives), scene-only panel
+/*
+File: src/main.js
+*/
+// main.js — boot, tabs, object creation
 import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
@@ -8,11 +11,13 @@ const App = {
 };
 
 const MANIFEST = [
-  { id: 'editor',  path: new URL('./editor.js',  import.meta.url).href },
-  { id: 'toolbar', path: new URL('./toolbar.js', import.meta.url).href },
-  { id: 'panel',   path: new URL('./panel.js',   import.meta.url).href },
-  { id: 'scene',   path: new URL('./scene.js',   import.meta.url).href },
-  { id: 'history', path: new URL('./history.js', import.meta.url).href }
+  { id: 'editor',    path: new URL('./editor.js',    import.meta.url).href },
+  { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
+  { id: 'panel',     path: new URL('./panel.js',     import.meta.url).href },
+  { id: 'scene',     path: new URL('./scene.js',     import.meta.url).href },
+  { id: 'history',   path: new URL('./history.js',   import.meta.url).href },
+  { id: 'cube',      path: new URL('./cube.js',      import.meta.url).href },
+  { id: 'transform', path: new URL('./transform.js', import.meta.url).href }
 ];
 
 (async function boot(){
@@ -25,15 +30,19 @@ const MANIFEST = [
     const Panel    = mods.panel?.default;
     const SceneTab = mods.scene?.default;
     const History  = mods.history?.default;
+    const Cube     = mods.cube?.default;
+    const TransformTab = mods.transform?.default;
 
     const missing = [
       ['editor',  Editor?.init],
       ['toolbar', Toolbar?.init],
       ['panel',   Panel?.init],
       ['scene',   SceneTab?.init],
-      ['history', History?.init]
+      ['history', History?.init],
+      ['cube',    Cube?.create],
+      ['transform', TransformTab?.init]
     ].find(([name, ok]) => !ok);
-    if (missing) throw new Error(`Module "${missing[0]}" missing default .init`);
+    if (missing) throw new Error(`Module "${missing[0]}" missing default .init or .create`);
 
     const viewport = document.getElementById('viewport');
     const appRoot  = document.getElementById('app');
@@ -44,14 +53,37 @@ const MANIFEST = [
     // history first
     History.init(App.bus, editor);
 
-    // top bar + scene-only panel
+    // Top bar + panel with tabs
     Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
-    Panel.init({ tabs: { scene: root => SceneTab.init(root, App.bus, editor) } });
+    Panel.init({
+      tabs: {
+        scene: root => SceneTab.init(root, App.bus, editor),
+        transform: root => TransformTab.init(root, App.bus, editor)
+      }
+    }, App.bus); // Pass bus to panel for selection logic
+
+    // Object creation listener
+    App.bus.on('add-object', (payload)=>{
+      let obj;
+      if (payload.type === 'cube') {
+        obj = Cube.create();
+        obj.name = 'Cube';
+      }
+      // Future: else if (payload.type === 'sphere') ...
+
+      if (obj) {
+        editor.world.add(obj);
+        editor.setSelected(obj);
+        editor.frame(obj); // Frame the new object
+        App.bus.emit('scene-updated');
+        App.bus.emit('history-push', `Add ${obj.name}`);
+      }
+    });
 
     // shortcuts (keep basics)
     window.addEventListener('keydown', e=>{
       const meta = e.ctrlKey || e.metaKey;
-      if (e.key === 'Delete') App.bus.emit('delete-selection');
+      if (e.key === 'Delete' || e.key === 'Backspace') App.bus.emit('delete-selection');
       if (meta && e.key.toLowerCase() === 'z'){
         if (e.shiftKey) App.bus.emit('history-redo');
         else App.bus.emit('history-undo');
@@ -64,7 +96,6 @@ const MANIFEST = [
     hideLoader();
     appRoot.hidden = false;
 
-    // CLEAN SLATE: nothing is added here
   } catch (err) {
     console.error('BOOT FAILED:', err);
     setStatus('Error: ' + (err?.message || err));
