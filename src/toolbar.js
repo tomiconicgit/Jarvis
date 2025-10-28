@@ -1,4 +1,4 @@
-// toolbar.js — top bar menus (File, Edit, Add, View, Tools)
+// toolbar.js — top bar menus (File, Edit, Add, View)
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
 import * as THREE from 'three';
@@ -20,9 +20,6 @@ export default {
       <div class="menu" data-m="edit">Edit</div>
       <div class="menu" data-m="add">Add</div>
       <div class="menu" data-m="view">View</div>
-      <div class="menu" data-m="tools">Tools</div>
-      <div style="margin-left:auto;opacity:.8">CAMERA ▼</div>
-      <div style="opacity:.8">SOLID ▼</div>
     `;
 
     root.addEventListener('click', e=>{
@@ -31,16 +28,22 @@ export default {
       if (m==='view') showViewMenu(e.target);
       if (m==='edit') showEditMenu(e.target);
       if (m==='file') showFileMenu(e.target);
-      if (m==='tools') showToolsMenu(e.target);
     });
 
     function showAddMenu(anchor){
       popup(anchor, [
-        ['Box', ()=>bus.emit('add-primitive', {type:'box'})],
-        ['Sphere', ()=>bus.emit('add-primitive', {type:'sphere'})],
-        ['Cylinder', ()=>bus.emit('add-primitive', {type:'cylinder'})],
-        ['Plane', ()=>bus.emit('add-primitive', {type:'plane'})]
+        ['Mesh…', openMeshLibrary],
+        ['Light ▸', (ev)=>showLightSubmenu(anchor)],
+        ['Particle', ()=> addParticle()]
       ]);
+    }
+    function showLightSubmenu(anchor){
+      popup(anchor, [
+        ['Directional Light', ()=> bus.emit('add-light', { type:'directional' })],
+        ['Point Light', ()=> bus.emit('add-light', { type:'point' })],
+        ['Spot Light', ()=> bus.emit('add-light', { type:'spot' })],
+        ['Hemisphere Light', ()=> bus.emit('add-light', { type:'hemisphere' })]
+      ], { anchorOverride: anchor, offsetY: 28 });
     }
     function showViewMenu(anchor){
       popup(anchor, [
@@ -53,8 +56,9 @@ export default {
     }
     function showEditMenu(anchor){
       popup(anchor, [
-        ['Attach Gizmo', ()=>bus.emit('attach-selected')],
-        ['Detach Gizmo', ()=>bus.emit('detach-gizmo')],
+        ['Duplicate', ()=>bus.emit('duplicate-selection')],
+        ['Undo (⌘/Ctrl+Z)', ()=>bus.emit('history-undo')],
+        ['Redo (⇧+⌘/Ctrl+Z)', ()=>bus.emit('history-redo')],
         ['Delete (Del)', ()=>bus.emit('delete-selection')]
       ]);
     }
@@ -67,15 +71,14 @@ export default {
         ['Import GLB', importGLB]
       ]);
     }
-    function showToolsMenu(anchor){
-      popup(anchor, [
-      ]);
+
+    async function openMeshLibrary(){
+      const { default: MeshLibrary } = await import('./mesh.js');
+      MeshLibrary.open(bus, editor);
     }
 
-    /* ---------- Tools ---------- */
-    async function startCutOut(){
-      const { default: CutOut } = await import('./cutout.js');
-      CutOut.start(bus, editor);
+    function addParticle(){
+      bus.emit('add-particle', { type: 'basic' });
     }
 
     /* ---------- File actions ---------- */
@@ -93,6 +96,7 @@ export default {
         editor.setSelected(null);
         [...editor.world.children].forEach(c=> editor.world.remove(c));
         bus.emit('scene-updated');
+        bus.emit('history-push', 'New Project');
         ui.remove();
       };
     }
@@ -128,6 +132,7 @@ export default {
           const obj = loader.parse(data.world);
           (obj.children||[]).forEach(child=> editor.world.add(child));
           bus.emit('scene-updated');
+          bus.emit('history-push', 'Load Project');
           ui.remove();
         };
       };
@@ -176,6 +181,7 @@ export default {
           root.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
           editor.world.add(root);
           bus.emit('scene-updated');
+          bus.emit('history-push', 'Import GLB');
           URL.revokeObjectURL(url);
         }, undefined, err=>{ console.error(err); URL.revokeObjectURL(url); });
       };
@@ -185,12 +191,14 @@ export default {
 };
 
 /* ---- anchored popup ---- */
-function popup(anchor, items){
+function popup(anchor, items, opts={}){
   closeActiveMenu();
   const r = anchor.getBoundingClientRect();
+  const top = (opts.anchorOverride? opts.anchorOverride.getBoundingClientRect().bottom : r.bottom) + (opts.offsetY||6);
+  const left = (opts.anchorOverride? opts.anchorOverride.getBoundingClientRect().left : r.left);
   const m = document.createElement('div');
   m.style.cssText = `
-    position:fixed;top:${Math.round(r.bottom+6)}px;left:${Math.round(r.left)}px;
+    position:fixed;top:${Math.round(top)}px;left:${Math.round(left)}px;
     z-index:200;background:#15171d;border:1px solid rgba(255,255,255,.12);
     border-radius:10px;min-width:220px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4);
     color: var(--text);
@@ -200,7 +208,7 @@ function popup(anchor, items){
     it.textContent = label;
     it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
     it.addEventListener('click', e=>{
-      e.stopPropagation(); fn(); closeActiveMenu();
+      e.stopPropagation(); fn(e); closeActiveMenu();
     });
     it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
@@ -238,7 +246,12 @@ function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
-  card.style.cssText = 'background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:14px;min-width:min(90vw, 420px);color:var(--text)';
+  // near full-screen responsive
+  card.style.cssText = `
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;
+    padding:14px;max-width:1100px;width:clamp(320px, 92vw, 1100px);
+    height:clamp(420px, 88vh, 900px); color:var(--text); display:block;
+  `;
   card.innerHTML = html;
   wrap.appendChild(card);
   document.body.appendChild(wrap);
