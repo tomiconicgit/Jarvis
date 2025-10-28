@@ -1,4 +1,4 @@
-// cutout.js — interactive boolean cut tool (vertex dots, ghost polygon, depth slider)
+// cutout.js — interactive boolean cut tool (surface picking, dynamic dots, ghost polygon, depth slider)
 import * as THREE from 'three';
 import { CSG } from 'three-csg-ts';
 
@@ -21,40 +21,43 @@ const CutOut = {
     const applyBtn   = ui.querySelector('#coApply');
     const cancelBtn  = ui.querySelector('#coCancel');
 
-    // Build vertex dots (unique world-space vertices)
-    const vertsWorld = collectWorldVertices(target);
+    // Dots group (dynamic, added on pick)
+    const dotsGroup = new THREE.Group();
+    scene.add(dotsGroup);
     const dotGeo = new THREE.SphereGeometry(0.08, 12, 12);
-    const dotMat = new THREE.MeshBasicMaterial({ color:0x4da3ff, depthTest: false });
-    const dots = new THREE.InstancedMesh(dotGeo, dotMat, vertsWorld.length);
-    const tmpM = new THREE.Matrix4(), tmpV = new THREE.Vector3();
-    vertsWorld.forEach((v,i)=>{ tmpM.identity().setPosition(v); dots.setMatrixAt(i, tmpM); });
-    dots.instanceMatrix.needsUpdate = true;
-    scene.add(dots);
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0x4da3ff, depthTest: false });
 
     // Ghost polygon (line)
     let ghost;
-    const ghostMat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.9, transparent: true });
-    const selectedIds = [];
+    const ghostMat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.9, transparent: true, depthTest: false });
+    const selectedPoints = []; // world-space points
 
     // Picking
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const onDown = (e)=>{
+      e.preventDefault(); // Help with mobile touch
       const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX-rect.left)/rect.width)*2-1;
-      pointer.y = -((e.clientY-rect.top)/rect.height)*2+1;
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObject(dots, false)[0];
+      const hits = raycaster.intersectObject(target, true);
+      const hit = hits[0];
       if (!hit) return;
-      const id = hit.instanceId;
-      if (selectedIds.includes(id)) return;
-      selectedIds.push(id);
+      const point = hit.point.clone(); // world space
+      // De-dupe close points
+      if (selectedPoints.some(p => p.distanceTo(point) < 0.01)) return;
+      selectedPoints.push(point);
+      // Add dot
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.position.copy(point);
+      dotsGroup.add(dot);
       drawGhost();
     };
     renderer.domElement.addEventListener('pointerdown', onDown);
 
     function drawGhost(){
-      const pts = selectedIds.map(i => vertsWorld[i].clone());
+      const pts = selectedPoints.slice();
       if (ghost) { ghost.geometry.dispose(); scene.remove(ghost); }
       if (pts.length < 2) return;
       const geom = new THREE.BufferGeometry().setFromPoints([...pts, pts[0]]);
@@ -63,11 +66,11 @@ const CutOut = {
     }
 
     applyBtn.onclick = ()=>{
-      if (selectedIds.length < 3) { toast('Pick 3+ dots to form a shape.'); return; }
-      const depth = Math.max(0.01, parseFloat(depthInput.value)||1);
+      if (selectedPoints.length < 3) { toast('Pick 3+ points to form a shape.'); return; }
+      const depth = Math.max(0.01, parseFloat(depthInput.value) || 1);
 
       // Build plane (best-fit normal using Newell’s method)
-      const poly = selectedIds.map(i => vertsWorld[i].clone());
+      const poly = selectedPoints.slice();
       const { origin, normal, u, v } = planeBasisFromPolygon(poly);
 
       // Auto-correct normal to point towards camera (outward)
@@ -79,18 +82,18 @@ const CutOut = {
       }
 
       // 2D project points -> Shape
-      const pts2 = poly.map(p=>{
+      const pts2 = poly.map(p => {
         const rel = p.clone().sub(origin);
         return new THREE.Vector2(rel.dot(u), rel.dot(v));
       });
       const shape = new THREE.Shape(pts2);
 
       // Extrude along -normal (inward, assuming w is outward)
-      const extrude = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled:false, steps:1 });
-      extrude.translate(0,0,-depth/2);
+      const extrude = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, steps: 1 });
+      extrude.translate(0, 0, -depth / 2);
       // Build world transform for cutter: basis columns [u,v,w=normal]
       const basis = new THREE.Matrix4().makeBasis(u, v, w);
-      const cutter = new THREE.Mesh(extrude, new THREE.MeshStandardMaterial({ color:0xff4444 }));
+      const cutter = new THREE.Mesh(extrude, new THREE.MeshStandardMaterial({ color: 0xff4444 }));
       cutter.applyMatrix4(basis);
       cutter.position.copy(origin);
       cutter.updateMatrixWorld(true);
@@ -106,7 +109,9 @@ const CutOut = {
       // Bring geometry back to target local space
       outMesh.applyMatrix4(new THREE.Matrix4().copy(target.matrixWorld).invert());
       const newGeo = outMesh.geometry;
-      newGeo.computeVertexNormals(); newGeo.computeBoundingBox(); newGeo.computeBoundingSphere();
+      newGeo.computeVertexNormals();
+      newGeo.computeBoundingBox();
+      newGeo.computeBoundingSphere();
 
       target.geometry.dispose();
       target.geometry = newGeo;
@@ -119,8 +124,9 @@ const CutOut = {
 
     function cleanup(){
       renderer.domElement.removeEventListener('pointerdown', onDown);
-      scene.remove(dots); dots.geometry.dispose(); dots.material.dispose();
-      if (ghost){ scene.remove(ghost); ghost.geometry.dispose(); ghost = null; }
+      scene.remove(dotsGroup);
+      dotsGroup.children.forEach(dot => { dot.geometry.dispose(); dot.material.dispose(); });
+      if (ghost) { scene.remove(ghost); ghost.geometry.dispose(); }
       ui.remove();
     }
   }
@@ -150,41 +156,26 @@ function toast(msg){
   div.textContent = msg;
   div.style.cssText = 'position:fixed;left:50%;top:20px;transform:translateX(-50%);background:#20232b;color:#fff;border:1px solid rgba(255,255,255,.15);padding:8px 12px;border-radius:8px;z-index:400';
   document.body.appendChild(div);
-  setTimeout(()=> div.remove(), 1800);
-}
-function collectWorldVertices(mesh){
-  const geo = mesh.geometry.clone();
-  geo.applyMatrix4(mesh.matrixWorld);
-  const pos = geo.attributes.position;
-  const set = new Set();
-  const arr = [];
-  const v = new THREE.Vector3();
-  for (let i=0;i<pos.count;i++){
-    v.fromBufferAttribute(pos, i);
-    const key = `${v.x.toFixed(4)},${v.y.toFixed(4)},${v.z.toFixed(4)}`;
-    if (!set.has(key)){ set.add(key); arr.push(v.clone()); }
-  }
-  geo.dispose();
-  return arr;
+  setTimeout(() => div.remove(), 1800);
 }
 function planeBasisFromPolygon(points){
   // Newell's method for polygon normal + use centroid as origin
   const n = new THREE.Vector3(0,0,0);
-  let cx=0, cy=0, cz=0;
-  for (let i=0;i<points.length;i++){
-    const a = points[i], b = points[(i+1)%points.length];
-    n.x += (a.y - b.y)*(a.z + b.z);
-    n.y += (a.z - b.z)*(a.x + b.x);
-    n.z += (a.x - b.x)*(a.y + b.y);
+  let cx = 0, cy = 0, cz = 0;
+  for (let i = 0; i < points.length; i++){
+    const a = points[i], b = points[(i + 1) % points.length];
+    n.x += (a.y - b.y) * (a.z + b.z);
+    n.y += (a.z - b.z) * (a.x + b.x);
+    n.z += (a.x - b.x) * (a.y + b.y);
     cx += a.x; cy += a.y; cz += a.z;
   }
   n.normalize();
-  const origin = new THREE.Vector3(cx/points.length, cy/points.length, cz/points.length);
+  const origin = new THREE.Vector3(cx / points.length, cy / points.length, cz / points.length);
 
   // build orthonormal basis (u,v,w)
   const w = n.clone().normalize();
-  const tmp = Math.abs(w.y) < 0.999 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+  const tmp = Math.abs(w.y) < 0.999 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
   const u = new THREE.Vector3().crossVectors(tmp, w).normalize();
   const v = new THREE.Vector3().crossVectors(w, u).normalize();
-  return { origin, normal:w, u, v };
+  return { origin, normal: w, u, v };
 }
