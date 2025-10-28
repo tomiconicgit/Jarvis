@@ -8,7 +8,7 @@ let activeMenu = null;
 function closeActiveMenu() {
   if (activeMenu) {
     activeMenu.element.remove();
-    document.removeEventListener('pointerdown', activeMenu.closer, true);
+    document.removeEventListener('click', activeMenu.closer, true);
     activeMenu = null;
   }
 }
@@ -25,7 +25,7 @@ export default {
       <div style="opacity:.8">SOLID ▼</div>
     `;
 
-    root.addEventListener('pointerdown', e=>{
+    root.addEventListener('click', e=>{
       const m = e.target?.dataset?.m; if (!m) return;
       if (m==='add') showAddMenu(e.target);
       if (m==='view') showViewMenu(e.target);
@@ -200,7 +200,7 @@ function popup(anchor, items){
     const it = document.createElement('div');
     it.textContent = label;
     it.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.08)';
-    it.addEventListener('pointerdown', e=>{
+    it.addEventListener('click', e=>{
       e.stopPropagation(); fn(); closeActiveMenu();
     });
     it.addEventListener('mouseenter', ()=> it.style.background = 'rgba(77,163,255,.12)');
@@ -211,7 +211,7 @@ function popup(anchor, items){
   document.body.appendChild(m);
   const closer = (ev) => { if (!m.contains(ev.target)) closeActiveMenu(); };
   activeMenu = { element: m, closer };
-  setTimeout(()=> document.addEventListener('pointerdown', closer, true), 0);
+  setTimeout(()=> document.addEventListener('click', closer, true), 0);
 }
 
 /* ---- Export helper ---- */
