@@ -17,15 +17,9 @@ export function reportProgress(done, total){
   const bar = document.querySelector('#bar > span'); if (bar) bar.style.width = pct + '%';
   setStatus(`loading ${done}/${total}`);
 }
-
-/**
- * Import each module ONCE (with progress) and return { id: module }.
- * If a module throws while evaluating, we surface which one did it.
- */
 export async function loadManifest(list, onProgress){
   const mods = Object.create(null);
   let done = 0; const total = list.length;
-
   for (const item of list){
     try{
       const mod = await import(/* @vite-ignore */ item.path);
@@ -35,7 +29,7 @@ export async function loadManifest(list, onProgress){
       console.error('[Loader] Failed while importing:', item.id, item.path, err);
       const firstStackLine = (err?.stack || '').split('\n')[1]?.trim() || '';
       setStatus(`Error in "${item.id}": ${err?.message || err} ${firstStackLine}`);
-      throw err; // let boot catch so the loader stays visible w/ message
+      throw err;
     }
   }
   return mods;
