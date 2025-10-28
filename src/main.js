@@ -1,7 +1,7 @@
 /*
 File: src/main.js
 */
-// main.js — boot, tabs, object creation
+// main.js â boot, tabs, object creation
 import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
@@ -20,6 +20,7 @@ const MANIFEST = [
   { id: 'library',   path: new URL('./library.js',   import.meta.url).href },
   { id: 'outliner',  path: new URL('./outliner.js',  import.meta.url).href },
   { id: 'inspector', path: new URL('./inspector.js', import.meta.url).href },
+  { id: 'materials', path: new URL('./materials.js', import.meta.url).href }, // <-- ADDED
   { id: 'project',   path: new URL('./project.js',   import.meta.url).href },
   // { id: 'dpad',      path: new URL('./dpad.js',      import.meta.url).href } // REMOVED
 ];
@@ -38,6 +39,7 @@ const MANIFEST = [
     const LibraryTab  = mods.library?.default;
     const OutlinerTab = mods.outliner?.default;
     const InspectorTab= mods.inspector?.default;
+    const MaterialsTab= mods.materials?.default; // <-- ADDED
     const ProjectTab  = mods.project?.default;
     // const DPad        = mods.dpad?.default; // REMOVED
     
@@ -52,6 +54,7 @@ const MANIFEST = [
       ['library', LibraryTab?.init],
       ['outliner', OutlinerTab?.init],
       ['inspector', InspectorTab?.init],
+      ['materials', MaterialsTab?.init], // <-- ADDED
       ['project', ProjectTab?.init],
       // ['dpad', DPad?.init] // REMOVED
     ].find(([name, ok]) => !ok);
@@ -76,6 +79,7 @@ const MANIFEST = [
         library:   root => LibraryTab.init(root, App.bus, State, Registry),
         outliner:  root => OutlinerTab.init(root, App.bus, State, Registry),
         inspector: root => InspectorTab.init(root, App.bus, State, Registry),
+        materials: root => MaterialsTab.init(root, App.bus, State), // <-- ADDED
         project:   root => ProjectTab.init(root, App.bus, editor, State, Registry) // <-- ENHANCEMENT: Passed State
       }
     }, App.bus);
