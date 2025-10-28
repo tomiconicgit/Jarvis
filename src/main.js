@@ -12,7 +12,8 @@ const MANIFEST = [
   { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
   { id: 'panel',     path: new URL('./panel.js',     import.meta.url).href },
   { id: 'scene',     path: new URL('./scene.js',     import.meta.url).href },
-  { id: 'materials', path: new URL('./materials.js', import.meta.url).href }
+  { id: 'materials', path: new URL('./materials.js', import.meta.url).href },
+  { id: 'history',   path: new URL('./history.js',   import.meta.url).href }
 ];
 
 (async function boot(){
@@ -26,14 +27,15 @@ const MANIFEST = [
     const Panel       = mods.panel?.default;
     const SceneTab    = mods.scene?.default;
     const MaterialTab = mods.materials?.default;
+    const History     = mods.history?.default;
 
-    // Catch TDZ/missing default early with a precise message
     const missing = [
       ['editor', Editor?.init],
       ['toolbar', Toolbar?.init],
       ['panel', Panel?.init],
       ['scene', SceneTab?.init],
-      ['materials', MaterialTab?.init]
+      ['materials', MaterialTab?.init],
+      ['history', History?.init]
     ].find(([name, ok]) => !ok);
     if (missing) throw new Error(`Module "${missing[0]}" missing default .init`);
 
@@ -42,6 +44,9 @@ const MANIFEST = [
 
     const editor = Editor.init(viewport, App.bus);
     App.modules.editor = editor;
+
+    // history first to capture changes from initial UI actions
+    History.init(App.bus, editor);
 
     Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
 
@@ -58,9 +63,15 @@ const MANIFEST = [
     }, { passive:true });
 
     window.addEventListener('keydown', e=>{
+      const meta = e.ctrlKey || e.metaKey;
       if (e.key === 'g') App.bus.emit('toggle-grid');
       if (e.key === 'f') App.bus.emit('frame-selection');
       if (e.key === 'Delete') App.bus.emit('delete-selection');
+      if (meta && e.key.toLowerCase() === 'z'){
+        if (e.shiftKey) App.bus.emit('history-redo');
+        else App.bus.emit('history-undo');
+        e.preventDefault();
+      }
     });
 
     window.__ICONIC__ = { App };
