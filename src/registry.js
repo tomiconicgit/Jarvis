@@ -134,11 +134,9 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
       oNone.value=''; oNone.textContent='â None â'; input.appendChild(oNone);
       
       // Populate from state
-      // *** THIS IS THE FIX ***
       // 'state' is the stateAPI object { entities: ... }
       // 'state.entities' is the iterator from State.getEntities()
-      for (const ent of state.entities){ // <-- Removed .values()
-        // *** END FIX ***
+      for (const ent of state.entities){ 
         if(where && !where.includes(ent.type)) continue;
         const o=document.createElement('option');
         o.value=ent.id; o.textContent=makeLabel(ent);
@@ -460,10 +458,15 @@ register(
   [
     {
       key:'APPLY',
-      run: async (ent, state)=>{
+      // *** THIS IS THE FIX ***
+      // 'state' is now the full 'State' module from inspector.js
+      run: async (ent, State)=>{
         try{
           const targetId = ent.params.target?.trim(); if(!targetId) return alert('Pick a Target.');
-          const tgt = state.entities.get(targetId); if(!tgt) return alert('Target not found');
+          // Use the correct State.getEntity function
+          const tgt = State.getEntity(targetId); 
+          if(!tgt) return alert('Target not found');
+          // *** END FIX ***
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
           const cutters = [];
           ent.object.updateWorldMatrix(true,true);
@@ -494,7 +497,7 @@ register(
     const s=roundedRectShape(p.width, p.height, Math.min(0.3, Math.min(p.width,p.height)*0.1));
     const iw=p.width - p.frameW*2, ih=p.height - p.frameW*2;
     const ish=roundedRectShape(iw, ih, Math.max(0, Math.min(iw,ih)*0.1 - p.frameW*0.5));
-    s.holes.push(ish); // <-- *** FIX IS HERE ***
+    s.holes.push(ish); 
     const frame = new THREE.ExtrudeGeometry(s, { depth:p.frameT, bevelEnabled:false });
     addPlanarUV(frame,'xy');
     const frameMesh=new THREE.Mesh(frame, metalMat); frameMesh.position.z = -p.frameT/2; g.add(frameMesh);
@@ -568,10 +571,15 @@ register(
   [
     {
       key:'APPLY',
-      run: async (ent, state)=>{
+      // *** THIS IS THE FIX ***
+      // 'state' is now the full 'State' module from inspector.js
+      run: async (ent, State)=>{
         try{
           const targetId = ent.params.target?.trim(); if(!targetId) return alert('Pick a Target.');
-          const tgt = state.entities.get(targetId); if(!tgt) return alert('Target not found');
+          // Use the correct State.getEntity function
+          const tgt = State.getEntity(targetId);
+          if(!tgt) return alert('Target not found');
+          // *** END FIX ***
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
           const cutters = [];
           ent.object.updateWorldMatrix(true,true);
@@ -686,7 +694,7 @@ register(
   (p)=>{
     const outer=roundedRectShape(p.width, p.height, p.radius);
     const inner=roundedRectShape(Math.max(0.1,p.width-2*p.wall), Math.max(0.1,p.height-2*p.wall), Math.max(0,p.radius-p.wall*0.6));
-    outer.holes.push(inner); // <-- *** FIX IS HERE ***
+    outer.holes.push(inner); 
     const eg=new THREE.ExtrudeGeometry(outer,{depth:p.length, bevelEnabled:false});
     addPlanarUV(eg,'xy'); const m=new THREE.Mesh(eg, metalMat); m.rotation.x = -Math.PI/2; m.position.z = -p.length/2; m.name='solid'; return m;
   }
@@ -716,7 +724,7 @@ register(
     const Hh=new THREE.Vector3( L/2, -H/2, -W/2);
     // chords
     g.add(cylBetween(A,B,p.chordR), cylBetween(C,D,p.chordR), cylBetween(E,F,p.chordR), cylBetween(G,Hh,p.chordR));
-    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.chordR), cylBetween(D,Hh,p.chordR)); // <-- TYPO FIX: p.G -> p.chordR
+    g.add(cylBetween(A,E,p.chordR), cylBetween(B,F,p.chordR), cylBetween(C,G,p.chordR), cylBetween(D,Hh,p.chordR));
     // diagonals each bay
     const bays = Math.max(1, Math.round(L/p.bay));
     for(let i=0;i<bays;i++){
