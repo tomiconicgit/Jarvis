@@ -1,7 +1,6 @@
-// toolbar.js — top bar menus (File, Edit, Add, View)
+// toolbar.js — File/Edit/Add/View with a fresh Add menu (no Mesh Library)
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
-import * as THREE from 'three';
 
 let activeMenu = null;
 
@@ -24,7 +23,7 @@ export default {
 
     root.addEventListener('click', e=>{
       const m = e.target?.dataset?.m; if (!m) return;
-      if (m==='add') showAddMenu(e.target);
+      if (m==='add')  showAddMenu(e.target);
       if (m==='view') showViewMenu(e.target);
       if (m==='edit') showEditMenu(e.target);
       if (m==='file') showFileMenu(e.target);
@@ -32,53 +31,55 @@ export default {
 
     function showAddMenu(anchor){
       popup(anchor, [
-        ['Mesh…', openMeshLibrary],
-        ['Light ▸', (ev)=>showLightSubmenu(anchor)],
-        ['Particle', ()=> addParticle()]
+        ['Primitive ▸', (ev)=> showPrimitiveSubmenu(anchor)],
+        ['Light ▸',     (ev)=> showLightSubmenu(anchor)],
+        ['Particle',    ()=> bus.emit('add-particle', { type:'basic' })]
       ]);
+    }
+    function showPrimitiveSubmenu(anchor){
+      popup(anchor, [
+        ['Box',            ()=> bus.emit('add-primitive', { type:'box' })],
+        ['Sphere',         ()=> bus.emit('add-primitive', { type:'sphere' })],
+        ['Cylinder',       ()=> bus.emit('add-primitive', { type:'cylinder' })],
+        ['Plane',          ()=> bus.emit('add-primitive', { type:'plane' })],
+        ['Hollow Box',     ()=> bus.emit('add-primitive', { type:'hollow-box' })],
+        ['Hollow Sphere',  ()=> bus.emit('add-primitive', { type:'hollow-sphere' })],
+        ['Hollow Cylinder',()=> bus.emit('add-primitive', { type:'hollow-cylinder' })]
+      ], { anchorOverride: anchor, offsetY: 28 });
     }
     function showLightSubmenu(anchor){
       popup(anchor, [
         ['Directional Light', ()=> bus.emit('add-light', { type:'directional' })],
-        ['Point Light', ()=> bus.emit('add-light', { type:'point' })],
-        ['Spot Light', ()=> bus.emit('add-light', { type:'spot' })],
-        ['Hemisphere Light', ()=> bus.emit('add-light', { type:'hemisphere' })]
+        ['Point Light',       ()=> bus.emit('add-light', { type:'point' })],
+        ['Spot Light',        ()=> bus.emit('add-light', { type:'spot' })],
+        ['Hemisphere Light',  ()=> bus.emit('add-light', { type:'hemisphere' })]
       ], { anchorOverride: anchor, offsetY: 28 });
     }
     function showViewMenu(anchor){
       popup(anchor, [
         ['Frame Selection (F)', ()=>bus.emit('frame-selection')],
-        ['Toggle Grid (G)', ()=>bus.emit('toggle-grid')],
-        ['Gizmo: Translate', ()=>bus.emit('set-gizmo','translate')],
-        ['Gizmo: Rotate', ()=>bus.emit('set-gizmo','rotate')],
-        ['Gizmo: Scale', ()=>bus.emit('set-gizmo','scale')]
+        ['Toggle Grid (G)',     ()=>bus.emit('toggle-grid')],
+        ['Gizmo: Translate',    ()=>bus.emit('set-gizmo','translate')],
+        ['Gizmo: Rotate',       ()=>bus.emit('set-gizmo','rotate')],
+        ['Gizmo: Scale',        ()=>bus.emit('set-gizmo','scale')]
       ]);
     }
     function showEditMenu(anchor){
       popup(anchor, [
-        ['Duplicate', ()=>bus.emit('duplicate-selection')],
-        ['Undo (⌘/Ctrl+Z)', ()=>bus.emit('history-undo')],
-        ['Redo (⇧+⌘/Ctrl+Z)', ()=>bus.emit('history-redo')],
-        ['Delete (Del)', ()=>bus.emit('delete-selection')]
+        ['Duplicate',           ()=>bus.emit('duplicate-selection')],
+        ['Undo (⌘/Ctrl+Z)',     ()=>bus.emit('history-undo')],
+        ['Redo (⇧+⌘/Ctrl+Z)',   ()=>bus.emit('history-redo')],
+        ['Delete (Del)',        ()=>bus.emit('delete-selection')]
       ]);
     }
     function showFileMenu(anchor){
       popup(anchor, [
-        ['New', newProject],
-        ['Save', saveProject],
-        ['Load', loadProject],
+        ['New',   newProject],
+        ['Save',  saveProject],
+        ['Load',  loadProject],
         ['Export…', exportDialog],
         ['Import GLB', importGLB]
       ]);
-    }
-
-    async function openMeshLibrary(){
-      const { default: MeshLibrary } = await import('./mesh.js');
-      MeshLibrary.open(bus, editor);
-    }
-
-    function addParticle(){
-      bus.emit('add-particle', { type: 'basic' });
     }
 
     /* ---------- File actions ---------- */
@@ -128,8 +129,13 @@ export default {
         ui.querySelector('#loadGo').onclick = () => {
           editor.setSelected(null);
           [...editor.world.children].forEach(c=> editor.world.remove(c));
-          const loader = new THREE.ObjectLoader();
-          const obj = loader.parse(data.world);
+          const loader = new GLTFLoader().parser?.json ? new GLTFLoader() : new THREE.ObjectLoader();
+          // Fallback to ObjectLoader for our saved scenes
+          if (loader instanceof GLTFLoader) {
+            // unlikely path; we still keep ObjectLoader as default
+          }
+          const objLoader = new THREE.ObjectLoader();
+          const obj = objLoader.parse(data.world);
           (obj.children||[]).forEach(child=> editor.world.add(child));
           bus.emit('scene-updated');
           bus.emit('history-push', 'Load Project');
@@ -246,7 +252,6 @@ function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
   const card = document.createElement('div');
-  // near full-screen responsive
   card.style.cssText = `
     background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;
     padding:14px;max-width:1100px;width:clamp(320px, 92vw, 1100px);
