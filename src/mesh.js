@@ -1,51 +1,95 @@
-// mesh.js — Mesh Library modal (categories, previews, per-item sliders)
+// src/mesh.js — Mesh Library modal (responsive: iPhone-safe, stacks in portrait)
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
+/* ---------- responsive modal shell ---------- */
 function modalShell(){
   const wrap = document.createElement('div');
   wrap.style.cssText = `
-    position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:350
+    position:fixed;inset:0;z-index:350;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+             max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    background:rgba(0,0,0,.55);
+    display:grid;place-items:center;
   `;
+
   const card = document.createElement('div');
   card.style.cssText = `
-    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;
-    width:clamp(340px, 92vw, 1120px); height:clamp(460px, 90vh, 880px); padding:0; display:grid;
-    grid-template-columns: 260px 1fr; grid-template-rows: 56px 1fr 64px; grid-template-areas:
-    "title title"
-    "left  right"
-    "footer footer";
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;overflow:hidden;
+    width:min(100vw - 16px, 1120px);
+    height:min(100svh - 16px, 880px);
+    display:grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 56px 1fr 64px;
+    grid-template-areas:
+      "title title"
+      "left  right"
+      "footer footer";
     color:var(--text);
   `;
+
   card.innerHTML = `
     <div style="grid-area:title;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--panel-border)">
       <strong style="font-size:16px;letter-spacing:.3px">Mesh Library</strong>
       <span style="opacity:.7;font-size:12px">Pick a category, tweak sliders, then add.</span>
     </div>
-    <div style="grid-area:left;display:flex;flex-direction:column;border-right:1px solid var(--panel-border);min-width:0">
-      <div id="cats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px"></div>
+
+    <div style="grid-area:left;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--panel-border)">
+      <div id="cats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px"></div>
       <div style="font-size:12px;opacity:.7;padding:0 10px 10px">Categories</div>
-      <div id="items" style="flex:1;overflow:auto;border-top:1px solid var(--panel-border)"></div>
+      <div id="items" style="flex:1;min-height:0;overflow:auto;border-top:1px solid var(--panel-border)"></div>
     </div>
+
     <div style="grid-area:right;display:grid;grid-template-rows: 1fr auto;min-width:0;">
       <div id="previewWrap" style="position:relative;min-height:0">
         <canvas id="preview" style="width:100%;height:100%;display:block"></canvas>
       </div>
-      <div id="controls" style="padding:10px;border-top:1px solid var(--panel-border)"></div>
+      <div id="controls" style="padding:10px;border-top:1px solid var(--panel-border);max-height:40svh;overflow:auto"></div>
     </div>
+
     <div style="grid-area:footer;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px;border-top:1px solid var(--panel-border)">
       <button id="libClose">Close</button>
       <button id="libAdd" class="primary">Add to scene</button>
     </div>
   `;
+
   wrap.appendChild(card);
   document.body.appendChild(wrap);
-  return { wrap, card };
+
+  // Portrait/mobile layout: stack left/right; full-bleed with no rounded corners.
+  function applyLayout(){
+    const portrait = window.matchMedia('(orientation: portrait)').matches;
+    const narrow   = window.innerWidth <= 820;
+    if (portrait || narrow){
+      card.style.width = '100vw';
+      card.style.height = '100svh';
+      card.style.borderRadius = '0';
+      card.style.gridTemplateColumns = '1fr';
+      card.style.gridTemplateRows = '56px 40svh 1fr 64px';
+      card.style.gridTemplateAreas = `"title" "left" "right" "footer"`;
+      // Category buttons: 2 per row on phones
+      const cats = card.querySelector('#cats');
+      cats.style.gridTemplateColumns = 'repeat(2,1fr)';
+    } else {
+      card.style.width = 'min(100vw - 16px, 1120px)';
+      card.style.height = 'min(100svh - 16px, 880px)';
+      card.style.borderRadius = '14px';
+      card.style.gridTemplateColumns = '260px 1fr';
+      card.style.gridTemplateRows = '56px 1fr 64px';
+      card.style.gridTemplateAreas = `"title title" "left right" "footer footer"`;
+      const cats = card.querySelector('#cats');
+      cats.style.gridTemplateColumns = 'repeat(3,1fr)';
+    }
+  }
+  applyLayout();
+  window.addEventListener('resize', applyLayout, { passive:true });
+
+  return { wrap, card, applyLayout };
 }
 
 /* ---------- catalog ---------- */
 function catalog(THREERef){
-  const items = {
+  return {
     Shapes: [
       {
         id:'box', name:'Box', params:{ w:2,h:2,d:2, r:0 },
@@ -81,7 +125,7 @@ function catalog(THREERef){
         id:'rock', name:'Rock', params:{ r:1.2, noise:0.35 },
         ui:[ ['r','Radius',0.3,4,0.1], ['noise','Noise',0,1,0.01] ],
         build(p){
-          const geo = new THREERef.IcosahedronGeometry(p.r, 2);
+          const geo = new THREE.IcosahedronGeometry(p.r, 2);
           const pos = geo.attributes.position;
           for (let i=0;i<pos.count;i++){
             const nx=(Math.random()-0.5)*p.noise, ny=(Math.random()-0.5)*p.noise, nz=(Math.random()-0.5)*p.noise;
@@ -103,7 +147,7 @@ function catalog(THREERef){
           top.position.y = p.h;
           group.add(top);
           const legGeo = new THREERef.BoxGeometry(p.leg,p.h,p.leg,1,1,1);
-          const offs = [[-1, -1],[1, -1],[-1,1],[1,1]];
+          const offs = [[-1,-1],[1,-1],[-1,1],[1,1]];
           offs.forEach(([sx,sz])=>{
             const lg = new THREERef.Mesh(legGeo, mat);
             lg.position.set((p.w/2 - p.leg/2)*sx, p.h/2, (p.d/2 - p.leg/2)*sz);
@@ -130,22 +174,16 @@ function catalog(THREERef){
         id:'stairs', name:'Stairs', params:{ w:2, d:3, h:1.6, steps:8 },
         ui:[ ['w','Width',0.5,6,0.1], ['d','Depth',0.5,10,0.1], ['h','Height',0.2,4,0.05], ['steps','Steps',2,20,1] ],
         build(p){
-          const geom = new THREERef.BufferGeometry();
+          const group = new THREERef.Group();
           const mat = new THREERef.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.5 });
-          const tmp = new THREERef.Geometry? new THREERef.Geometry() : null; // legacy check
-          // simple step merger
-          const meshes = [];
           for (let i=0;i<p.steps;i++){
-            const t = i/(p.steps);
             const stepH = (p.h/p.steps);
             const stepD = (p.d/p.steps);
             const g = new THREERef.BoxGeometry(p.w, stepH, stepD, 1,1,1);
             const m = new THREERef.Mesh(g, mat);
             m.position.set(0, stepH/2 + i*stepH, -p.d/2 + stepD/2 + i*stepD);
-            meshes.push(m);
+            group.add(m);
           }
-          const group = new THREERef.Group();
-          meshes.forEach(m=>group.add(m));
           group.name = 'Stairs';
           return group;
         }
@@ -167,7 +205,6 @@ function catalog(THREERef){
       }
     ]
   };
-  return items;
 }
 
 /* ---------- UI helpers ---------- */
@@ -212,8 +249,7 @@ function createPreview(canvas){
     if (!obj) return;
     obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
     wrap.add(obj);
-    fit();
-    render();
+    fit(); render();
   }
   function fit(){
     const box = new THREE.Box3().setFromObject(wrap);
@@ -266,13 +302,12 @@ const MeshLibrary = {
       itemsEl.innerHTML = '';
       cat[name].forEach(def=>{
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--panel-border);cursor:pointer';
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--panel-border);cursor:pointer;min-width:0';
         row.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--panel-border)"></div>
-                         <div style="font-weight:700">${def.name}</div>`;
+                         <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${def.name}</div>`;
         row.onclick = ()=> selectItem(def);
         itemsEl.appendChild(row);
       });
-      // auto select first
       if (cat[name][0]) selectItem(cat[name][0]);
     }
 
@@ -285,7 +320,6 @@ const MeshLibrary = {
     function selectItem(def){
       currentItemDef = def;
       currentParams = { ...def.params };
-      // controls
       controlsEl.innerHTML = `
         <div class="group" style="border:1px solid var(--panel-border);border-radius:12px;background:rgba(255,255,255,.04);padding:10px">
           <h3 style="margin:0 0 8px 0;font-size:12px;letter-spacing:.3px;opacity:.9">${def.name} — Properties</h3>
@@ -300,19 +334,15 @@ const MeshLibrary = {
       rebuildPreview();
     }
 
-    // initial category
     loadCategory('Shapes');
 
-    // footer buttons
     card.querySelector('#libClose').onclick = ()=> wrap.remove();
     card.querySelector('#libAdd').onclick = ()=>{
       if (!currentItemDef) return;
       const obj = currentItemDef.build(currentParams);
       obj.position.y += 1;
       obj.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-      // param hooks for later edits where possible
       if (obj.isMesh) {
-        // expose basic geometry params when matching primitive types
         if (currentItemDef.id==='box'){
           obj.userData.geometryParams = { type:'box', width:currentParams.w, height:currentParams.h, depth:currentParams.d };
           obj.userData.deformParams = { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
@@ -324,7 +354,6 @@ const MeshLibrary = {
           obj.userData.deformParams = { hollow:0, shearX:0, shearZ:0, twist:0, taper:1, noise:0 };
         }
       }
-
       editor.world.add(obj);
       editor.setSelected(obj);
       editor.frame(obj);
