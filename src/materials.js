@@ -49,12 +49,18 @@ function loadTexture(url, srgb = false) {
         if (srgb) {
           texture.colorSpace = THREE.SRGBColorSpace;
         }
+        if (url.startsWith('blob:')) { // Revoke blob URLs after load
+          URL.revokeObjectURL(url);
+        }
         resolve(texture);
       },
       undefined,
       (err) => {
         console.error('Texture load failed:', url, err);
         __logErr(`Failed to load texture: ${url}`);
+        if (url.startsWith('blob:')) { // Also revoke on error
+          URL.revokeObjectURL(url);
+        }
         resolve(null); // Resolve with null so one bad texture doesn't stop others
       }
     );
@@ -85,14 +91,14 @@ export default {
     root.innerHTML = `
       <div id="materials-ui" style="display: none;">
         <div class="group">
-          <h3>PBR Maps (from URL)</h3>
-          <div class="row"><label>Albedo (Color)</label><input type="text" id="tex_albedo" placeholder="https://..."></div>
-          <div class="row"><label>Normal</label><input type="text" id="tex_normal" placeholder="https://..."></div>
-          <div class="row"><label>Roughness</label><input type="text" id="tex_rough" placeholder="https://..."></div>
-          <div class="row"><label>Metalness</label><input type="text" id="tex_metal" placeholder="https://..."></div>
-          <div class="row"><label>Ambient Occl.</label><input type="text" id="tex_ao" placeholder="https://..."></div>
+          <h3>PBR Maps (from Device)</h3>
+          <div class="row"><label>Albedo (Color)</label><input type="file" id="tex_albedo" accept="image/png, image/jpeg"></div>
+          <div class="row"><label>Normal</label><input type="file" id="tex_normal" accept="image/png, image/jpeg"></div>
+          <div class="row"><label>Roughness</label><input type="file" id="tex_rough" accept="image/png, image/jpeg"></div>
+          <div class="row"><label>Metalness</label><input type="file" id="tex_metal" accept="image/png, image/jpeg"></div>
+          <div class="row"><label>Ambient Occl.</label><input type="file" id="tex_ao" accept="image/png, image/jpeg"></div>
           <div class="btnbar" style="margin-top:12px;">
-            <button id="texClearBtn">Clear</button>
+            <button id="texClearBtn">Clear All</button>
             <button id="texLoadBtn" class="primary">Load Textures</button>
           </div>
           <small class="note">Applies to the first standard material on the object. Clears old textures.</small>
@@ -134,33 +140,33 @@ export default {
       this.textContent = 'Loading...';
       this.disabled = true;
 
+      const getUrl = (fileInput) => {
+        const file = fileInput.files[0];
+        return file ? URL.createObjectURL(file) : null;
+      };
+
       const [map, normalMap, roughnessMap, metalnessMap, aoMap] = await Promise.all([
-        loadTexture(inputs.albedo.value, true), // sRGB
-        loadTexture(inputs.normal.value),
-        loadTexture(inputs.rough.value),
-        loadTexture(inputs.metal.value),
-        loadTexture(inputs.ao.value),
+        loadTexture(getUrl(inputs.albedo), true), // sRGB
+        loadTexture(getUrl(inputs.normal)),
+        loadTexture(getUrl(inputs.rough)),
+        loadTexture(getUrl(inputs.metal)),
+        loadTexture(getUrl(inputs.ao)),
       ]);
       
-      // Dispose old textures
-      currentMaterial.map?.dispose();
-      currentMaterial.normalMap?.dispose();
-      currentMaterial.roughnessMap?.dispose();
-      currentMaterial.metalnessMap?.dispose();
-      currentMaterial.aoMap?.dispose();
-
-      // Assign new textures
-      currentMaterial.map = map;
-      currentMaterial.normalMap = normalMap;
-      currentMaterial.roughnessMap = roughnessMap;
-      currentMaterial.metalnessMap = metalnessMap;
-      currentMaterial.aoMap = aoMap;
+      // Assign new textures (only if a new one was loaded)
+      // This allows adding one texture at a time
+      if (map) { currentMaterial.map?.dispose(); currentMaterial.map = map; }
+      if (normalMap) { currentMaterial.normalMap?.dispose(); currentMaterial.normalMap = normalMap; }
+      if (roughnessMap) { currentMaterial.roughnessMap?.dispose(); currentMaterial.roughnessMap = roughnessMap; }
+      if (metalnessMap) { currentMaterial.metalnessMap?.dispose(); currentMaterial.metalnessMap = metalnessMap; }
+      if (aoMap) { currentMaterial.aoMap?.dispose(); currentMaterial.aoMap = aoMap; }
       
-      // Update UVs for new textures
+      // Update UVs for all textures
       updateUVs();
 
       currentMaterial.needsUpdate = true;
       
+      // Clear the file inputs
       inputs.albedo.value = '';
       inputs.normal.value = '';
       inputs.rough.value = '';
