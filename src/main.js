@@ -17,7 +17,9 @@ const MANIFEST = [
   { id: 'scene',     path: new URL('./scene.js',     import.meta.url).href },
   { id: 'history',   path: new URL('./history.js',   import.meta.url).href },
   { id: 'cube',      path: new URL('./cube.js',      import.meta.url).href },
-  { id: 'transform', path: new URL('./transform.js', import.meta.url).href }
+  { id: 'sphere',    path: new URL('./sphere.js',    import.meta.url).href },
+  { id: 'transform', path: new URL('./transform.js', import.meta.url).href },
+  { id: 'modifiers', path: new URL('./modifiers.js', import.meta.url).href }
 ];
 
 (async function boot(){
@@ -31,6 +33,7 @@ const MANIFEST = [
     const SceneTab = mods.scene?.default;
     const History  = mods.history?.default;
     const Cube     = mods.cube?.default;
+    const Sphere   = mods.sphere?.default;
     const TransformTab = mods.transform?.default;
 
     const missing = [
@@ -40,6 +43,7 @@ const MANIFEST = [
       ['scene',   SceneTab?.init],
       ['history', History?.init],
       ['cube',    Cube?.create],
+      ['sphere',  Sphere?.create],
       ['transform', TransformTab?.init]
     ].find(([name, ok]) => !ok);
     if (missing) throw new Error(`Module "${missing[0]}" missing default .init or .create`);
@@ -60,7 +64,7 @@ const MANIFEST = [
         scene: root => SceneTab.init(root, App.bus, editor),
         transform: root => TransformTab.init(root, App.bus, editor)
       }
-    }, App.bus); // Pass bus to panel for selection logic
+    }, App.bus);
 
     // Object creation listener
     App.bus.on('add-object', (payload)=>{
@@ -68,19 +72,21 @@ const MANIFEST = [
       if (payload.type === 'cube') {
         obj = Cube.create();
         obj.name = 'Cube';
+      } else if (payload.type === 'sphere') {
+        obj = Sphere.create();
+        obj.name = 'Sphere';
       }
-      // Future: else if (payload.type === 'sphere') ...
 
       if (obj) {
         editor.world.add(obj);
         editor.setSelected(obj);
-        editor.frame(obj); // Frame the new object
+        editor.frame(obj);
         App.bus.emit('scene-updated');
         App.bus.emit('history-push', `Add ${obj.name}`);
       }
     });
 
-    // shortcuts (keep basics)
+    // shortcuts
     window.addEventListener('keydown', e=>{
       const meta = e.ctrlKey || e.metaKey;
       if (e.key === 'Delete' || e.key === 'Backspace') App.bus.emit('delete-selection');
