@@ -1,46 +1,51 @@
 /*
 File: src/modifiers.js
 */
-// Structure rebuild (RoundedBox) + non-affine deforms + noise irregularity
+// No external SubdivisionModifier — safer on CDNs.
+// We rebuild a RoundedBoxGeometry with enough segments based on resX/Y/Z + subdivLevel,
+// then apply non-affine deforms + normal-directed noise.
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { SubdivisionModifier } from 'three/addons/modifiers/SubdivisionModifier.js';
 
 export function rebuildRoundedBox(mesh, mods) {
-  const seg = THREE.MathUtils.clamp(Math.floor(mods.bevelSegments || 1), 1, 6);
   const rad = THREE.MathUtils.clamp(mods.bevelRadius || 0, 0, 0.49);
-  let geo = new RoundedBoxGeometry(1, 1, 1, Math.max(1, seg), rad);
 
-  // Emulate per-axis face resolution with a light Catmull–Clark pass
-  const extra = (mods.resX>2) + (mods.resY>2) + (mods.resZ>2);
-  const totalSubdiv = THREE.MathUtils.clamp((mods.subdivLevel||0) + extra, 0, 3);
-  if (totalSubdiv > 0) {
-    const mod = new SubdivisionModifier(totalSubdiv);
-    geo = mod.modify(geo);
-  }
+  // Map resX/Y/Z + subdivLevel to a single safe segment count (uniform).
+  // This mimics “more mesh = more fidelity” without importing SubdivisionModifier.
+  const rx = clampInt(mods.resX ?? 2, 1, 12);
+  const ry = clampInt(mods.resY ?? 2, 1, 12);
+  const rz = clampInt(mods.resZ ?? 2, 1, 12);
+  const maxRes = Math.max(rx, ry, rz);
+
+  // Each extra res step adds 2 rings; subdivLevel adds more.
+  // Cap to keep mobile perf sane.
+  const seg = THREE.MathUtils.clamp(1 + (maxRes - 1) * 2 + (mods.subdivLevel ?? 0) * 2, 1, 40);
+
+  let geo = new RoundedBoxGeometry(1, 1, 1, seg, rad);
 
   mesh.geometry.dispose?.();
   mesh.geometry = geo;
   mesh.geometry.computeVertexNormals();
+
   mesh.userData._basePositions = geo.attributes.position.array.slice();
   mesh.userData._structCache = {
-    resX: mods.resX, resY: mods.resY, resZ: mods.resZ,
-    bevelRadius: mods.bevelRadius,
-    bevelSegments: mods.bevelSegments,
-    subdivLevel: mods.subdivLevel
+    resX: rx, resY: ry, resZ: rz,
+    bevelRadius: rad,
+    bevelSegments: clampInt(mods.bevelSegments ?? 1, 1, 6),
+    subdivLevel: clampInt(mods.subdivLevel ?? 0, 0, 6)
   };
 }
 
 export function ensureStructure(mesh, mods) {
   const c = mesh.userData._structCache || {};
   if (
-    c.resX !== mods.resX ||
-    c.resY !== mods.resY ||
-    c.resZ !== mods.resZ ||
-    c.bevelRadius !== mods.bevelRadius ||
-    c.bevelSegments !== mods.bevelSegments ||
-    c.subdivLevel !== mods.subdivLevel
+    c.resX !== (mods.resX ?? 2) ||
+    c.resY !== (mods.resY ?? 2) ||
+    c.resZ !== (mods.resZ ?? 2) ||
+    c.bevelRadius !== (mods.bevelRadius ?? 0) ||
+    c.bevelSegments !== clampInt(mods.bevelSegments ?? 1, 1, 6) ||
+    c.subdivLevel !== clampInt(mods.subdivLevel ?? 0, 0, 6)
   ) {
     rebuildRoundedBox(mesh, mods);
   }
@@ -107,7 +112,7 @@ export function applyDeforms(mesh, mods) {
       y = ty; x = tx;
     }
 
-    // Bulge / Pinch (radial in XZ)
+    // Bulge / Pinch
     if (mods.bulge) {
       const r = Math.hypot(x, z);
       const k = smoothstep(0.0, 0.6, r);
@@ -143,16 +148,16 @@ export function applyDeforms(mesh, mods) {
     geo.computeVertexNormals();
   }
 
-  geo.boundingBox = null;
-  geo.boundingSphere = null;
   geo.computeBoundingBox();
   geo.computeBoundingSphere();
 }
 
+/* ---------- helpers ---------- */
 function smoothstep(a, b, x) {
   const t = THREE.MathUtils.clamp((x - a) / Math.max(1e-6, b - a), 0, 1);
   return t * t * (3 - 2 * t);
 }
+function clampInt(n, a, b) { n = Math.round(n || 0); return Math.max(a, Math.min(b, n)); }
 function hash32(x, y, z, seed) {
   let h = seed ^ (x * 374761393) ^ (y * 668265263) ^ (z * 2147483647);
   h = (h ^ (h >>> 13)) * 1274126177;
