@@ -89,6 +89,15 @@ const Editor = {
           hitObject = hitObject.parent;
         }
       }
+
+      // --- *** THIS IS THE FIX *** ---
+      // If we didn't hit anything (entId is null), just return.
+      // This prevents deselection when clicking the background.
+      if (entId === null) {
+        return;
+      }
+      // --- *** END FIX *** ---
+
       bus.emit('select-entity-by-id', entId);
     });
 
