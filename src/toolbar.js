@@ -1,14 +1,23 @@
-// toolbar.js — only File menu; Add/View/Edit removed (clean slate)
+/*
+File: src/toolbar.js
+*/
+// toolbar.js — File, Edit, and View menus
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import * as THREE from 'three';
 
 export default {
   init(root, bus, editor){
-    root.innerHTML = `<div class="menu" data-m="file">File</div>`;
+    root.innerHTML = `
+      <div class="menu" data-m="file">File</div>
+      <div class="menu" data-m="edit">Edit</div>
+      <div class="menu" data-m="view">View</div>
+    `;
 
     root.addEventListener('click', e=>{
       const m = e.target?.dataset?.m; if (!m) return;
       if (m==='file') showFileMenu(e.target);
+      if (m==='edit') showEditMenu(e.target);
+      if (m==='view') showViewMenu(e.target);
     });
 
     function showFileMenu(anchor){
@@ -17,6 +26,22 @@ export default {
         ['Save',  saveProject],
         ['Load',  loadProject],
         ['Export…', exportDialog]
+      ]);
+    }
+
+    function showEditMenu(anchor){
+      popup(anchor, [
+        ['Undo',      ()=> bus.emit('history-undo')],
+        ['Redo',      ()=> bus.emit('history-redo')],
+        ['Duplicate', ()=> bus.emit('duplicate-selection')],
+        ['Delete',    ()=> bus.emit('delete-selection')]
+      ]);
+    }
+
+    function showViewMenu(anchor){
+      popup(anchor, [
+        ['Toggle Grid',           ()=> bus.emit('toggle-grid')],
+        ['Toggle Object Wireframe', ()=> bus.emit('toggle-object-wireframe')]
       ]);
     }
 
