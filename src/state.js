@@ -32,6 +32,21 @@ function disposeObject(obj) {
   obj.parent?.remove(obj);
 }
 
+/**
+ * Helper to ensure all materials on an object are unique instances
+ */
+function cloneMaterials(obj) {
+  obj.traverse(o => {
+    if (o.isMesh && o.material) {
+      if (Array.isArray(o.material)) {
+        o.material = o.material.map(m => m.clone());
+      } else {
+        o.material = o.material.clone();
+      }
+    }
+  });
+}
+
 export function initState(editor, bus, registry) { 
   editorRef = editor; 
   busRef = bus;
@@ -75,6 +90,10 @@ export function addEntity(type, presetValue, existingData = null) {
   }
 
   const obj = reg.builder(params);
+  
+  // *** ADDED: Ensure materials are unique instances ***
+  cloneMaterials(obj);
+  
   obj.userData.__entId = id;
   
   if (existingData) {
@@ -107,6 +126,10 @@ export function rebuildEntity(id) {
   disposeObject(ent.object);
   
   const obj = reg.builder(ent.params);
+  
+  // *** ADDED: Ensure materials are unique instances ***
+  cloneMaterials(obj);
+
   obj.userData.__entId = id;
   obj.position.copy(ent.object.position);
   obj.rotation.copy(ent.object.rotation);
@@ -159,6 +182,9 @@ export function duplicateEntity(id) {
   
   const params = JSON.parse(JSON.stringify(ent.params)); // Deep copy params
   const obj = reg.builder(params);
+
+  // *** ADDED: Ensure materials are unique instances ***
+  cloneMaterials(obj);
   
   obj.position.copy(ent.object.position).add(new THREE.Vector3(1,0,1));
   obj.rotation.copy(ent.object.rotation);
