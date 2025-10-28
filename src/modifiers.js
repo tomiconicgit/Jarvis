@@ -1,24 +1,20 @@
 /*
 File: src/modifiers.js
 */
-// Supports both cube (RoundedBox) and sphere geometry builds.
-// No external SubdivisionModifier used.
+// Procedural structure + deformations for cube/sphere/hollowcube.
+// No external SubdivisionModifier — friendly for mobile/PWA.
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-export function rebuildRoundedBox(mesh, mods) {
-  // Route by shape type (default to cube)
-  const shape = mesh.userData.shapeType || 'cube';
-  if (shape === 'sphere') return rebuildSphere(mesh, mods);
-  return rebuildCube(mesh, mods);
-}
-
+/* ---------- public API ---------- */
 export function ensureStructure(mesh, mods) {
-  const c = mesh.userData._structCache || {};
+  const cache = mesh.userData._structCache || {};
   const shape = mesh.userData.shapeType || 'cube';
 
-  // Common fields
+  // Hollow cube is built by its own module; skip structure rebuild.
+  if (shape === 'hollowcube') return;
+
   const rx = clampInt(mods.resX ?? 2, 1, 12);
   const ry = clampInt(mods.resY ?? 2, 1, 12);
   const rz = clampInt(mods.resZ ?? 2, 1, 12);
@@ -27,19 +23,26 @@ export function ensureStructure(mesh, mods) {
   const bevS = clampInt(mods.bevelSegments ?? 1, 1, 6);
 
   const needs =
-    c.resX !== rx || c.resY !== ry || c.resZ !== rz || c.subdivLevel !== sub ||
-    (shape === 'cube' && (c.bevelRadius !== bevR || c.bevelSegments !== bevS)) ||
-    c.shape !== shape;
+    cache.shape !== shape ||
+    cache.resX !== rx || cache.resY !== ry || cache.resZ !== rz ||
+    cache.subdivLevel !== sub ||
+    (shape === 'cube' && (cache.bevelRadius !== bevR || cache.bevelSegments !== bevS));
 
   if (needs) rebuildRoundedBox(mesh, mods);
+}
+
+export function rebuildRoundedBox(mesh, mods) {
+  const shape = mesh.userData.shapeType || 'cube';
+  if (shape === 'sphere') return rebuildSphere(mesh, mods);
+  return rebuildCube(mesh, mods);
 }
 
 export function applyDeforms(mesh, mods) {
   const geo = mesh.geometry;
   const pos = geo.attributes.position;
-  const count = pos.count;
-  const src = mesh.userData._basePositions || pos.array.slice();
   const dst = pos.array;
+  const count = pos.count;
+  const src = mesh.userData._basePositions || dst.slice();
 
   const twistRad = THREE.MathUtils.degToRad(mods.twistY || 0);
   const bendXRad = THREE.MathUtils.degToRad(mods.bendX || 0);
@@ -51,7 +54,7 @@ export function applyDeforms(mesh, mods) {
     let y0 = src[i3 + 1];
     let z0 = src[i3 + 2];
 
-    // Normalized height in [-0.5..0.5] domain
+    // normalized Y along [-0.5..0.5] domain
     const tY = y0 + 0.5;
 
     // Taper
@@ -60,7 +63,7 @@ export function applyDeforms(mesh, mods) {
     let y = y0;
     let z = z0 * taper;
 
-    // Tilt (skew by Y)
+    // Tilt (by Y)
     x += (mods.tiltX || 0) * y0;
     z += (mods.tiltY || 0) * y0;
 
@@ -78,7 +81,7 @@ export function applyDeforms(mesh, mods) {
       x = tx; z = tz;
     }
 
-    // Bend X (rotate around Z as f(x0))
+    // Bend X (rotate around Z)
     if (bendXRad) {
       const a = bendXRad * (x0);
       const cs = Math.cos(a), sn = Math.sin(a);
@@ -87,7 +90,7 @@ export function applyDeforms(mesh, mods) {
       y = ty; z = tz;
     }
 
-    // Bend Z (rotate around X as f(z0))
+    // Bend Z (rotate around X)
     if (bendZRad) {
       const a = bendZRad * (z0);
       const cs = Math.cos(a), sn = Math.sin(a);
@@ -120,13 +123,12 @@ export function applyDeforms(mesh, mods) {
     const seed = (mods.noiseSeed || 1) >>> 0;
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
-      const px = dst[i3 + 0], py = dst[i3 + 1], pz = dst[i3 + 2];
       const nx = normals.array[i3 + 0], ny = normals.array[i3 + 1], nz = normals.array[i3 + 2];
-      const n = valueNoise3(px * scale, py * scale, pz * scale, seed);
+      const n = valueNoise3(dst[i3+0]*scale, dst[i3+1]*scale, dst[i3+2]*scale, seed);
       const amp = nStrength * (n * 2 - 1);
-      dst[i3 + 0] = px + nx * amp;
-      dst[i3 + 1] = py + ny * amp;
-      dst[i3 + 2] = pz + nz * amp;
+      dst[i3 + 0] += nx * amp;
+      dst[i3 + 1] += ny * amp;
+      dst[i3 + 2] += nz * amp;
     }
     pos.needsUpdate = true;
     geo.computeVertexNormals();
@@ -136,8 +138,7 @@ export function applyDeforms(mesh, mods) {
   geo.computeBoundingSphere();
 }
 
-/* ---------- shape-specific rebuilds ---------- */
-
+/* ---------- internal: shape rebuilds ---------- */
 function rebuildCube(mesh, mods) {
   const rx = clampInt(mods.resX ?? 2, 1, 12);
   const ry = clampInt(mods.resY ?? 2, 1, 12);
@@ -148,7 +149,10 @@ function rebuildCube(mesh, mods) {
   const rad = THREE.MathUtils.clamp(mods.bevelRadius || 0, 0, 0.49);
 
   const geo = new RoundedBoxGeometry(1, 1, 1, seg, rad);
-  swapGeometry(mesh, geo, { shape: 'cube', resX: rx, resY: ry, resZ: rz, subdivLevel: sub, bevelRadius: rad, bevelSegments: clampInt(mods.bevelSegments ?? 1, 1, 6) });
+  swapGeometry(mesh, geo, {
+    shape: 'cube', resX: rx, resY: ry, resZ: rz, subdivLevel: sub,
+    bevelRadius: rad, bevelSegments: clampInt(mods.bevelSegments ?? 1, 1, 6)
+  });
 }
 
 function rebuildSphere(mesh, mods) {
@@ -158,19 +162,16 @@ function rebuildSphere(mesh, mods) {
   const maxRes = Math.max(rx, ry, rz);
   const sub = clampInt(mods.subdivLevel ?? 0, 0, 6);
 
-  // Map to UV-sphere segments (cap for mobile)
   const base = 12;
   const seg = THREE.MathUtils.clamp(base + (maxRes - 1) * 8 + sub * 6, 8, 128);
-  const widthSeg = seg;
+  const widthSeg  = seg;
   const heightSeg = Math.max(6, Math.round(seg * 0.66));
 
   const geo = new THREE.SphereGeometry(0.5, widthSeg, heightSeg);
-  // mark shape for cache
   swapGeometry(mesh, geo, { shape: 'sphere', resX: rx, resY: ry, resZ: rz, subdivLevel: sub, seg });
 }
 
 /* ---------- helpers ---------- */
-
 function swapGeometry(mesh, geo, cache){
   mesh.geometry.dispose?.();
   mesh.geometry = geo;
@@ -179,13 +180,13 @@ function swapGeometry(mesh, geo, cache){
   mesh.userData._structCache = cache;
 }
 
+function clampInt(n, a, b) { n = Math.round(n || 0); return Math.max(a, Math.min(b, n)); }
 function smoothstep(a, b, x) {
   const t = THREE.MathUtils.clamp((x - a) / Math.max(1e-6, b - a), 0, 1);
   return t * t * (3 - 2 * t);
 }
-function clampInt(n, a, b) { n = Math.round(n || 0); return Math.max(a, Math.min(b, n)); }
 function hash32(x, y, z, seed) {
-  let h = seed ^ (x * 374761393) ^ (y * 668265263) ^ (z * 2147483647);
+  let h = (seed>>>0) ^ (x * 374761393) ^ (y * 668265263) ^ (z * 2147483647);
   h = (h ^ (h >>> 13)) * 1274126177;
   h = (h ^ (h >>> 16)) >>> 0;
   return h / 4294967295;
