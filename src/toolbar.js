@@ -1,7 +1,7 @@
 /*
 File: src/toolbar.js
 */
-// toolbar.js — File, Edit, and View menus
+// toolbar.js — File, Edit, View, and Add menus
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import * as THREE from 'three';
 
@@ -11,6 +11,7 @@ export default {
       <div class="menu" data-m="file">File</div>
       <div class="menu" data-m="edit">Edit</div>
       <div class="menu" data-m="view">View</div>
+      <div class="menu" data-m="add">Add</div>
     `;
 
     root.addEventListener('click', e=>{
@@ -18,6 +19,7 @@ export default {
       if (m==='file') showFileMenu(e.target);
       if (m==='edit') showEditMenu(e.target);
       if (m==='view') showViewMenu(e.target);
+      if (m==='add') showAddMenu(e.target);
     });
 
     function showFileMenu(anchor){
@@ -42,6 +44,13 @@ export default {
       popup(anchor, [
         ['Toggle Grid',           ()=> bus.emit('toggle-grid')],
         ['Toggle Object Wireframe', ()=> bus.emit('toggle-object-wireframe')]
+      ]);
+    }
+    
+    function showAddMenu(anchor){
+      popup(anchor, [
+        ['Cube', ()=> bus.emit('add-object', { type: 'cube' })]
+        // Future: ['Sphere', ()=> bus.emit('add-object', { type: 'sphere' })]
       ]);
     }
 
@@ -141,7 +150,7 @@ function popup(anchor, items){
     it.addEventListener('mouseleave', ()=> it.style.background = 'transparent');
     if (i===items.length-1) it.style.borderBottom='0';
     m.appendChild(it);
-  }); // <-- This was the broken line
+  });
   document.body.appendChild(m);
   const closer = ev => { if (!m.contains(ev.target)) m.remove(); };
   setTimeout(()=> document.addEventListener('click', closer, { once:true, capture:true }), 0);
