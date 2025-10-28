@@ -23,8 +23,8 @@ const CutOut = {
 
     // Build vertex dots (unique world-space vertices)
     const vertsWorld = collectWorldVertices(target);
-    const dotGeo = new THREE.SphereGeometry(0.05, 12, 12);
-    const dotMat = new THREE.MeshBasicMaterial({ color:0x4da3ff });
+    const dotGeo = new THREE.SphereGeometry(0.08, 12, 12);
+    const dotMat = new THREE.MeshBasicMaterial({ color:0x4da3ff, depthTest: false });
     const dots = new THREE.InstancedMesh(dotGeo, dotMat, vertsWorld.length);
     const tmpM = new THREE.Matrix4(), tmpV = new THREE.Vector3();
     vertsWorld.forEach((v,i)=>{ tmpM.identity().setPosition(v); dots.setMatrixAt(i, tmpM); });
