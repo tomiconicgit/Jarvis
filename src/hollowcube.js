@@ -1,7 +1,7 @@
 /*
 File: src/hollowcube.js
 */
-// Hollow Cube — clean frame: 12 edge beams + 8 corner blocks (+ optional face panels)
+// Hollow Cube â clean frame: 12 edge beams + 8 corner blocks (+ optional face panels)
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -75,8 +75,11 @@ function buildGeometry(p) {
   const s = Math.max(0.01, p.size || 1);
   const t = THREE.MathUtils.clamp(p.edge || 0.12, 0.005, s * 0.49); // edge thickness
   const hs = s * 0.5;
-  const inner = Math.max(0.001, s - 2 * t);                         // opening span
-  const panelT = THREE.MathUtils.clamp(p.panel || t, 0.005, t);     // panel ≤ edge
+  
+  // *** FIXED LINE ***
+  const inner = Math.max(0.001, s - t);                         // opening span
+  
+  const panelT = THREE.MathUtils.clamp(p.panel || t, 0.005, t);     // panel â¤ edge
 
   // Helpers
   const addBox = (w,h,d, x,y,z) => { const g = new THREE.BoxGeometry(w,h,d); g.translate(x,y,z); geos.push(g); };
@@ -87,13 +90,16 @@ function buildGeometry(p) {
     addBox(t, t, t, sx*c, sy*c, sz*c);
   }
 
-  // 12 edge beams — lengths exclude the corner blocks
-  const L = Math.max(0.001, s - 2 * t);
-  // along X (y,z = ±c)
+  // 12 edge beams â lengths exclude the corner blocks
+  
+  // *** FIXED LINE ***
+  const L = Math.max(0.001, s - t);
+  
+  // along X (y,z = Â±c)
   for (const sy of [-1,1]) for (const sz of [-1,1]) addBox(L, t, t, 0, sy*c, sz*c);
-  // along Y (x,z = ±c)
+  // along Y (x,z = Â±c)
   for (const sx of [-1,1]) for (const sz of [-1,1]) addBox(t, L, t, sx*c, 0, sz*c);
-  // along Z (x,y = ±c)
+  // along Z (x,y = Â±c)
   for (const sx of [-1,1]) for (const sy of [-1,1]) addBox(t, t, L, sx*c, sy*c, 0);
 
   // Optional face panels (close sides)
