@@ -11,15 +11,16 @@ const App = {
 };
 
 const MANIFEST = [
-  { id: 'editor',    path: new URL('./editor.js',    import.meta.url).href },
-  { id: 'toolbar',   path: new URL('./toolbar.js',   import.meta.url).href },
-  { id: 'panel',     path: new URL('./panel.js',     import.meta.url).href },
-  { id: 'scene',     path: new URL('./scene.js',     import.meta.url).href },
-  { id: 'history',   path: new URL('./history.js',   import.meta.url).href },
-  { id: 'cube',      path: new URL('./cube.js',      import.meta.url).href },
-  { id: 'sphere',    path: new URL('./sphere.js',    import.meta.url).href },
-  { id: 'transform', path: new URL('./transform.js', import.meta.url).href },
-  { id: 'modifiers', path: new URL('./modifiers.js', import.meta.url).href }
+  { id: 'editor',      path: new URL('./editor.js',      import.meta.url).href },
+  { id: 'toolbar',     path: new URL('./toolbar.js',     import.meta.url).href },
+  { id: 'panel',       path: new URL('./panel.js',       import.meta.url).href },
+  { id: 'scene',       path: new URL('./scene.js',       import.meta.url).href },
+  { id: 'history',     path: new URL('./history.js',     import.meta.url).href },
+  { id: 'cube',        path: new URL('./cube.js',        import.meta.url).href },
+  { id: 'sphere',      path: new URL('./sphere.js',      import.meta.url).href },
+  { id: 'hollowcube',  path: new URL('./hollowcube.js',  import.meta.url).href },
+  { id: 'transform',   path: new URL('./transform.js',   import.meta.url).href },
+  { id: 'modifiers',   path: new URL('./modifiers.js',   import.meta.url).href } // utility module (no default export)
 ];
 
 (async function boot(){
@@ -27,13 +28,14 @@ const MANIFEST = [
     showLoader();
 
     const mods = await loadManifest(MANIFEST, reportProgress);
-    const Editor   = mods.editor?.default;
-    const Toolbar  = mods.toolbar?.default;
-    const Panel    = mods.panel?.default;
-    const SceneTab = mods.scene?.default;
-    const History  = mods.history?.default;
-    const Cube     = mods.cube?.default;
-    const Sphere   = mods.sphere?.default;
+    const Editor     = mods.editor?.default;
+    const Toolbar    = mods.toolbar?.default;
+    const Panel      = mods.panel?.default;
+    const SceneTab   = mods.scene?.default;
+    const History    = mods.history?.default;
+    const Cube       = mods.cube?.default;
+    const Sphere     = mods.sphere?.default;
+    const HollowCube = mods.hollowcube?.default;
     const TransformTab = mods.transform?.default;
 
     const missing = [
@@ -44,6 +46,7 @@ const MANIFEST = [
       ['history', History?.init],
       ['cube',    Cube?.create],
       ['sphere',  Sphere?.create],
+      ['hollowcube', HollowCube?.create],
       ['transform', TransformTab?.init]
     ].find(([name, ok]) => !ok);
     if (missing) throw new Error(`Module "${missing[0]}" missing default .init or .create`);
@@ -68,15 +71,14 @@ const MANIFEST = [
 
     // Object creation listener
     App.bus.on('add-object', (payload)=>{
-      let obj;
+      let obj = null;
       if (payload.type === 'cube') {
-        obj = Cube.create();
-        obj.name = 'Cube';
+        obj = Cube.create(); obj.name = 'Cube';
       } else if (payload.type === 'sphere') {
-        obj = Sphere.create();
-        obj.name = 'Sphere';
+        obj = Sphere.create(); obj.name = 'Sphere';
+      } else if (payload.type === 'hollowcube') {
+        obj = HollowCube.create(); obj.name = 'Hollow Cube';
       }
-
       if (obj) {
         editor.world.add(obj);
         editor.setSelected(obj);
