@@ -1,4 +1,4 @@
-// main.js — robust boot; no materials tab; no mesh library
+// main.js — clean boot (no auto primitives), scene-only panel
 import { showLoader, loadManifest, hideLoader, reportProgress, setStatus } from './loader.js';
 
 const App = {
@@ -20,7 +20,6 @@ const MANIFEST = [
     showLoader();
 
     const mods = await loadManifest(MANIFEST, reportProgress);
-
     const Editor   = mods.editor?.default;
     const Toolbar  = mods.toolbar?.default;
     const Panel    = mods.panel?.default;
@@ -42,27 +41,16 @@ const MANIFEST = [
     const editor = Editor.init(viewport, App.bus);
     App.modules.editor = editor;
 
-    // history first to capture changes from initial UI actions
+    // history first
     History.init(App.bus, editor);
 
+    // top bar + scene-only panel
     Toolbar.init(document.getElementById('toolbar'), App.bus, editor);
+    Panel.init({ tabs: { scene: root => SceneTab.init(root, App.bus, editor) } });
 
-    // Scene-only panel (materials tab removed)
-    Panel.init({
-      tabs: {
-        scene: root => SceneTab.init(root, App.bus, editor)
-      }
-    });
-
-    document.body.classList.toggle('touch', App.env.isTouch);
-    window.addEventListener('orientationchange', ()=> {
-      document.body.classList.toggle('touch', App.env.isTouch);
-    }, { passive:true });
-
+    // shortcuts (keep basics)
     window.addEventListener('keydown', e=>{
       const meta = e.ctrlKey || e.metaKey;
-      if (e.key === 'g') App.bus.emit('toggle-grid');
-      if (e.key === 'f') App.bus.emit('frame-selection');
       if (e.key === 'Delete') App.bus.emit('delete-selection');
       if (meta && e.key.toLowerCase() === 'z'){
         if (e.shiftKey) App.bus.emit('history-redo');
@@ -76,8 +64,7 @@ const MANIFEST = [
     hideLoader();
     appRoot.hidden = false;
 
-    // Seed with one primitive (optional)
-    App.bus.emit('add-primitive', { type:'box' });
+    // CLEAN SLATE: nothing is added here
   } catch (err) {
     console.error('BOOT FAILED:', err);
     setStatus('Error: ' + (err?.message || err));
