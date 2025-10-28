@@ -46,11 +46,12 @@ export default {
         ['Toggle Object Wireframe', ()=> bus.emit('toggle-object-wireframe')]
       ]);
     }
-
+    
     function showAddMenu(anchor){
       popup(anchor, [
-        ['Cube',   ()=> bus.emit('add-object', { type: 'cube' })],
-        ['Sphere', ()=> bus.emit('add-object', { type: 'sphere' })]
+        ['Cube',        ()=> bus.emit('add-object', { type: 'cube' })],
+        ['Sphere',      ()=> bus.emit('add-object', { type: 'sphere' })],
+        ['Hollow Cube', ()=> bus.emit('add-object', { type: 'hollowcube' })]
       ]);
     }
 
@@ -121,7 +122,7 @@ export default {
   }
 };
 
-/* ---------- tiny UI helpers (same as before) ---------- */
+/* ---------- tiny UI helpers ---------- */
 function popup(anchor, items){
   const r = anchor.getBoundingClientRect();
   const top  = r.bottom + 6;
@@ -155,6 +156,7 @@ function popup(anchor, items){
   const closer = ev => { if (!m.contains(ev.target)) m.remove(); };
   setTimeout(()=> document.addEventListener('click', closer, { once:true, capture:true }), 0);
 }
+
 function modal(html){
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:300';
@@ -172,6 +174,7 @@ function modal(html){
   document.body.appendChild(wrap);
   return wrap;
 }
+
 function confirmModal(message, confirmLabel, onConfirm){
   const ui = modal(`
     <h3 style="margin:0 0 10px 0; font-weight:600;">Confirm</h3>
@@ -184,12 +187,15 @@ function confirmModal(message, confirmLabel, onConfirm){
   ui.querySelector('#cCancel').onclick = ()=> ui.remove();
   ui.querySelector('#cGo').onclick = ()=> { onConfirm?.(); ui.remove(); };
 }
+
 function filePick(accept){ const i = document.createElement('input'); i.type='file'; i.accept = accept; return i; }
+
 function downloadBlob(blob, name){
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'), { href:url, download:name });
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
+
 function exportGLB(root, opts, baseName='iconic_scene'){
   const exporter = new GLTFExporter();
   exporter.parse(root, (result)=>{
