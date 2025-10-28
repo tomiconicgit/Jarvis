@@ -1,4 +1,4 @@
-// editor.js — renderer / scene / camera / controls / selection / lighting / grid
+// editor.js — renderer / scene / camera / controls / selection / lighting / grid / duplicate / add-light / particle
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -8,8 +8,6 @@ const Editor = {
   init(container, bus){
     // -------- renderer (recreatable) --------
     let renderer = createRenderer(container);
-
-    // block page scroll/zoom while over canvas (wheel on PC, pinch on iOS)
     renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive:false });
 
     const scene = new THREE.Scene();
@@ -83,19 +81,63 @@ const Editor = {
       }
     });
 
-    // bus
+    // bus: add/remove/duplicate
     bus.on('add-primitive', ({type})=>{
       const m = makePrimitive(type);
       world.add(m); setSelected(m); frame(m);
       bus.emit('scene-updated');
+      bus.emit('history-push', `Add ${m.name||type}`);
     });
+
+    bus.on('duplicate-selection', ()=>{
+      if (!selected) return;
+      const clone = selected.clone(true);
+      clone.name = (selected.name || selected.type) + ' Copy';
+      clone.position.add(new THREE.Vector3(0.5, 0, 0.5));
+      clone.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      world.add(clone);
+      setSelected(clone);
+      bus.emit('scene-updated');
+      bus.emit('history-push', 'Duplicate');
+    });
+
     bus.on('delete-selection', ()=>{
       if (!selected) return;
       const rootObj = selected;
       gizmo.detach(); setSelected(null);
       rootObj.parent?.remove(rootObj);
       bus.emit('scene-updated');
+      bus.emit('history-push', 'Delete');
     });
+
+    bus.on('add-light', ({type})=>{
+      let l;
+      if (type==='directional'){ l = new THREE.DirectionalLight(0xffffff, 1.0); l.position.set(6,12,6); l.castShadow = true; }
+      else if (type==='point'){ l = new THREE.PointLight(0xffffff, 1.2, 0, 2); l.position.set(0,6,0); }
+      else if (type==='spot'){ l = new THREE.SpotLight(0xffffff, 1.2, 0, Math.PI/6, 0.25, 1.0); l.position.set(4,10,4); l.target.position.set(0,0,0); world.add(l.target); }
+      else if (type==='hemisphere'){ l = new THREE.HemisphereLight(0xffffff, 0x202225, 0.7); }
+      if (l){ world.add(l); setSelected(l); bus.emit('scene-updated'); bus.emit('history-push', `Add ${type} light`); }
+    });
+
+    bus.on('add-particle', ({ type })=>{
+      const geo = new THREE.BufferGeometry();
+      const N = 500;
+      const arr = new Float32Array(N*3);
+      for (let i=0;i<N;i++){
+        const r = Math.random()*2, t = Math.random()*Math.PI*2, u = Math.random()*Math.PI*2;
+        arr[i*3+0] = Math.cos(t)*r;
+        arr[i*3+1] = (Math.random()-0.5)*2;
+        arr[i*3+2] = Math.sin(u)*r;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      const mat = new THREE.PointsMaterial({ size: 0.07, transparent:true, opacity:0.85 });
+      const pts = new THREE.Points(geo, mat);
+      pts.name = 'Particles';
+      world.add(pts); setSelected(pts);
+      bus.emit('scene-updated');
+      bus.emit('history-push', 'Add particles');
+    });
+
     bus.on('frame-selection', ()=> selected && frame(selected));
     bus.on('toggle-grid', ()=> grid.visible = !grid.visible);
     bus.on('set-background', c=> { scene.background = new THREE.Color(c); });
@@ -123,6 +165,7 @@ const Editor = {
         }
       });
       bus.emit('material-updated', selected);
+      bus.emit('history-push-debounced', 'Material');
     });
 
     // transform from UI
@@ -146,6 +189,7 @@ const Editor = {
 
       gizmo.attach(selected);
       bus.emit('transform-changed', selected);
+      bus.emit('history-push-debounced', 'Transform');
     });
 
     // geometry & deformers
@@ -153,7 +197,6 @@ const Editor = {
       if (!selected || !selected.geometry) return;
       const { base, deform } = payload;
       try {
-        // Rounded edges for boxes (topology change)
         let geo;
         if (base.type === 'box' && (deform.edgeRadius||0) > 0){
           const clampedR = Math.max(0, Math.min(
@@ -179,6 +222,8 @@ const Editor = {
         clampZoomToRadius(radius);
 
         bus.emit('attach-selected');
+        bus.emit('scene-updated');
+        bus.emit('history-push-debounced', 'Geometry');
       } catch (err) {
         console.error("Error rebuilding geometry:", err);
       }
@@ -248,6 +293,7 @@ const Editor = {
         controls.target.copy(center);
         clampZoomToRadius(radius);
         bus.emit('transform-changed', selected);
+        bus.emit('history-push-debounced', 'Transform');
       });
       scene.add(gizmo);
     }
@@ -358,7 +404,7 @@ function applyLightingPreset(name, {hemi, key, rim, scene}){
   else { scene.background.set(0x0b0c0f); hemi.intensity=.6; key.intensity=1.0; rim.intensity=.5; }
 }
 
-/* ---- Geometry builders / deformers ---- */
+/* ---- Geometry builders / deformers (same as before) ---- */
 function createBaseGeometry(p) {
   if (p.type === 'box')      return new THREE.BoxGeometry(p.width, p.height, p.depth, 6, 6, 6);
   if (p.type === 'sphere')   return new THREE.SphereGeometry(p.radius, p.widthSegments, p.heightSegments);
@@ -368,12 +414,10 @@ function createBaseGeometry(p) {
 }
 
 function applyDeformers(geometry, deforms) {
-  // 1) Hollow (thickness)
   const hollow = Math.max(0, +deforms.hollow || 0);
   let g = geometry;
   if (hollow > 0) g = thickenGeometry(g, hollow);
 
-  // 2) Vertex-space edits: shear/slant, taper, twist, noise, curvature
   g.computeBoundingBox();
   const box = g.boundingBox.clone();
   const height = Math.max(1e-6, box.max.y - box.min.y);
@@ -398,28 +442,22 @@ function applyDeformers(geometry, deforms) {
   for (let i=0;i<pos.count;i++){
     tmp.fromBufferAttribute(pos, i);
 
-    const yPct = (tmp.y - centerY) / height; // -0.5..+0.5 approx
+    const yPct = (tmp.y - centerY) / height;
     const xPct = (tmp.x - centerX) / width;
     const zPct = (tmp.z - centerZ) / depth;
 
-    // Shear/slant
     tmp.x += shearX * (tmp.y - centerY);
     tmp.z += shearZ * (tmp.y - centerY);
 
-    // Taper (about Y)
     const tScale = 1.0 - (yPct + 0.5) * (1.0 - taper);
     tmp.x *= tScale; tmp.z *= tScale;
 
-    // Gentle "barrel" curvature across X/Z (positive = bulge)
-    // strongest at mid-height, fades toward top/bottom
     const fadeY = 1 - Math.min(1, Math.abs(yPct)*2);
     tmp.x += (xPct) * curveX * fadeY;
     tmp.z += (zPct) * curveZ * fadeY;
 
-    // Twist
     if (twist !== 0) tmp.applyAxisAngle(axisY, yPct * twist);
 
-    // Noise
     if (noise > 0){
       tmp.x += (Math.random()-0.5)*noise;
       tmp.y += (Math.random()-0.5)*noise;
@@ -434,7 +472,6 @@ function applyDeformers(geometry, deforms) {
   return g;
 }
 
-/* thicken shell (outer + inner flipped) */
 function thickenGeometry(geometry, thickness){
   const g = geometry.clone();
   g.computeVertexNormals();
