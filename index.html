@@ -55,8 +55,9 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+
   <script type="module">
-    // ---------- ⚠️ IMPORTED CSG MODULE ⚠️ ----------
+    // ---------- IMPORTED CSG MODULE ----------
     import * as CSG from './index.module.js';
 
     // ---------- Globals ----------
@@ -272,9 +273,6 @@
       return Math.max(eps, p.height - eps);
     }
 
-    // ---------- ⚠️ REMOVED getCSG() FUNCTION ⚠️ ----------
-    // No longer needed, as we import CSG directly.
-
     // ---------- Unified model (Tower Base) ----------
     class TowerBase extends THREE.Group{
       constructor(params){
@@ -328,9 +326,6 @@
         doorMesh.position.set(0, doorY, p.depth/2 + 0.25); // push slightly beyond front
 
         doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
-
-        // ---------- ⚠️ REMOVED CSG CHECK ⚠️ ----------
-        // We now use the imported 'CSG' module directly inside the try block.
 
         try{
           const a = CSG.fromMesh(shellMesh);
@@ -439,7 +434,11 @@
     }
 
     // ---------- bootstrap ----------
-    window.addEventListener('DOMContentLoaded', init);
+    // ⚠️ THIS IS THE FIX ⚠️
+    // We call init() directly. Module scripts are "deferred" by default,
+    // so the DOM is guaranteed to be ready when this code runs.
+    init();
+    // window.addEventListener('DOMContentLoaded', init); // <-- REMOVED
   </script>
 </body>
 </html>
