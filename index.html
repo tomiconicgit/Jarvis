@@ -1,291 +1,724 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-t" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta charset="UTF-8">
+    <!-- 
+      CRITICAL: This meta tag disables pinch-zoom and double-tap-zoom on iOS,
+      which is essential for a full-screen touch app.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>Mobile 3D Modeler</title>
 
-  <title>Iconic Editor â Rebuilt</title>
-  <meta name="theme-color" content="#0a0a0a" />
+    <!-- 
+      PWA-related tags (manifest, apple-touch-icon, etc.) have been REMOVED.
+      They require a web server and separate files to function,
+      which goes against the "single index.html file" requirement.
+    -->
 
-  <script src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js" crossorigin="anonymous"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-      "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.4/build/index.module.js",
-      "@gkjohnson/three-bvh-csg": "./src/libs/three-bvh-csg.js"
-    }
-  }
-  </script>
+    <!-- Custom Styles -->
+    <style>
+        /* Base styles to make the app full-screen and disable touch annoyances */
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+            background-color: #111;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
 
-  <style>
-    /* --- Base Layout & Theme (from Iconic) --- */
-    :root{
-      --bg:#121212; --panel:#1E1E1E; --panel-border:#2A2A2A;
-      --text:#F5F5F5; --muted:#888; --accent:#4da3ff; --toolbar:#1E1E1E; --input-bg:#252525;
-      --panel-w:340px;
-      --radius-sm: 4px;
-      --radius-md: 0px;
-      --safe-inset-bottom: env(safe-area-inset-bottom, 0px); /* Define variable */
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
-      /* Prevent pull-to-refresh/overscroll issues */
-      overscroll-behavior: none;
-    }
-    html,body,#viewport{overscroll-behavior:none}
-    canvas{display:block;width:100%;height:100%;touch-action:none}
+        /* The 3D canvas container */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
 
-    /* --- MODIFIED --- */
-    .app{
-      position:fixed;
-      inset:0;
-      display:grid;
-      grid-template-rows:48px 1fr;
-      /* Revert to simpler 100vh, modern browsers handle this better */
-      height: 100vh;
-      min-height:0; /* Keep this */
-      /* Ensure app itself cannot overflow viewport */
-      overflow: hidden;
-    }
-    /* --- END MODIFIED --- */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
 
-    #toolbar{
-      background:var(--toolbar);border-bottom:1px solid var(--panel-border);
-      display:flex;align-items:center;gap:12px;padding:0 12px 0 16px;user-select:none
-    }
-    #toolbar .menu{
-      font-weight:600;cursor:pointer;
-      padding: 4px 8px; border-radius: var(--radius-sm);
-    }
-    #toolbar .menu:hover{background:rgba(255,255,255,.08)}
+        /* Disable blue highlight box on tap (iOS/Safari) */
+        * {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+            user-select: none;
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE10+ */
+        }
 
-    /* --- MODIFIED --- */
-    #main{
-      display:grid;
-      grid-template-columns:1fr var(--panel-w);
-      min-height:0; /* Keep this */
-      overflow: hidden; /* Keep this */
-    }
-    /* --- END MODIFIED --- */
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
 
-    #viewport{position:relative;min-height:0; overflow: hidden;} /* Added overflow hidden */
+        /* UI Panel Base Style */
+        .ui-panel {
+            position: fixed;
+            background-color: rgba(30, 30, 30, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            z-index: 10;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
 
-    /* --- MODIFIED --- */
-    #panel{
-      border-left:1px solid var(--panel-border);background:var(--panel);
-      min-width:260px;display:flex;flex-direction:column;min-height:0;overflow:hidden;
-      /* Padding handles the safe area */
-      padding-bottom: var(--safe-inset-bottom);
-    }
-    /* --- END MODIFIED --- */
+        /* Custom styles for touch-friendly sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #4a5568; /* gray-700 */
+            border-radius: 4px;
+            outline: none;
+            opacity: 0.9;
+            transition: opacity 0.2s;
+        }
 
-    #panel-tabs{ display:flex; background:var(--bg); border-bottom:1px solid var(--panel-border); user-select:none; flex-shrink: 0; } /* Added flex-shrink: 0 */
-    .panel-tab{
-      padding: 10px 16px; font-weight:600; cursor:pointer;
-      opacity:.5; border-bottom:2px solid transparent;
-    }
-    .panel-tab.active{ opacity:1; border-bottom-color:var(--accent); }
-    .panel-tab:hover{ background:rgba(255,255,255,.03); }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #3b82f6; /* blue-500 */
+            border-radius: 50%;
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
 
-    /* --- PANEL SCROLLING FIX --- */
-    /* --- MODIFIED --- */
-    .panel-pane{
-      display:none;
-      flex:1;
-      min-height:0;
-      overflow-y:auto; /* Allow vertical scroll */
-      overflow-x:hidden;
-      padding:12px;
-      /* Ensure padding doesn't get cut off */
-      padding-bottom: calc(12px + var(--safe-inset-bottom)); /* Add safe area padding INSIDE scroll area */
-    }
-    /* --- END MODIFIED --- */
-    .panel-pane.active{ display:block; }
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: #3b82f6;
+            border-radius: 50%;
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
 
-    @media (max-width:768px){
-      :root{ --panel-w: auto; }
-      /* --- MODIFIED --- */
-      #main{
-        grid-template-columns:1fr; /* Single column */
-        /* Define rows more simply: viewport gets remaining space, panel gets its content height */
-        /* Using 60%/40% can be more stable than minmax/auto sometimes */
-        grid-template-rows: 60% 40%;
-      }
-      /* --- END MODIFIED --- */
-      #panel{
-        border-left:none;
-        border-top:1px solid var(--panel-border);
-        /* Ensure panel doesn't try to shrink below content height */
-        flex-shrink: 0;
-      }
-    }
+        /* Style for the custom message box */
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background-color: rgba(40, 40, 40, 0.9);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            z-index: 1001;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease-out;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
 
-    /* --- Component Styles (from Launch Tower) --- */
-    .group{
-      border:1px solid var(--panel-border);
-      border-radius:var(--radius-md);
-      background:rgba(255,255,255,.03);
-      padding:12px;margin:12px 0;
-    }
-    .group h3{
-      margin:0 0 12px 0;font-size:12px;
-      font-weight:600;text-transform:uppercase;
-      letter-spacing:.5px;opacity:.7;
-    }
-
-    .list{
-      max-height:220px; overflow:auto;
-      border:1px solid var(--panel-border);
-      border-radius:var(--radius-md);
-    }
-    .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer; display:flex; justify-content:space-between; align-items:center;}
-    .item:last-child{border-bottom:0}
-    .item.active, .item:hover{background:rgba(77,163,255,.12)}
-
-    .row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;margin:10px 0}
-    .row label{color:var(--muted);font-size:13px;white-space:nowrap;opacity:.9}
-    .row output{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
-
-    select, input[type="text"], input[type="range"], input[type="file"], input[type="color"]{ /* Added color input */
-      width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
-      border-radius:var(--radius-sm);
-      color:var(--text);padding:8px 12px;
-    }
-    /* Specific styling for color input */
-    input[type="color"] {
-        padding: 4px 6px; /* Adjust padding */
-        height: 38px; /* Match other inputs height */
-        cursor: pointer;
-    }
-
-    /* Style file input */
-    input[type="file"] { color: var(--muted); }
-    input[type="file"]::file-selector-button {
-      background: var(--input-bg);
-      color: var(--accent);
-      border: 1px solid var(--panel-border);
-      padding: 4px 8px;
-      border-radius: var(--radius-sm);
-      margin-right: 12px;
-      cursor: pointer;
-    }
-    input[type="file"]::file-selector-button:hover {
-      border-color: var(--accent);
-    }
-
-    input[type="range"]{ padding: 0; accent-color: var(--accent); }
-
-    button{
-      appearance:none; width: 100%;
-      background:var(--input-bg);
-      border:1px solid var(--panel-border);
-      color:var(--accent);
-      border-radius:var(--radius-sm);
-      padding:9px 14px;
-      font-weight:600;
-      cursor:pointer;
-      transition:background .15s, border-color .15s;
-    }
-    .btnbar{ display:flex; gap:8px; }
-    .btnbar button{ width: auto; flex: 1; }
-
-    button:hover{ border-color:var(--accent); }
-    button.primary{
-      background:var(--accent);
-      border-color:var(--accent);
-      color:var(--bg);
-    }
-    button.primary:hover{ background: #6ab0ff; border-color: #6ab0ff; }
-    small.note{display:block;color:var(--muted);margin-top:6px; font-size: 12px;}
-
-    /* --- HUD (from Launch Tower) --- */
-    .hud{position:absolute;left:10px;top:10px;z-index:3;pointer-events:none;font-size:12px;color:#cfd6e6;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12)}
-
-    /* --- SLIDER ROW CSS (NEW) --- */
-    .row input[type="number"] {
-      width: 100%;
-      background: var(--input-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: var(--radius-sm);
-      color: var(--text);
-      padding: 8px 12px;
-      -moz-appearance: textfield;
-      font-size: 13px;
-    }
-    .row input[type="number"]::-webkit-outer-spin-button,
-    .row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-
-    .row.slider {
-        grid-template-columns: 100px 1fr 70px; /* Label, Slider, Number */
-        gap: 8px;
-        margin: 10px 0;
-    }
-    .row.slider input[type="range"] { padding: 0; }
-    .row.slider input[type="number"] { padding: 8px; }
-    .row.slider label { font-size: 13px; }
-
-    /* --- ZOOM SLIDER (NEW) --- */
-    .zoom-slider {
-      position: absolute;
-      left: 10px;
-      bottom: 10px;
-      bottom: calc(10px + var(--safe-inset-bottom)); /* Adjust for safe area */
-      width: 200px;
-      z-index: 10;
-      accent-color: var(--accent);
-      opacity: 0.7;
-      transition: opacity 0.15s;
-    }
-    .zoom-slider:hover {
-      opacity: 1;
-    }
-
-    /* Loader (from Iconic) */
-    #loader{position:fixed;inset:0;background:#0a0c10;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;z-index:999}
-    #logo{width:120px;height:120px;margin-bottom:18px}
-    #bar{width:min(520px,80vw);height:10px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,.2);overflow:hidden}
-    #bar > span{display:block;height:100%;width:0;background:linear-gradient(90deg,#4da3ff,#77c1ff)}
-    #status{margin-top:8px;color:#cdd6e6;font:12px ui-monospace,monospace}
-  </style>
+        #message-box.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
 </head>
-<body>
-  <noscript style="color:#fff">This app requires JavaScript.</noscript>
+<body class="bg-gray-900 text-white">
 
-  <div id="loader" aria-busy="true">
-    <svg id="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Iconic">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4da3ff"/><stop offset="1" stop-color="#8fd1ff"/></linearGradient></defs>
-      <circle cx="50" cy="50" r="46" stroke="url(#g)" stroke-width="4"/>
-      <path d="M26 70 L50 22 L74 70" stroke="url(#g)" stroke-width="6" stroke-linecap="round"/>
-    </svg>
-    <div id="bar"><span></span></div>
-    <div id="status">loadingâ¦</div>
-  </div>
+    <!-- 3D canvas will be inserted here by three.js -->
+    <div id="canvas-container"></div>
 
-  <div class="app" id="app" hidden>
-    <div id="toolbar"></div>
-    <div id="main">
-      <div id="viewport" role="application" aria-label="3D viewport">
-        <div class="hud">Tap a component in Outliner â Use Gizmo to transform. Export GLB in Project.</div>
-
-        </div>
-      <aside id="panel"></aside>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div>Loading 3D Environment...</div>
     </div>
-  </div>
 
-  <script>
-    const __errBox = document.createElement('pre');
-    __errBox.style.cssText = 'position:fixed;left:8px;bottom:8px;max-width:90vw;max-height:40vh;overflow:auto;background:rgba(0,0,0,.7);color:#fff;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);font:12px/1.4 ui-monospace,monospace;z-index:9999;display:none';
-    document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(__errBox));
-    function __logErr(msg){ __errBox.style.display='block'; __errBox.textContent += msg + '\n'; }
-    window.addEventListener('error', e => __logErr('Error: ' + e.message));
-    window.addEventListener('unhandledrejection', e => __logErr('Promise: ' + (e.reason?.message || e.reason)));
-  </script>
+    <!-- Custom Message Box -->
+    <div id="message-box">
+        <p id="message-text">This is a message!</p>
+    </div>
 
-  <script type="module" src="./src/main.js"></script>
+    <!-- 
+      Game-style UI 
+    -->
+
+    <!-- Bottom Main Toolbar -->
+    <div class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
+        <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg transform active:scale-90 transition-transform">
+            <!-- Plus Icon SVG -->
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+        </button>
+        <button id="tools-btn" class="w-14 h-14 bg-gray-700 rounded-full flex justify-center items-center shadow-lg transform active:scale-90 transition-transform">
+            <!-- Wrench Icon SVG -->
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+        </button>
+    </div>
+
+    <!-- Add Object Panel (Slides up from bottom) -->
+    <div id="add-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility: hidden;">
+        <h3 class="text-lg font-bold mb-4">Add Object</h3>
+        <div class="grid grid-cols-3 gap-4">
+            <button id="add-tower-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center transform active:scale-90 transition-transform">
+                <!-- Cube Icon SVG -->
+                <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7v10l8 4M4 7l8 4"></path></svg>
+                <span class="text-xs font-medium">Tower Base</span>
+            </button>
+            <!-- Add more object buttons here -->
+        </div>
+        <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
+    </div>
+
+    <!-- Properties Panel (Slides in from right) -->
+    <div id="props-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h-[90vh] p-4 transform translate-x-full opacity-0" style="visibility: hidden;">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Properties</h3>
+            <button id="close-props-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
+        </div>
+        <div id="props-content" class="space-y-4 overflow-y-auto max-h-[75vh] pr-2">
+            <!-- Sliders and content will be injected here by JavaScript -->
+        </div>
+    </div>
+
+
+    <!-- 
+      JavaScript (Three.js and App Logic) 
+      We are using the standard <script> tags (non-module) for better
+      compatibility when opening as a local file (file://).
+    -->
+    
+    <!-- Three.js Library (non-module) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    
+    <!-- Three.js Controls (non-module) -->
+    <!-- These attach themselves to the global THREE object -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+
+    <!-- App Logic -->
+    <script>
+        // --- Global Variables ---
+        // Note: We don't need to import THREE, it's now a global variable
+        let scene, camera, renderer, orbitControls, transformControls;
+        let raycaster, touchStartPos, currentSelection, allModels;
+        let lastTapTime = 0;
+        const DOUBLE_TAP_DELAY = 300; // ms
+
+        // UI Elements
+        let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
+        let propsPanel, closePropsPanel, propsContent, addTowerBtn;
+
+        /**
+         * The main initialization function.
+         * We wrap this in a 'DOMContentLoaded' listener to ensure all
+         * HTML elements are available before we try to access them.
+         */
+        function init() {
+            // Get UI Elements
+            loadingScreen = document.getElementById('loading-screen');
+            canvasContainer = document.getElementById('canvas-container');
+            addBtn = document.getElementById('add-btn');
+            addPanel = document.getElementById('add-panel');
+            closeAddPanel = document.getElementById('close-add-panel');
+            propsPanel = document.getElementById('props-panel');
+            closePropsPanel = document.getElementById('close-props-panel');
+            propsContent = document.getElementById('props-content');
+            addTowerBtn = document.getElementById('add-tower-btn');
+
+            // --- Core Scene Setup ---
+            
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x2a2a2a);
+            scene.fog = new THREE.Fog(0x2a2a2a, 50, 200);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            canvasContainer.appendChild(renderer.domElement);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(15, 20, 25);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x808080);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            dirLight.position.set(10, 20, 5);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            // Floor Grid
+            const gridHelper = new THREE.GridHelper(100, 100, 0x888888, 0x444444);
+            scene.add(gridHelper);
+
+            // Ground Plane (for shadows)
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 100),
+                new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1.0 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Controls
+            // Use THREE.OrbitControls since it's now on the global object
+            orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+            orbitControls.enableDamping = true;
+            orbitControls.dampingFactor = 0.1;
+            orbitControls.enablePan = true; // Allow touch-pan
+            orbitControls.screenSpacePanning = false;
+
+            // Use THREE.TransformControls
+            transformControls = new THREE.TransformControls(camera, renderer.domElement);
+            transformControls.setMode("translate"); // Default to move
+            transformControls.addEventListener('dragging-changed', (event) => {
+                orbitControls.enabled = !event.value; // Disable orbit while dragging
+            });
+            scene.add(transformControls);
+
+            // Raycaster for touch selection
+            raycaster = new THREE.Raycaster();
+            touchStartPos = new THREE.Vector2();
+            allModels = []; // To store selectable models
+
+            // --- Event Listeners ---
+            window.addEventListener('resize', onWindowResize);
+            // Use touch events for mobile
+            canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
+            canvasContainer.addEventListener('touchend', onTouchEnd);
+
+            // UI Listeners
+            initUI();
+
+            // Hide loading screen
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => { loadingScreen.style.display = 'none'; }, 500);
+
+            // Start render loop
+            animate();
+        }
+
+        // --- Render Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            orbitControls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- Event Handlers ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onTouchStart(event) {
+            // Prevent pull-to-refresh or other browser gestures
+            event.preventDefault(); 
+            
+            // Only handle single touch for selection
+            if (event.touches.length === 1) {
+                const touch = event.touches[0];
+                touchStartPos.set(touch.clientX, touch.clientY);
+            }
+        }
+
+        function onTouchEnd(event) {
+            if (event.changedTouches.length === 1) {
+                const touch = event.changedTouches[0];
+                const endPos = new THREE.Vector2(touch.clientX, touch.clientY);
+                
+                // Check if it's a "tap" (start and end pos are close)
+                if (touchStartPos.distanceTo(endPos) < 10) {
+                    
+                    // --- Double Tap Logic ---
+                    const currentTime = new Date().getTime();
+                    if (currentTime - lastTapTime < DOUBLE_TAP_DELAY) {
+                        // This is a double tap
+                        handleDoubleTap(touch);
+                    } else {
+                        // This is a single tap
+                        handleSingleTap(touch);
+                    }
+                    lastTapTime = currentTime;
+                }
+            }
+        }
+        
+        function getTouchNDC(touch) {
+            const x = (touch.clientX / window.innerWidth) * 2 - 1;
+            const y = -(touch.clientY / window.innerHeight) * 2 + 1;
+            return { x, y };
+        }
+
+        function handleSingleTap(touch) {
+            const ndc = getTouchNDC(touch);
+            raycaster.setFromCamera(ndc, camera);
+            
+            const intersects = raycaster.intersectObjects(allModels, true);
+
+            if (intersects.length > 0) {
+                // Find the top-level group (the model)
+                let selectedObject = intersects[0].object;
+                while (selectedObject.parent && selectedObject.parent.userData.isModel) {
+                    selectedObject = selectedObject.parent;
+                }
+                selectObject(selectedObject);
+            } else {
+                deselectAll();
+            }
+        }
+        
+        function handleDoubleTap(touch) {
+            // Double-tap on object: Focus camera
+            const ndc = getTouchNDC(touch);
+            raycaster.setFromCamera(ndc, camera);
+            const intersects = raycaster.intersectObjects(allModels, true);
+
+            if (intersects.length > 0) {
+                const target = intersects[0].object;
+                // Focus camera on the target
+                const box = new THREE.Box3().setFromObject(target);
+                const center = box.getCenter(new THREE.Vector3());
+                orbitControls.target.copy(center);
+                showTempMessage("Camera Focused");
+            }
+        }
+
+        function selectObject(object) {
+            if (currentSelection === object) return;
+            
+            currentSelection = object;
+            transformControls.attach(object);
+            updatePropsPanel(object);
+            showPanel(propsPanel);
+        }
+
+        function deselectAll() {
+            if (currentSelection) {
+                transformControls.detach();
+            }
+            currentSelection = null;
+            hidePanel(propsPanel);
+        }
+
+        // --- UI Logic ---
+        function initUI() {
+            // Add Panel
+            addBtn.addEventListener('click', () => {
+                showPanel(addPanel);
+                hidePanel(propsPanel);
+            });
+            closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
+
+            // Props Panel
+            closePropsPanel.addEventListener('click', () => {
+                deselectAll(); // Deselecting hides the panel
+            });
+            
+            // Add Tower Button
+            addTowerBtn.addEventListener('click', () => {
+                const params = {
+                    width: 12,
+                    depth: 12,
+                    height: 5,
+                    wallThickness: 1,
+                    doorWidth: 4,
+                    doorHeight: 3
+                };
+                const tower = new TowerBase(params);
+                
+                // Snap to grid
+                tower.position.y = params.height / 2;
+                
+                scene.add(tower);
+                allModels.push(tower);
+                selectObject(tower);
+                hidePanel(addPanel);
+            });
+            
+            // Toggle transform controls mode
+            document.getElementById('tools-btn').addEventListener('click', () => {
+                if (!currentSelection) {
+                    showTempMessage("Select an object first");
+                    return;
+                }
+                
+                switch(transformControls.getMode()) {
+                    case "translate":
+                        transformControls.setMode("rotate");
+                        showTempMessage("Mode: Rotate");
+                        break;
+                    case "rotate":
+                        transformControls.setMode("scale");
+                        showTempMessage("Mode: Scale");
+                        break;
+                    case "scale":
+                        transformControls.setMode("translate");
+                        showTempMessage("Mode: Move");
+                        break;
+                }
+            });
+        }
+
+        function showPanel(panel) {
+            panel.style.visibility = 'visible';
+            panel.style.opacity = '1';
+            panel.style.transform = panel.id.includes('props') ? 'translateX(0)' : 'translateY(0)';
+        }
+
+        function hidePanel(panel) {
+            panel.style.opacity = '0';
+            panel.style.transform = panel.id.includes('props') ? 'translateX(100%)' : 'translateY(100%)';
+            setTimeout(() => { panel.style.visibility = 'hidden'; }, 300);
+        }
+
+        function showTempMessage(text) {
+            const msgBox = document.getElementById('message-box');
+            const msgText = document.getElementById('message-text');
+            
+            msgText.textContent = text;
+            msgBox.classList.add('show');
+            
+            setTimeout(() => {
+                msgBox.classList.remove('show');
+            }, 1500);
+        }
+
+        // --- Procedural Geometry ---
+
+        /**
+         * Creates a procedural "Tower Base" as a THREE.Group.
+         * This matches your description: hollow, 12x12, 1 thick, 5 high, 4x3 door.
+         * We must use `class TowerBase extends THREE.Group` because `THREE` is global.
+         */
+        class TowerBase extends THREE.Group {
+            constructor(params) {
+                super();
+                this.userData.isModel = true;
+                this.userData.type = 'TowerBase';
+                this.userData.params = { ...params }; // Store params
+                this.material = new THREE.MeshStandardMaterial({
+                    color: 0xcccccc,
+                    roughness: 0.7,
+                    metalness: 0.1
+                });
+                
+                this.build();
+            }
+            
+            build() {
+                // Clear old geometry
+                this.children.forEach(child => {
+                    if (child.geometry) {
+                        child.geometry.dispose();
+                    }
+                });
+                this.clear();
+                
+                const p = this.userData.params;
+                const h2 = p.height / 2; // Half height
+
+                // Back Wall
+                const backWallGeo = new THREE.BoxGeometry(p.width, p.height, p.wallThickness);
+                const backWall = new THREE.Mesh(backWallGeo, this.material);
+                backWall.position.set(0, h2, -p.depth / 2 + p.wallThickness / 2);
+                backWall.castShadow = true;
+                backWall.receiveShadow = true;
+                this.add(backWall);
+
+                // Left Wall
+                const leftWallGeo = new THREE.BoxGeometry(p.wallThickness, p.height, p.depth - 2 * p.wallThickness);
+                const leftWall = new THREE.Mesh(leftWallGeo, this.material);
+                leftWall.position.set(-p.width / 2 + p.wallThickness / 2, h2, 0);
+                leftWall.castShadow = true;
+                leftWall.receiveShadow = true;
+                this.add(leftWall);
+
+                // Right Wall
+                const rightWallGeo = new THREE.BoxGeometry(p.wallThickness, p.height, p.depth - 2 * p.wallThickness);
+                const rightWall = new THREE.Mesh(rightWallGeo, this.material);
+                rightWall.position.set(p.width / 2 - p.wallThickness / 2, h2, 0);
+                rightWall.castShadow = true;
+                rightWall.receiveShadow = true;
+                this.add(rightWall);
+
+                // --- Front Wall (with door) ---
+                const frontWallSideWidth = (p.width - p.doorWidth) / 2;
+                
+                if (frontWallSideWidth > 0.001) { // Use a small epsilon for float comparison
+                    // Front Left
+                    const frontLeftGeo = new THREE.BoxGeometry(frontWallSideWidth, p.height, p.wallThickness);
+                    const frontLeft = new THREE.Mesh(frontLeftGeo, this.material);
+                    frontLeft.position.set(-p.width / 2 + frontWallSideWidth / 2, h2, p.depth / 2 - p.wallThickness / 2);
+                    frontLeft.castShadow = true;
+                    frontLeft.receiveShadow = true;
+                    this.add(frontLeft);
+
+                    // Front Right
+                    const frontRightGeo = new THREE.BoxGeometry(frontWallSideWidth, p.height, p.wallThickness);
+                    const frontRight = new THREE.Mesh(frontRightGeo, this.material);
+                    frontRight.position.set(p.width / 2 - frontWallSideWidth / 2, h2, p.depth / 2 - p.wallThickness / 2);
+                    frontRight.castShadow = true;
+                    frontRight.receiveShadow = true;
+                    this.add(frontRight);
+                }
+
+                // Lintel (above door)
+                const lintelHeight = p.height - p.doorHeight;
+                if (lintelHeight > 0.001) {
+                    const lintelGeo = new THREE.BoxGeometry(p.doorWidth, lintelHeight, p.wallThickness);
+                    const lintel = new THREE.Mesh(lintelGeo, this.material);
+                    lintel.position.set(0, p.doorHeight + lintelHeight / 2, p.depth / 2 - p.wallThickness / 2);
+                    lintel.castShadow = true;
+                    lintel.receiveShadow = true;
+                    this.add(lintel);
+                }
+            }
+            
+            updateParams(newParams) {
+                this.userData.params = newParams;
+                this.build();
+            }
+        }
+        
+        /**
+         * Populates the properties panel with sliders for the selected object.
+         */
+        function updatePropsPanel(object) {
+            propsContent.innerHTML = ''; // Clear existing
+            
+            if (!object || !object.userData.params) {
+                propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
+                return;
+            }
+            
+            const params = object.userData.params;
+            
+            // Create sliders for each parameter
+            const paramConfig = {
+                height: { min: 1, max: 20, step: 0.1, label: 'Height' },
+                width: { min: 4, max: 30, step: 0.1, label: 'Width' },
+                depth: { min: 4, max: 30, step: 0.1, label: 'Depth' },
+                wallThickness: { min: 0.1, max: 5, step: 0.1, label: 'Wall Thickness' },
+                doorWidth: { min: 1, max: params.width - 0.2, step: 0.1, label: 'Door Width' },
+                doorHeight: { min: 1, max: params.height - 0.2, step: 0.1, label: 'Door Height' }
+            };
+            
+            // Only add sliders for params that exist on the object
+            for (const key in params) {
+                if (paramConfig[key]) {
+                    const config = paramConfig[key];
+                    
+                    // Ensure door width/height can't be larger than the wall
+                    if(key === 'doorWidth') config.max = params.width - 0.2; // Min gap
+                    if(key === 'doorHeight') config.max = params.height - 0.1; // Min gap
+
+                    const sliderHTML = `
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-gray-300 flex justify-between">
+                                <span>${config.label}</span>
+                                <span id="${key}-value">${parseFloat(params[key]).toFixed(1)}</span>
+                            </label>
+                            <input type="range" 
+                                   id="${key}-slider" 
+                                   data-param="${key}"
+                                   min="${config.min}" 
+                                   max="${config.max}" 
+                                   step="${config.step}" 
+                                   value="${params[key]}">
+                        </div>
+                    `;
+                    propsContent.insertAdjacentHTML('beforeend', sliderHTML);
+                }
+            }
+
+            // Add event listeners to all sliders
+            propsContent.querySelectorAll('input[type="range"]').forEach(slider => {
+                slider.addEventListener('input', () => {
+                    const key = slider.dataset.param;
+                    const value = parseFloat(slider.value);
+                    
+                    // Update the label
+                    document.getElementById(`${key}-value`).textContent = value.toFixed(1);
+                    
+                    // Create a new params object
+                    const newParams = { ...object.userData.params, [key]: value };
+                    
+                    // Re-validate dependent params
+                    if (key === 'width') {
+                        const doorSlider = document.getElementById('doorWidth-slider');
+                        if(doorSlider) {
+                            const newMax = value - 0.2;
+                            doorSlider.max = newMax;
+                            if (newParams.doorWidth > newMax) {
+                                newParams.doorWidth = newMax;
+                                doorSlider.value = newParams.doorWidth;
+                                const doorValueLabel = document.getElementById('doorWidth-value');
+                                if(doorValueLabel) doorValueLabel.textContent = newParams.doorWidth.toFixed(1);
+                            }
+                        }
+                    }
+                    if (key === 'height') {
+                        const doorSlider = document.getElementById('doorHeight-slider');
+                        if(doorSlider) {
+                            const newMax = value - 0.1;
+                            doorSlider.max = newMax;
+                            if (newParams.doorHeight > newMax) {
+                                newParams.doorHeight = newMax;
+                                doorSlider.value = newParams.doorHeight;
+                                const doorValueLabel = document.getElementById('doorHeight-value');
+                                if(doorValueLabel) doorValueLabel.textContent = newParams.doorHeight.toFixed(1);
+                            }
+                        }
+                    }
+                    
+                    // Update the object
+                    if (object.updateParams) {
+                        object.updateParams(newParams);
+                    }
+                });
+            });
+        }
+        
+        // --- Start the app ---
+        // We wait for the DOM to be fully loaded before running the init function.
+        // This prevents errors where the script runs before the HTML elements exist.
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
 </body>
 </html>
+
+
