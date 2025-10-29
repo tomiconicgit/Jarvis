@@ -24,7 +24,7 @@
   <div id="loading-screen"><div>Loading 3D Environment...</div></div>
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
-  <div id="process-loading-screen" style="display:none; position:fixed; inset:0; background:rgba(20,20,20,.7); color:#fff; display:flex; justify-content:center; align-items:center; font-size:1.5rem; z-index:2000; transition:opacity .3s ease; backdrop-filter:blur(5px);">
+  <div id="process-loading-screen" style="display:none; position:fixed; inset:0; background:rgba(20,20,20,.7); color:#fff; justify-content:center; align-items:center; font-size:1.5rem; z-index:2000; transition:opacity .3s ease; backdrop-filter:blur(5px);">
     <div>Processing Cut...</div>
   </div>
 
@@ -104,7 +104,7 @@
     let isCutoutMode = false;
     let cutterPreview;
 
-    // NEW: Processing modal global
+    // Processing modal global
     let processLoadingScreen;
 
     // ---------- Init ----------
@@ -126,7 +126,7 @@
       closeCutoutPanel = document.getElementById('close-cutout-panel');
       performCutBtn = document.getElementById('perform-cut-btn');
 
-      // NEW: Get Processing modal
+      // Get Processing modal
       processLoadingScreen = document.getElementById('process-loading-screen');
 
       // --- Scene Setup ---
@@ -367,16 +367,17 @@
       cutterPreview.geometry = new THREE.BoxGeometry(params.w, params.h, params.d);
     }
 
-    // NEW: Helper functions for the processing modal
+    // Helper functions for the processing modal
     function showProcessLoading(text) {
       processLoadingScreen.firstElementChild.textContent = text || 'Processing...';
-      processLoadingScreen.style.display = 'flex';
+      // ADDED display:flex here
+      processLoadingScreen.style.display = 'flex'; 
     }
     function hideProcessLoading() {
       processLoadingScreen.style.display = 'none';
     }
 
-    // MODIFIED: This function is now asynchronous to prevent crashes
+    // performCut function remains the same as previous version
     function performCut() {
       if (!currentSelection) {
         showTempMessage("Select an object to cut first.");
@@ -394,15 +395,9 @@
         return;
       }
 
-      // --- NEW: Asynchronous cutting process ---
-
-      // 1. Show the loading modal *first*
       showProcessLoading('Processing Cut...');
 
-      // 2. Use setTimeout to unblock the main thread.
-      // This lets the browser render the modal *before* starting the heavy work.
       setTimeout(() => {
-        // 3. Run all the heavy CSG code inside the timeout
         try {
           const targetObject = currentSelection;
           const targetMesh = targetObject.children[0];
@@ -438,22 +433,20 @@
           deactivateCutoutMode();
           selectObject(newModel);
           
-          // 4. Hide the modal and show success
           hideProcessLoading();
           showTempMessage("Cut successful! Object is now a static mesh.");
 
         } catch (err) {
-          // 5. Hide the modal on failure too
           console.warn('CSG failed, operation aborted:', err);
           hideProcessLoading();
           showTempMessage("Cut operation failed.");
         }
-      }, 0); // The '0'ms timeout is the key to making this non-blocking
+      }, 0); 
     }
     // --- End Cutout Mode Functions ---
 
     function showPanel(p){ p.style.visibility='visible'; p.style.opacity='1'; p.style.transform=p.id.includes('props')?'translateX(0)':'translateY(0)'; }
-    function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(1Code.js'; setTimeout(()=>p.style.visibility='hidden',300); }
+    function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(100%)'; setTimeout(()=>p.style.visibility='hidden',300); }
     function showTempMessage(text){ const box=document.getElementById('message-box'); document.getElementById('message-text').textContent=text; box.classList.add('show'); setTimeout(()=>box.classList.remove('show'),1500); }
 
     // ---------- Geometry helpers ----------
