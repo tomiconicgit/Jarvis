@@ -201,35 +201,61 @@
     function showTempMessage(text){ const box=document.getElementById('message-box'); document.getElementById('message-text').textContent=text; box.classList.add('show'); setTimeout(()=>box.classList.remove('show'),1500); }
 
     // ---------- Geometry helpers ----------
-    // Creates a rounded box geometry
-    // Ã¢ÂÂ Ã¯Â¸Â FIXED TYPO HERE Ã¢ÂÂ Ã¯Â¸Â
-    function createRoundedBox(width, height, depth, radiusParam, smoothness) { // Renamed parameter
-      const shape = new THREE.Shape();
-      const eps = 0.00001;
-      const radius = Math.max(radiusParam || eps, eps); // Use radiusParam here and ensure minimum > 0
 
-      // Use the calculated 'radius' for the shape definition
-      shape.moveTo(-width / 2 + radius, -depth / 2);
-      shape.lineTo(width / 2 - radius, -depth / 2);
-      shape.absarc(width / 2 - radius, -depth / 2 + radius, radius, -Math.PI / 2, 0, false);
-      shape.lineTo(width / 2, depth / 2 - radius);
-      shape.absarc(width / 2 - radius, depth / 2 - radius, radius, 0, Math.PI / 2, false);
-      shape.lineTo(-width / 2 + radius, depth / 2);
-      shape.absarc(-width / 2 + radius, depth / 2 - radius, radius, Math.PI / 2, Math.PI, false);
-      shape.lineTo(-width / 2, -depth / 2 + radius);
-      shape.absarc(-width / 2 + radius, -depth / 2 + radius, radius, Math.PI, 1.5 * Math.PI, false);
-      shape.closePath();
+    // ✅ =================================================================
+    // ✅ REBUILT GEOMETRY HELPER
+    // ✅ This function creates the hollow shell (walls, floor, roof)
+    // ✅ in one single, stable operation.
+    // ✅ =================================================================
+    function createHollowRoundedBox(width, height, depth, wallThickness, radiusParam, smoothness) {
+        const shape = new THREE.Shape();
+        const eps = 0.00001;
+        
+        // --- Outer Shape ---
+        const outerRadius = Math.max(radiusParam || eps, eps);
+        const w = width / 2;
+        const d = depth / 2;
+        shape.moveTo(-w + outerRadius, -d);
+        shape.lineTo(w - outerRadius, -d);
+        shape.absarc(w - outerRadius, -d + outerRadius, outerRadius, -Math.PI / 2, 0, false);
+        shape.lineTo(w, d - outerRadius);
+        shape.absarc(w - outerRadius, d - outerRadius, outerRadius, 0, Math.PI / 2, false);
+        shape.lineTo(-w + outerRadius, d);
+        shape.absarc(-w + outerRadius, d - outerRadius, outerRadius, Math.PI / 2, Math.PI, false);
+        shape.lineTo(-w, -d + outerRadius);
+        shape.absarc(-w + outerRadius, -d + outerRadius, outerRadius, Math.PI, 1.5 * Math.PI, false);
+        shape.closePath(); // Outer shape is complete
 
-      const extrudeSettings = {
-        depth: height,
-        bevelEnabled: false, // Keep it simple for CSG
-        curveSegments: smoothness || 8 // Use fewer segments for extrusion
-      };
+        // --- Inner Hole Shape ---
+        const holePath = new THREE.Path();
+        const innerW = Math.max(eps, width - 2 * wallThickness) / 2;
+        const innerD = Math.max(eps, depth - 2 * wallThickness) / 2;
+        const innerRadius = Math.max(0, outerRadius - wallThickness);
 
-      const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-      geo.translate(0, 0, -height / 2); // Center Z
-      geo.rotateX(-Math.PI / 2);      // Make Y up
-      return geo;
+        holePath.moveTo(-innerW + innerRadius, -innerD);
+        holePath.lineTo(innerW - innerRadius, -innerD);
+        holePath.absarc(innerW - innerRadius, -innerD + innerRadius, innerRadius, -Math.PI / 2, 0, false);
+        holePath.lineTo(innerW, innerD - innerRadius);
+        holePath.absarc(innerW - innerRadius, innerD - innerRadius, innerRadius, 0, Math.PI / 2, false);
+        holePath.lineTo(-innerW + innerRadius, innerD);
+        holePath.absarc(-innerW + innerRadius, innerD - innerRadius, innerRadius, Math.PI / 2, Math.PI, false);
+        holePath.lineTo(-innerW, -innerD + innerRadius);
+        holePath.absarc(-innerW + innerRadius, -innerD + innerRadius, innerRadius, Math.PI, 1.5 * Math.PI, false);
+        holePath.closePath(); // Inner hole is complete
+
+        shape.holes.push(holePath); // Add the hole to the shape
+
+        // --- Extrude Settings ---
+        const extrudeSettings = {
+            depth: height,
+            bevelEnabled: false,
+            curveSegments: smoothness || 8
+        };
+
+        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geo.translate(0, 0, -height / 2); // Center Z
+        geo.rotateX(-Math.PI / 2);      // Make Y up
+        return geo;
     }
 
 
@@ -263,6 +289,11 @@
         this.build();
       }
 
+      // ✅ =================================================================
+      // ✅ REBUILT TowerBase.build()
+      // ✅ This method now uses the stable createHollowRoundedBox() helper
+      // ✅ and only uses CSG for the door cutout.
+      // ✅ =================================================================
       build(){
         // Dispose old children first
         while(this.children.length > 0){
@@ -283,61 +314,40 @@
         let finalMesh = null; // Declare finalMesh outside try block
 
         try {
-          // --- 1. Create Outer Shell ---
-          const outerRadius = Math.max(0.01, p.cornerRadius);
-          const outerGeo = createRoundedBox(p.width, p.height, p.depth, outerRadius, p.cornerSmoothness);
-          const outerMesh = new THREE.Mesh(outerGeo); // No need for material here
-          outerMesh.updateMatrix(); // Update matrix BEFORE CSG operations
-
-          // --- 2. Create Inner Shell (to subtract) ---
-          const innerW = Math.max(0.1, p.width - 2 * p.wallThickness);
-          const innerD = Math.max(0.1, p.depth - 2 * p.wallThickness);
-          const innerH = p.height; // Use full height to ensure clean top/bottom
-          const innerRadius = Math.max(0, outerRadius - p.wallThickness); // Use outerRadius as base
-          const innerGeo = createRoundedBox(innerW, innerH, innerD, innerRadius, p.cornerSmoothness);
-          const innerMesh = new THREE.Mesh(innerGeo);
-          innerMesh.updateMatrix();
-
-          // --- 3. Subtract Inner from Outer ---
-          const shellCSG = CSG.subtract(CSG.fromMesh(outerMesh), CSG.fromMesh(innerMesh));
-          // Don't convert back to mesh yet, keep as CSG object
-
-          // Dispose temporary geometries used for shell subtraction
-          outerGeo.dispose();
-          innerGeo.dispose();
+          // --- 1. Create Hollow Shell ---
+          // This one function creates the walls, floor, and roof all at once.
+          // This avoids the CSG.subtract(outer, inner) failure.
+          const shellGeo = createHollowRoundedBox(
+            p.width, p.height, p.depth, 
+            p.wallThickness, p.cornerRadius, p.cornerSmoothness
+          );
+          const shellMesh = new THREE.Mesh(shellGeo); // No material needed yet
+          shellMesh.updateMatrix(); // Update matrix BEFORE CSG operations
 
 
-          // --- 4. Create Door Cutter ---
-          const cutDepth = p.wallThickness * 3.0;
+          // --- 2. Create Door Cutter ---
+          const cutDepth = p.wallThickness * 3.0; // Make it deep to ensure a clean cut
           const doorW = Math.min(p.doorWidth || 4, maxDoorWidth(p));
           const doorH = Math.min(p.doorHeight || 3, maxDoorHeight(p));
           const doorGeo = new THREE.BoxGeometry(doorW, doorH, cutDepth);
           const doorMesh = new THREE.Mesh(doorGeo);
 
-          // Position the door cutter (relative to the origin where the shell CSG is)
-          const doorY = -p.height/2 + doorH/2;
-          //
-          // ✅ =================== THE FIX IS HERE =================== ✅
-          //
-          // We set the door's Z position to the *outer face* (p.depth / 2),
-          // not the middle of the wall. This avoids the coplanar/precision
-          // issue that was breaking the CSG subtraction.
-          //
-          const doorZ = p.depth / 2; // <-- WAS: p.depth / 2 - p.wallThickness / 2
-          //
-          // ✅ ======================================================= ✅
-          //
+          // Position the door cutter
+          // The shell geometry is centered at Y=0, so its bottom is at -p.height/2
+          const doorY = -p.height/2 + doorH/2; // Position door at the bottom
+          const doorZ = p.depth / 2; // Position on the front face (avoids CSG errors)
           doorMesh.position.set(0, doorY, doorZ);
           doorMesh.updateMatrix();
 
 
-          // --- 5. Subtract Door from Shell CSG Object ---
-          const finalCSG = CSG.subtract(shellCSG, CSG.fromMesh(doorMesh)); // Subtract directly from shellCSG
+          // --- 3. Subtract Door from Shell CSG Object ---
+          const finalCSG = CSG.subtract(CSG.fromMesh(shellMesh), CSG.fromMesh(doorMesh));
 
-          // Dispose temporary door geometry
+          // Dispose temporary geometries
+          shellGeo.dispose();
           doorGeo.dispose();
 
-          // --- 6. Convert Final CSG to Mesh ---
+          // --- 4. Convert Final CSG to Mesh ---
           // Use identity matrix because transformations are handled by the group
           finalMesh = CSG.toMesh(finalCSG, new THREE.Matrix4(), this.material);
           finalMesh.geometry.computeVertexNormals();
