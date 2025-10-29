@@ -16,8 +16,8 @@ let allModels = []; // Selectable root objects
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, toolsBtn;
-// New: Scene objects UI
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, toolsBtn, gizmoText;
+// Scene UI
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Touch/Tap Controls
@@ -39,19 +39,23 @@ function init() {
   // UI handles
   loadingScreen   = document.getElementById('loading-screen');
   canvasContainer = document.getElementById('canvas-container');
+
   addBtn          = document.getElementById('add-btn');
   toolsBtn        = document.getElementById('tools-btn');
+  gizmoText       = document.getElementById('gizmo-text');
+  sceneBtn        = document.getElementById('scene-btn');
+
   addPanel        = document.getElementById('add-panel');
   closeAddPanel   = document.getElementById('close-add-panel');
+
   propsPanel      = document.getElementById('props-panel');
   closePropsPanel = document.getElementById('close-props-panel');
   propsContent    = document.getElementById('props-content');
+
   addTowerDoorBtn = document.getElementById('add-tower-door-btn');
   addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
   addDoubleDoorBtn= document.getElementById('add-double-door-btn');
 
-  // New: scene objects UI
-  sceneBtn        = document.getElementById('scene-btn');
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
   sceneList       = document.getElementById('scene-list');
@@ -68,7 +72,7 @@ function init() {
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
-  // Environment (for glass/reflections)
+  // Environment
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
@@ -114,7 +118,6 @@ function init() {
   transformControls.addEventListener('mouseUp', () => {
     if (currentSelection) updatePropsPanel(currentSelection);
   });
-  // Ensure the gizmo is in the scene
   scene.add(transformControls);
   if (typeof transformControls.getHelper === 'function') {
     scene.add(transformControls.getHelper());
@@ -135,6 +138,9 @@ function init() {
   // Hide loading
   loadingScreen.style.opacity = '0';
   setTimeout(() => (loadingScreen.style.display = 'none'), 500);
+
+  // Initial gizmo label
+  updateGizmoButtonLabel();
 
   // Loop
   animate();
@@ -201,7 +207,6 @@ function handleSingleTap(t) {
 
   if (hits.length) {
     let obj = hits[0].object;
-    // Walk up to the root model (userData.isModel)
     while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
     selectObject(obj || hits[0].object);
   } else {
@@ -242,47 +247,51 @@ function deselectAll() {
 // UI
 // -----------------------------
 function initUI() {
+  // Toggle Add panel
   addBtn.addEventListener('click', () => {
-    showPanel(addPanel);
-    hidePanel(scenePanel);
-    deselectAll();
+    if (addPanel.style.visibility === 'visible') {
+      hidePanel(addPanel);
+    } else {
+      showPanel(addPanel);
+      hidePanel(scenePanel);
+      hidePanel(propsPanel);
+    }
   });
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
 
-  // Cycle transform mode
+  // Cycle transform mode + label
   toolsBtn.addEventListener('click', () => {
-    if (!currentSelection) return showTempMessage('Select an object first');
     const m = transformControls.getMode();
     const next = m === 'translate' ? 'rotate' : m === 'rotate' ? 'scale' : 'translate';
     transformControls.setMode(next);
-    showTempMessage(`Mode: ${next[0].toUpperCase()}${next.slice(1)}`);
+    updateGizmoButtonLabel();
+    if (!currentSelection) showTempMessage(`Mode: ${next[0].toUpperCase()}${next.slice(1)}`);
   });
 
-  // NEW: Scene button
+  // Scene list toggle
   sceneBtn.addEventListener('click', () => {
-    refreshSceneList();
-    showPanel(scenePanel);
-    hidePanel(addPanel);
-    hidePanel(propsPanel);
+    if (scenePanel.style.visibility === 'visible') {
+      hidePanel(scenePanel);
+    } else {
+      refreshSceneList();
+      showPanel(scenePanel);
+      hidePanel(addPanel);
+      hidePanel(propsPanel);
+    }
   });
   closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
 
   // Add Tower (door)
   addTowerDoorBtn.addEventListener('click', () => {
     const params = {
-      width: 12,
-      depth: 12,
-      height: 6,
-      wallThickness: 1,
-      cornerRadius: 1.2,
-      edgeRoundness: 0.3,
-      doorWidth: 4 // Has a door
+      width: 12, depth: 12, height: 6,
+      wallThickness: 1, cornerRadius: 1.2,
+      edgeRoundness: 0.3, doorWidth: 4
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
     assignDefaultName(tower);
-
     scene.add(tower);
     allModels.push(tower);
     refreshSceneList();
@@ -293,18 +302,13 @@ function initUI() {
   // Add Tower (solid)
   addTowerSolidBtn.addEventListener('click', () => {
     const params = {
-      width: 10,
-      depth: 10,
-      height: 8,
-      wallThickness: 1,
-      cornerRadius: 1.0,
-      edgeRoundness: 0.2,
-      doorWidth: 0 // No door
+      width: 10, depth: 10, height: 8,
+      wallThickness: 1, cornerRadius: 1.0,
+      edgeRoundness: 0.2, doorWidth: 0
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
     assignDefaultName(tower);
-
     scene.add(tower);
     allModels.push(tower);
     refreshSceneList();
@@ -315,24 +319,14 @@ function initUI() {
   // Add Double Door
   addDoubleDoorBtn.addEventListener('click', () => {
     const params = {
-      totalWidth: 8,
-      height: 10,
-      depth: 0.5,
-      frameThickness: 0.5,
-      cornerRadius: 0.2,
-      cornerSmoothness: 16,
-      edgeRoundness: 0.1,
-      edgeSmoothness: 4,
-      glassR: 1,
-      glassG: 1,
-      glassB: 1,
-      glassOpacity: 0.5,
-      glassRoughness: 0.2
+      totalWidth: 8, height: 10, depth: 0.5,
+      frameThickness: 0.5, cornerRadius: 0.2,
+      cornerSmoothness: 16, edgeRoundness: 0.1, edgeSmoothness: 4,
+      glassR: 1, glassG: 1, glassB: 1, glassOpacity: 0.5, glassRoughness: 0.2
     };
     const doors = new DoubleDoor(params);
     doors.position.y = params.height / 2;
     assignDefaultName(doors);
-
     scene.add(doors);
     allModels.push(doors);
     refreshSceneList();
@@ -341,7 +335,14 @@ function initUI() {
   });
 }
 
-// Build the list UI each time it opens / changes
+function updateGizmoButtonLabel() {
+  if (!gizmoText) return;
+  const mode = transformControls.getMode();
+  const nice = mode[0].toUpperCase() + mode.slice(1);
+  gizmoText.textContent = nice;
+}
+
+// Build the list UI
 function refreshSceneList() {
   sceneList.innerHTML = '';
   if (!allModels.length) {
@@ -373,14 +374,12 @@ function showPanel(p) {
     p.style.borderBottomRightRadius = '0';
   }
 }
-
 function hidePanel(p) {
   if (!p) return;
   p.style.opacity = '0';
   p.style.transform = 'translateY(100%)';
   setTimeout(() => (p.style.visibility = 'hidden'), 300);
 }
-
 function showTempMessage(text) {
   const box = document.getElementById('message-box');
   document.getElementById('message-text').textContent = text;
