@@ -36,41 +36,25 @@ function unifiedShellGeometry(p, forceNoBevel=false){
     const hw = p.width / 2;
     const hd = p.depth / 2;
     const rr = cornerRadius;
-    const ihw = innerW / 2;
-    const ihd = innerD / 2;
-    const ir = innerR;
+    const ihd = (p.depth - 2 * p.wallThickness) / 2;
     const doorW = Math.min(p.doorWidth, maxDoorWidth(p));
     const doorLeftX = -doorW / 2;
     const doorRightX = doorW / 2;
 
-    // Outer partial CCW from doorLeft outer to doorRight outer the long way
-    shape.moveTo(doorLeftX, hd);
-    shape.lineTo(-hw + rr, hd);
-    shape.absarc(-hw + rr, hd - rr, rr, Math.PI / 2, Math.PI, false);
-    shape.lineTo(-hw, -hd + rr);
-    shape.absarc(-hw + rr, -hd + rr, rr, Math.PI, 3 * Math.PI / 2, false);
-    shape.lineTo(hw - rr, -hd);
-    shape.absarc(hw - rr, -hd + rr, rr, -Math.PI / 2, 0, false);
-    shape.lineTo(hw, hd - rr);
-    shape.absarc(hw - rr, hd - rr, rr, 0, Math.PI / 2, false);
-    shape.lineTo(doorRightX, hd);
-
-    // Connect to inner right
-    shape.lineTo(doorRightX, ihd);
-
-    // Inner partial CW from doorRight inner to doorLeft inner the long way
-    shape.lineTo(ihw - ir, ihd);
-    shape.absarc(ihw - ir, ihd - ir, ir, Math.PI / 2, 0, true);
-    shape.lineTo(ihw, -ihd + ir);
-    shape.absarc(ihw - ir, -ihd + ir, ir, 0, -Math.PI / 2, true);
-    shape.lineTo(-ihw + ir, -ihd);
-    shape.absarc(-ihw + ir, -ihd + ir, ir, 3 * Math.PI / 2, Math.PI, true);
-    shape.lineTo(-ihw, ihd - ir);
-    shape.absarc(-ihw + ir, ihd - ir, ir, Math.PI, Math.PI / 2, true);
-    shape.lineTo(doorLeftX, ihd);
-
-    // Connect back to start
-    shape.lineTo(doorLeftX, hd);
+    shape.moveTo(-hw + rr, -hd);
+    shape.lineTo( hw-rr, -hd);
+    shape.absarc( hw-rr, -hd+rr, rr, -Math.PI/2, 0, false);
+    shape.lineTo( hw,  hd-rr);
+    shape.absarc( hw-rr,  hd-rr, rr, 0, Math.PI/2, false);
+    shape.lineTo( doorRightX,  hd);
+    shape.lineTo( doorRightX, ihd);
+    shape.lineTo( doorLeftX,  ihd);
+    shape.lineTo( doorLeftX, hd);
+    shape.lineTo(-hw+rr,  hd);
+    shape.absarc(-hw+rr,  hd-rr, rr, Math.PI/2, Math.PI, false);
+    shape.lineTo(-hw,    -hd+rr);
+    shape.absarc(-hw+rr, -hd+rr, rr, Math.PI, 1.5*Math.PI, false);
+    shape.closePath();
   }
 
   const bevelEnabled = !forceNoBevel && (p.edgeRoundness||0) > 0;
