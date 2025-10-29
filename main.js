@@ -7,7 +7,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 // --- Import our custom Assets ---
 import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
-import WindowAsset from './window.js';   // rename to avoid global Window confusion
+import WindowAsset from './window.js';   // class renamed inside to avoid global Window clash
 import Floor from './floor.js';
 
 // --- Global Variables ---
@@ -75,9 +75,9 @@ function init() {
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
-  // Environment (pass renderer for r180)
+  // Environment (no-arg RoomEnvironment for r0.180)
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const envTex = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
 
   // Camera
@@ -716,7 +716,7 @@ function updatePropsPanel(object) {
 // -----------------------------
 window.addEventListener('DOMContentLoaded', init);
 
-// Optional: show runtime errors in the toast so you’re never “stuck” silently
+// Show runtime errors in a toast and ensure loader is hidden on error
 window.addEventListener('error', (e) => {
   const msg = e?.error?.message || e.message || 'Unknown error';
   const box = document.getElementById('message-box');
@@ -725,7 +725,6 @@ window.addEventListener('error', (e) => {
     box.classList.add('show');
     setTimeout(() => box.classList.remove('show'), 3500);
   }
-  // ensure loading screen goes away even on error
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
 });
