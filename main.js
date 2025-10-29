@@ -4,14 +4,14 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-// --- Import our custom Assets ---
+// --- Import custom Assets ---
 import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
 import WindowAsset from './window.js';
 import Floor from './floor.js';
-import Roof from './roof.js';
+import TrussFrameArm from './trussframearm.js';
 
-// --- Global Variables ---
+// --- Globals ---
 let scene, camera, renderer, orbitControls, transformControls;
 let raycaster, touchStartPos, currentSelection;
 let allModels = [];
@@ -19,10 +19,10 @@ let allModels = [];
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addRoofBtn, toolsBtn, gizmoText;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addTrussBtn, toolsBtn, gizmoText;
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
-// Touch/Tap Controls
+// Tap
 let lastTapTime = 0;
 const DOUBLE_TAP_DELAY = 300;
 
@@ -34,9 +34,9 @@ function assignDefaultName(obj) {
   obj.userData.label = `${base} #${nameCounts[base]}`;
 }
 
-// -----------------------------
+// ----------------------------- Init -----------------------------
 function init() {
-  // UI handles
+  // UI
   loadingScreen   = document.getElementById('loading-screen');
   canvasContainer = document.getElementById('canvas-container');
 
@@ -57,7 +57,7 @@ function init() {
   addDoubleDoorBtn= document.getElementById('add-double-door-btn');
   addWindowBtn    = document.getElementById('add-window-btn');
   addFloorBtn     = document.getElementById('add-floor-btn');
-  addRoofBtn      = document.getElementById('add-roof-btn');
+  addTrussBtn     = document.getElementById('add-truss-btn'); // NEW
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
@@ -75,7 +75,7 @@ function init() {
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
-  // Environment
+  // Environment (correct ctor: no args)
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
@@ -89,7 +89,7 @@ function init() {
   );
   camera.position.set(15, 20, 25);
 
-  // Lights
+  // Lights + ground
   scene.add(new THREE.AmbientLight(0x808080));
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
   dirLight.position.set(10, 20, 5);
@@ -97,7 +97,6 @@ function init() {
   dirLight.shadow.mapSize.set(1024, 1024);
   scene.add(dirLight);
 
-  // Ground
   scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444));
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100),
@@ -111,7 +110,6 @@ function init() {
   orbitControls = new OrbitControls(camera, renderer.domElement);
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.1;
-  orbitControls.enablePan = true;
 
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('translate');
@@ -122,9 +120,6 @@ function init() {
     if (currentSelection) updatePropsPanel(currentSelection);
   });
   scene.add(transformControls);
-  if (typeof transformControls.getHelper === 'function') {
-    scene.add(transformControls.getHelper());
-  }
 
   // Raycast / touch
   raycaster = new THREE.Raycaster();
@@ -146,14 +141,14 @@ function init() {
   animate();
 }
 
-// -----------------------------
+// ----------------------------- Loop -----------------------------
 function animate() {
   requestAnimationFrame(animate);
   orbitControls.update();
   renderer.render(scene, camera);
 }
 
-// -----------------------------
+// ----------------------------- Events -----------------------------
 function resizeRenderer() {
   const c = canvasContainer;
   camera.aspect = c.clientWidth / c.clientHeight;
@@ -187,7 +182,7 @@ function getTouchNDC(t) {
   };
 }
 
-// -----------------------------
+// ----------------------------- Selection -----------------------------
 function handleSingleTap(t) {
   const ndc = getTouchNDC(t);
   raycaster.setFromCamera(ndc, camera);
@@ -211,7 +206,8 @@ function handleDoubleTap(t) {
   }
 }
 function selectObject(o) {
-  if (!o || currentSelection === o) return;
+  if (!o) return;
+  if (currentSelection === o) return;
   currentSelection = o;
   transformControls.attach(o);
   updatePropsPanel(o);
@@ -225,9 +221,8 @@ function deselectAll() {
   hidePanel(propsPanel);
 }
 
-// -----------------------------
+// ----------------------------- UI -----------------------------
 function initUI() {
-  // Toggle Add panel
   addBtn.addEventListener('click', () => {
     if (addPanel.style.visibility === 'visible') hidePanel(addPanel);
     else { showPanel(addPanel); hidePanel(scenePanel); hidePanel(propsPanel); }
@@ -235,7 +230,6 @@ function initUI() {
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
 
-  // Cycle transform mode + label
   toolsBtn.addEventListener('click', () => {
     const m = transformControls.getMode();
     const next = m === 'translate' ? 'rotate' : m === 'rotate' ? 'scale' : 'translate';
@@ -244,7 +238,6 @@ function initUI() {
     if (!currentSelection) showTempMessage(`Mode: ${next[0].toUpperCase()}${next.slice(1)}`);
   });
 
-  // Scene list toggle
   sceneBtn.addEventListener('click', () => {
     if (scenePanel.style.visibility === 'visible') hidePanel(scenePanel);
     else { refreshSceneList(); showPanel(scenePanel); hidePanel(addPanel); hidePanel(propsPanel); }
@@ -256,8 +249,7 @@ function initUI() {
     const params = { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidth: 4 };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
-    assignDefaultName(tower);
-    scene.add(tower); allModels.push(tower);
+    assignDefaultName(tower); scene.add(tower); allModels.push(tower);
     refreshSceneList(); selectObject(tower); hidePanel(addPanel);
   });
 
@@ -266,59 +258,54 @@ function initUI() {
     const params = { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
-    assignDefaultName(tower);
-    scene.add(tower); allModels.push(tower);
+    assignDefaultName(tower); scene.add(tower); allModels.push(tower);
     refreshSceneList(); selectObject(tower); hidePanel(addPanel);
   });
 
   // Add Double Door
   addDoubleDoorBtn.addEventListener('click', () => {
     const params = {
-      totalWidth: 8, height: 10, depth: 0.5, frameThickness: 0.5,
-      cornerRadius: 0.2, cornerSmoothness: 16, edgeRoundness: 0.1, edgeSmoothness: 4,
+      totalWidth: 8, height: 10, depth: 0.5, frameThickness: 0.5, cornerRadius: 0.2,
+      cornerSmoothness: 16, edgeRoundness: 0.1, edgeSmoothness: 4,
       glassR: 1, glassG: 1, glassB: 1, glassOpacity: 0.5, glassRoughness: 0.2
     };
     const doors = new DoubleDoor(params);
     doors.position.y = params.height / 2;
-    assignDefaultName(doors);
-    scene.add(doors); allModels.push(doors);
+    assignDefaultName(doors); scene.add(doors); allModels.push(doors);
     refreshSceneList(); selectObject(doors); hidePanel(addPanel);
   });
 
   // Add Window
   addWindowBtn.addEventListener('click', () => {
     const params = {
-      totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4,
-      cornerRadius: 0.1, cornerSmoothness: 16, edgeRoundness: 0.05, edgeSmoothness: 4,
+      totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4, cornerRadius: 0.1,
+      cornerSmoothness: 16, edgeRoundness: 0.05, edgeSmoothness: 4,
       glassR: 0.8, glassG: 0.8, glassB: 1, glassOpacity: 0.3, glassRoughness: 0.1,
       curveRadius: 0, hasBolts: false, hasBars: false
     };
     const win = new WindowAsset(params);
     win.position.y = params.height / 2;
-    assignDefaultName(win);
-    scene.add(win); allModels.push(win);
+    assignDefaultName(win); scene.add(win); allModels.push(win);
     refreshSceneList(); selectObject(win); hidePanel(addPanel);
   });
 
-  // Add Floor
+  // Add Floor (roof-capable)
   addFloorBtn.addEventListener('click', () => {
-    const params = { width: 20, depth: 20, thickness: 0.6, cornerRadius: 0.0, edgeRoundness: 0.0, colorR: 0.5, colorG: 0.5, colorB: 0.5 };
+    const params = { width: 20, depth: 20, thickness: 0.6 };
     const floor = new Floor(params);
     floor.position.y = -params.thickness / 2;
-    assignDefaultName(floor);
-    scene.add(floor); allModels.push(floor);
+    assignDefaultName(floor); scene.add(floor); allModels.push(floor);
     refreshSceneList(); selectObject(floor); hidePanel(addPanel);
   });
 
-  // Add Roof
-  addRoofBtn.addEventListener('click', () => {
-    const params = {}; // defaults inside class
-    const roof = new Roof(params);
-    // start it a bit above ground
-    roof.position.y = 8;
-    assignDefaultName(roof);
-    scene.add(roof); allModels.push(roof);
-    refreshSceneList(); selectObject(roof); hidePanel(addPanel);
+  // Add Truss Frame Arm (NEW)
+  addTrussBtn?.addEventListener('click', () => {
+    const params = { length: 12, railRadius: 0.15, railSeparation: 1.4, curveAmount: 0, braceSpacing: 1.2, braceRadius: 0.08, hasBolt: true };
+    const arm = new TrussFrameArm(params);
+    // place bolt at tip; keep near ground
+    arm.position.set(0, 2, 0);
+    assignDefaultName(arm); scene.add(arm); allModels.push(arm);
+    refreshSceneList(); selectObject(arm); hidePanel(addPanel);
   });
 }
 
@@ -328,8 +315,7 @@ function updateGizmoButtonLabel() {
   gizmoText.textContent = mode[0].toUpperCase() + mode.slice(1);
 }
 
-// -----------------------------
-// Duplicate / Delete
+// ----------------------------- Duplicate / Delete -----------------------------
 function duplicateModel(src) {
   let copy;
   const type = src.userData?.type || 'Object';
@@ -339,8 +325,11 @@ function duplicateModel(src) {
   else if (type === 'DoubleDoor') copy = new DoubleDoor(params);
   else if (type === 'Window')     copy = new WindowAsset(params);
   else if (type === 'Floor')      copy = new Floor(params);
-  else if (type === 'Roof')       copy = new Roof(params);
-  else { copy = src.clone(true); copy.userData = { ...src.userData }; }
+  else if (type === 'TrussFrameArm') copy = new TrussFrameArm(params);
+  else {
+    copy = src.clone(true);
+    copy.userData = { ...src.userData };
+  }
 
   copy.position.copy(src.position).add(new THREE.Vector3(1, 0, 1));
   copy.rotation.copy(src.rotation);
@@ -359,21 +348,22 @@ function deleteModel(obj) {
   const idx = allModels.indexOf(obj);
   if (idx !== -1) allModels.splice(idx, 1);
   if (currentSelection === obj) deselectAll();
+
   if (typeof obj.dispose === 'function') obj.dispose();
   obj.traverse((n) => {
     if (n.isMesh) {
-      n.geometry?.dispose && n.geometry.dispose();
+      if (n.geometry?.dispose) n.geometry.dispose();
       const m = n.material;
       if (Array.isArray(m)) m.forEach((mm) => mm?.dispose && mm.dispose());
-      else m?.dispose && m.dispose();
+      else if (m?.dispose) m.dispose();
     }
   });
+
   scene.remove(obj);
   refreshSceneList();
 }
 
-// -----------------------------
-// Scene List
+// ----------------------------- Scene List -----------------------------
 function refreshSceneList() {
   sceneList.innerHTML = '';
   if (!allModels.length) {
@@ -382,6 +372,7 @@ function refreshSceneList() {
   }
   allModels.forEach((obj, idx) => {
     const name = obj.userData?.label || obj.userData?.type || `Object ${idx + 1}`;
+
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-md px-3 py-2';
 
@@ -419,44 +410,16 @@ function refreshSceneList() {
 
     actions.appendChild(dupBtn);
     actions.appendChild(delBtn);
-
     row.appendChild(nameBtn);
     row.appendChild(actions);
     sceneList.appendChild(row);
   });
 }
 
-// -----------------------------
-// Panels + Toast
-function showPanel(p) {
-  if (!p) return;
-  p.style.visibility = 'visible';
-  p.style.opacity = '1';
-  p.style.transform = 'translateY(0)';
-  if (p.id === 'props-panel') {
-    p.style.borderTopLeftRadius = '12px';
-    p.style.borderTopRightRadius = '12px';
-    p.style.borderBottomLeftRadius = '0';
-    p.style.borderBottomRightRadius = '0';
-  }
-}
-function hidePanel(p) {
-  if (!p) return;
-  p.style.opacity = '0';
-  p.style.transform = 'translateY(100%)';
-  setTimeout(() => (p.style.visibility = 'hidden'), 300);
-}
-function showTempMessage(text) {
-  const box = document.getElementById('message-box');
-  document.getElementById('message-text').textContent = text;
-  box.classList.add('show');
-  setTimeout(() => box.classList.remove('show'), 1500);
-}
-
-// -----------------------------
-// Dynamic Properties Panel
+// ----------------------------- Panels -----------------------------
 function updatePropsPanel(object) {
   propsContent.innerHTML = '';
+
   if (!object || !object.userData?.params) {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
     return;
@@ -476,7 +439,9 @@ function updatePropsPanel(object) {
       cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
       edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
       edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-      ...(p.doorWidth > 0 && { doorWidth: { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' } })
+      ...(p.doorWidth > 0 && {
+        doorWidth:      { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+      })
     };
   } else if (type === 'DoubleDoor') {
     paramConfig = {
@@ -515,57 +480,50 @@ function updatePropsPanel(object) {
     };
   } else if (type === 'Floor') {
     paramConfig = {
-      width:            { min: 4,   max: 100, step: 0.1, label: 'Width' },
-      depth:            { min: 4,   max: 100, step: 0.1, label: 'Depth' },
-      thickness:        { min: 0.1, max: 5,   step: 0.1, label: 'Thickness' },
-      cornerRadius:     { min: 0,   max: Floor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-      cornerSmoothness: { min: 8,   max: 64,  step: 1,   label: 'Corner Smoothness' },
-      edgeRoundness:    { min: 0,   max: Floor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-      edgeSmoothness:   { min: 1,   max: 12,  step: 1,   label: 'Edge Smoothness' },
-      colorR:           { min: 0,   max: 1,   step: 0.01, label: 'Color Red' },
-      colorG:           { min: 0,   max: 1,   step: 0.01, label: 'Color Green' },
-      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' }
+      // size
+      width:            { min: 4,   max: 200, step: 0.1, label: 'Width' },
+      depth:            { min: 4,   max: 200, step: 0.1, label: 'Depth' },
+      thickness:        { min: 0.1, max: 5,   step: 0.05, label: 'Thickness' },
+      colorR:           { min: 0,   max: 1,   step: 0.01, label: 'Color R' },
+      colorG:           { min: 0,   max: 1,   step: 0.01, label: 'Color G' },
+      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color B' },
+      // edges
+      cornerRadius:     { min: 0,   max: Floor.getMaxCornerRadius(p),   step: 0.05, label: 'Corner Radius' },
+      edgeRoundness:    { min: 0,   max: Floor.getMaxEdgeRoundness(p), step: 0.05, label: 'Bevel Amount' },
+      edgeSmoothness:   { min: 1,   max: 12,  step: 1,    label: 'Bevel Segments' },
+      // bulge (roof camber)
+      bulgeHeight:      { min: 0,   max: 3,   step: 0.01, label: 'Bulge Height' },
+      bulgeExponent:    { min: 0.5, max: 6,   step: 0.1,  label: 'Bulge Exponent' },
+      // skylight toggles
+      hasSkylight:      { type: 'checkbox', label: 'Skylight (Hole)' },
+      skylightW:        { min: 0.2, max: Floor.getSkylightBounds(p).maxW, step: 0.05, label: 'Skylight Width' },
+      skylightH:        { min: 0.2, max: Floor.getSkylightBounds(p).maxH, step: 0.05, label: 'Skylight Depth' },
+      skylightX:        { min: Floor.getSkylightBounds(p).minX, max: Floor.getSkylightBounds(p).maxX, step: 0.05, label: 'Skylight X' },
+      skylightZ:        { min: Floor.getSkylightBounds(p).minZ, max: Floor.getSkylightBounds(p).maxZ, step: 0.05, label: 'Skylight Z' },
+      skylightRadius:   { min: 0,   max: Math.min(p.skylightW, p.skylightH)/2, step: 0.05, label: 'Skylight Corner' },
+      hasSkylightGlass: { type: 'checkbox', label: 'Skylight Glass' },
+      glassOpacity:     { min: 0,   max: 1,   step: 0.01, label: 'Glass Opacity' },
+      glassRoughness:   { min: 0,   max: 1,   step: 0.01, label: 'Glass Roughness' }
     };
-  } else if (type === 'Roof') {
+  } else if (type === 'TrussFrameArm') {
     paramConfig = {
-      width:            { min: 4,   max: 100, step: 0.1, label: 'Width' },
-      depth:            { min: 4,   max: 100, step: 0.1, label: 'Depth' },
-      overhang:         { min: 0,   max: 5,   step: 0.05, label: 'Overhang' },
-      thickness:        { min: 0.1, max: 3,   step: 0.05, label: 'Thickness' },
-
-      cornerRadius:     { min: 0,   max: Roof.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-      cornerSmoothness: { min: 8,   max: 64,  step: 1,   label: 'Corner Smoothness' },
-      edgeRoundness:    { min: 0,   max: Roof.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-      edgeSmoothness:   { min: 1,   max: 12,  step: 1,   label: 'Edge Smoothness' },
-
-      archHeight:       { min: 0,   max: 10,  step: 0.05, label: 'Arch Height' },
-      archX:            { type: 'checkbox', label: 'Arch Along X' },
-      archZ:            { type: 'checkbox', label: 'Arch Along Z' },
-
-      hasSkylight:         { type: 'checkbox', label: 'Skylight' },
-      skylightWidth:       { min: 0.2, max: Roof.getMaxSkylight(p).w, step: 0.05, label: 'Skylight Width' },
-      skylightDepth:       { min: 0.2, max: Roof.getMaxSkylight(p).d, step: 0.05, label: 'Skylight Depth' },
-      skylightCornerRadius:{ min: 0,   max: Math.min(p.skylightWidth, p.skylightDepth)/2 - 0.01, step: 0.05, label: 'Skylight Corner R' },
-      glassOpacity:        { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
-      glassRoughness:      { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' },
-
-      hasRails:         { type: 'checkbox', label: 'Rails' },
-      railHeight:       { min: 0.2, max: 3,   step: 0.05, label: 'Rail Height' },
-      railSpacing:      { min: 0.5, max: 6,   step: 0.1,  label: 'Rail Spacing' },
-
-      hasVent:          { type: 'checkbox', label: 'Vent' },
-      hasAntenna:       { type: 'checkbox', label: 'Antenna' },
-
-      colorR:           { min: 0,   max: 1,   step: 0.01, label: 'Color Red' },
-      colorG:           { min: 0,   max: 1,   step: 0.01, label: 'Color Green' },
-      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' }
+      length:         { min: 2,   max: 60,  step: 0.1,  label: 'Length' },
+      curveAmount:    { min: -TrussFrameArm.getMaxCurve(p), max: TrussFrameArm.getMaxCurve(p), step: 0.1, label: 'Curve' },
+      railRadius:     { min: 0.03, max: 0.8, step: 0.01, label: 'Rail Radius (Roundness)' },
+      railSeparation: { min: 0.4, max: 4,   step: 0.05, label: 'Rail Separation' },
+      railSegments:   { min: 8,   max: 128, step: 1,    label: 'Rail Segments' },
+      braceSpacing:   { min: 0.4, max: 6,   step: 0.1,  label: 'Brace Spacing' },
+      braceRadius:    { min: 0.02, max: 0.5, step: 0.01, label: 'Brace Radius' },
+      hasBolt:        { type: 'checkbox', label: 'Bolt Joint at Tip' },
+      boltRadius:     { min: 0.05, max: 1.5, step: 0.01, label: 'Bolt Radius' },
+      boltLength:     { min: 0.1,  max: 3,   step: 0.01, label: 'Bolt Length' }
     };
   } else {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
     return;
   }
 
-  // Build controls
+  // Build UI elements
   for (const key in paramConfig) {
     const cfg = paramConfig[key];
 
@@ -581,7 +539,7 @@ function updatePropsPanel(object) {
     }
 
     const value = (p[key] ?? cfg.min);
-    const valueFmt = (cfg.step >= 1) ? Math.round(value) : Number(value).toFixed(2);
+    const valueFmt = (cfg.step >= 1) ? Math.round(value) : (typeof value === 'number' ? value.toFixed(2) : value);
 
     const html = `
       <div class="space-y-1">
@@ -595,43 +553,64 @@ function updatePropsPanel(object) {
     propsContent.insertAdjacentHTML('beforeend', html);
   }
 
-  // Slider events (with dynamic max updates)
+  // Events - sliders
   propsContent.querySelectorAll('input[type="range"]').forEach((slider) => {
     slider.addEventListener('input', () => {
       const key = slider.dataset.param;
       const cfg = paramConfig[key];
       const val = (cfg.step >= 1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
-
       let next = { ...object.userData.params, [key]: val };
 
-      // Recompute dependent max values for shape-driven clamps
-      if (['width','depth','thickness','overhang','cornerRadius','skylightWidth','skylightDepth','railHeight'].includes(key)) {
-        const updateMax = (id, newMax) => {
-          const s = document.getElementById(`${id}-slider`);
-          if (s) {
-            s.max = newMax;
-            if (next[id] > newMax) {
-              next[id] = Number(newMax);
-              s.value = newMax;
-              const v = (paramConfig[id].step >= 1) ? Math.round(newMax) : Number(newMax).toFixed(2);
-              const lbl = document.getElementById(`${id}-value`); if (lbl) lbl.textContent = v;
+      // dynamic max updates for some coupled params
+      if (type === 'Floor') {
+        if (['width','depth','thickness','cornerRadius','skylightW','skylightH'].includes(key)) {
+          // corner radius
+          const crMax = Floor.getMaxCornerRadius(next);
+          const crSlider = document.getElementById('cornerRadius-slider');
+          if (crSlider) {
+            crSlider.max = crMax;
+            if (next.cornerRadius > crMax) {
+              next.cornerRadius = crMax;
+              crSlider.value = crMax;
+              document.getElementById('cornerRadius-value').textContent = crMax.toFixed(2);
             }
           }
-        };
-
-        if (type === 'Floor') {
-          updateMax('cornerRadius', Floor.getMaxCornerRadius(next));
-          updateMax('edgeRoundness', Floor.getMaxEdgeRoundness(next));
+          // edge roundness
+          const erMax = Floor.getMaxEdgeRoundness(next);
+          const erSlider = document.getElementById('edgeRoundness-slider');
+          if (erSlider) {
+            erSlider.max = erMax;
+            if (next.edgeRoundness > erMax) {
+              next.edgeRoundness = erMax;
+              erSlider.value = erMax;
+              document.getElementById('edgeRoundness-value').textContent = erMax.toFixed(2);
+            }
+          }
+          // skylight bounds
+          const b = Floor.getSkylightBounds(next);
+          const sW = document.getElementById('skylightW-slider');
+          const sH = document.getElementById('skylightH-slider');
+          const sX = document.getElementById('skylightX-slider');
+          const sZ = document.getElementById('skylightZ-slider');
+          const sR = document.getElementById('skylightRadius-slider');
+          if (sW) sW.max = b.maxW;
+          if (sH) sH.max = b.maxH;
+          if (sX) { sX.min = b.minX; sX.max = b.maxX; }
+          if (sZ) { sZ.min = b.minZ; sZ.max = b.maxZ; }
+          if (sR) {
+            const rMax = Math.min(next.skylightW, next.skylightH) / 2;
+            sR.max = rMax;
+            if (next.skylightRadius > rMax) {
+              next.skylightRadius = rMax;
+              sR.value = rMax;
+              document.getElementById('skylightRadius-value').textContent = rMax.toFixed(2);
+            }
+          }
         }
-        if (type === 'Roof') {
-          updateMax('cornerRadius', Roof.getMaxCornerRadius(next));
-          updateMax('edgeRoundness', Roof.getMaxEdgeRoundness(next));
-          const sMax = Roof.getMaxSkylight(next);
-          updateMax('skylightWidth', sMax.w);
-          updateMax('skylightDepth', sMax.d);
-          const srMax = Math.max(0, Math.min(next.skylightWidth, next.skylightDepth) / 2 - 0.01);
-          updateMax('skylightCornerRadius', srMax);
-        }
+      } else if (type === 'TrussFrameArm' && key === 'length') {
+        const mc = TrussFrameArm.getMaxCurve(next);
+        const cSlider = document.getElementById('curveAmount-slider');
+        if (cSlider) { cSlider.min = -mc; cSlider.max = mc; }
       }
 
       const lbl = document.getElementById(`${key}-value`);
@@ -641,20 +620,48 @@ function updatePropsPanel(object) {
     });
   });
 
-  // Checkbox events
+  // Events - checkboxes
   propsContent.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
     checkbox.addEventListener('change', () => {
       const key = checkbox.dataset.param;
       const val = checkbox.checked;
       let next = { ...object.userData.params, [key]: val };
       object.updateParams(next);
-      // refresh to expose new skylight/rail sliders etc. in case visibility logic added later
+      // When toggling skylight, rebuild UI to expose hole sliders
+      if (type === 'Floor' && (key === 'hasSkylight')) updatePropsPanel(object);
     });
   });
 }
 
-// -----------------------------
+function showPanel(p) {
+  if (!p) return;
+  p.style.visibility = 'visible';
+  p.style.opacity = '1';
+  p.style.transform = 'translateY(0)';
+  if (p.id === 'props-panel') {
+    p.style.borderTopLeftRadius = '12px';
+    p.style.borderTopRightRadius = '12px';
+    p.style.borderBottomLeftRadius = '0';
+    p.style.borderBottomRightRadius = '0';
+  }
+}
+function hidePanel(p) {
+  if (!p) return;
+  p.style.opacity = '0';
+  p.style.transform = 'translateY(100%)';
+  setTimeout(() => (p.style.visibility = 'hidden'), 300);
+}
+function showTempMessage(text) {
+  const box = document.getElementById('message-box');
+  document.getElementById('message-text').textContent = text;
+  box.classList.add('show');
+  setTimeout(() => box.classList.remove('show'), 1500);
+}
+
+// ----------------------------- Start -----------------------------
 window.addEventListener('DOMContentLoaded', init);
+
+// Make loader vanish on runtime error so you’re never stuck
 window.addEventListener('error', (e) => {
   const msg = e?.error?.message || e.message || 'Unknown error';
   const box = document.getElementById('message-box');
