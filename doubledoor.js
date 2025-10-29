@@ -65,7 +65,7 @@ function unifiedDoorGeometry(p, forceNoBevel = false) {
 
   const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
   geo.translate(0, 0, -p.depth / 2);
-  geo.rotateX(-Math.PI / 2); // Orient properly, match towerbase
+  // Removed rotateX(-Math.PI / 2) to keep orientation with height along y, thickness along z
   geo.computeVertexNormals();
   return geo;
 }
