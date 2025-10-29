@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler — Tower Base (CSG Build)</title>
+  <title>Mobile 3D Modeler — Tower Base (CSG Build Fix)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -202,11 +202,13 @@
 
     // ---------- Geometry helpers ----------
     // Creates a rounded box geometry
-    function createRoundedBox(width, height, depth, radius, smoothness) {
+    // ⚠️ FIXED TYPO HERE ⚠️
+    function createRoundedBox(width, height, depth, radiusParam, smoothness) { // Renamed parameter
       const shape = new THREE.Shape();
       const eps = 0.00001;
-      const radius = radius || eps; // Ensure radius is non-zero
+      const radius = Math.max(radiusParam || eps, eps); // Use radiusParam here and ensure minimum > 0
 
+      // Use the calculated 'radius' for the shape definition
       shape.moveTo(-width / 2 + radius, -depth / 2);
       shape.lineTo(width / 2 - radius, -depth / 2);
       shape.absarc(width / 2 - radius, -depth / 2 + radius, radius, -Math.PI / 2, 0, false);
@@ -263,8 +265,13 @@
       }
 
       build(){
-        for(const c of this.children){ c.geometry && c.geometry.dispose(); }
-        this.clear();
+        // Dispose old children first
+        while(this.children.length > 0){
+          const child = this.children[0];
+          this.remove(child);
+          if(child.geometry) child.geometry.dispose();
+          // Note: Material is shared, so don't dispose it here
+        }
 
         const p = this.userData.params;
         const CSG = getCSG();
@@ -274,87 +281,90 @@
           return;
         }
 
+        let finalMesh = null; // Declare finalMesh outside try block
+
         try {
           // --- 1. Create Outer Shell ---
-          const outerRadius = Math.max(0.01, p.cornerRadius); // Ensure non-zero radius
+          const outerRadius = Math.max(0.01, p.cornerRadius);
           const outerGeo = createRoundedBox(p.width, p.height, p.depth, outerRadius, p.cornerSmoothness);
-          const outerMesh = new THREE.Mesh(outerGeo, this.material);
-          // outerMesh.geometry = outerMesh.geometry.toNonIndexed(); // Keep indexed for now
-          outerMesh.updateMatrix(); outerMesh.updateMatrixWorld(true);
+          const outerMesh = new THREE.Mesh(outerGeo); // No need for material here
+          outerMesh.updateMatrix(); // Update matrix BEFORE CSG operations
 
           // --- 2. Create Inner Shell (to subtract) ---
           const innerW = Math.max(0.1, p.width - 2 * p.wallThickness);
           const innerD = Math.max(0.1, p.depth - 2 * p.wallThickness);
-          const innerH = p.height; // Same height initially
-          const innerRadius = Math.max(0.01, p.cornerRadius - p.wallThickness);
+          const innerH = p.height; // Use full height to ensure clean top/bottom
+          const innerRadius = Math.max(0.01, outerRadius - p.wallThickness); // Use outerRadius as base
           const innerGeo = createRoundedBox(innerW, innerH, innerD, innerRadius, p.cornerSmoothness);
-          const innerMesh = new THREE.Mesh(innerGeo, this.material);
-          // innerMesh.geometry = innerMesh.geometry.toNonIndexed(); // Keep indexed
-          innerMesh.updateMatrix(); innerMesh.updateMatrixWorld(true);
+          const innerMesh = new THREE.Mesh(innerGeo);
+          innerMesh.updateMatrix();
 
           // --- 3. Subtract Inner from Outer ---
           const shellCSG = CSG.subtract(CSG.fromMesh(outerMesh), CSG.fromMesh(innerMesh));
-          let shellResultMesh = CSG.toMesh(shellCSG, outerMesh.matrix, this.material);
-          shellResultMesh.geometry.computeVertexNormals();
+          // Don't convert back to mesh yet, keep as CSG object
 
-          // Dispose temporary geometries
+          // Dispose temporary geometries used for shell subtraction
           outerGeo.dispose();
           innerGeo.dispose();
 
 
           // --- 4. Create Door Cutter ---
-          const cutDepth = p.wallThickness * 3.0; // Make sure it goes through
+          const cutDepth = p.wallThickness * 3.0;
           const doorW = Math.min(p.doorWidth || 4, maxDoorWidth(p));
           const doorH = Math.min(p.doorHeight || 3, maxDoorHeight(p));
           const doorGeo = new THREE.BoxGeometry(doorW, doorH, cutDepth);
           const doorMesh = new THREE.Mesh(doorGeo);
-          // doorMesh.geometry = doorMesh.geometry.toNonIndexed(); // Keep indexed
 
-          // Position the door cutter
-          // Geometry is already centered at 0,0,0
-          const doorY = -p.height/2 + doorH/2; // Position Y at the bottom
-          // Position Z centered in the front wall thickness
+          // Position the door cutter (relative to the origin where the shell CSG is)
+          const doorY = -p.height/2 + doorH/2;
           const doorZ = p.depth / 2 - p.wallThickness / 2;
           doorMesh.position.set(0, doorY, doorZ);
-          doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
+          doorMesh.updateMatrix();
 
 
-          // --- 5. Subtract Door from Shell ---
-          const finalCSG = CSG.subtract(CSG.fromMesh(shellResultMesh), CSG.fromMesh(doorMesh));
-          let finalMesh = CSG.toMesh(finalCSG, shellResultMesh.matrix, this.material);
-          finalMesh.geometry.computeVertexNormals();
+          // --- 5. Subtract Door from Shell CSG Object ---
+          const finalCSG = CSG.subtract(shellCSG, CSG.fromMesh(doorMesh)); // Subtract directly from shellCSG
 
-          // Dispose temporary door geo
+          // Dispose temporary door geometry
           doorGeo.dispose();
 
-          // Position the final mesh correctly (since geometries were centered)
+          // --- 6. Convert Final CSG to Mesh ---
+          // Use identity matrix because transformations are handled by the group
+          finalMesh = CSG.toMesh(finalCSG, new THREE.Matrix4(), this.material);
+          finalMesh.geometry.computeVertexNormals();
+
+          // Position the final mesh correctly
           finalMesh.position.y = p.height / 2;
           finalMesh.castShadow = true;
           finalMesh.receiveShadow = true;
-          this.add(finalMesh);
+          this.add(finalMesh); // Add the final result
 
         } catch(err) {
             console.error('CSG operation failed during build:', err);
-            // Optionally add an uncut or simple box as fallback
+            // Fallback: Create a simple red box
              const fallbackGeo = new THREE.BoxGeometry(p.width, p.height, p.depth);
              const fallbackMesh = new THREE.Mesh(fallbackGeo, new THREE.MeshStandardMaterial({color: 0xff0000}));
              fallbackMesh.position.y = p.height/2;
              this.add(fallbackMesh);
+             finalMesh = fallbackMesh; // Assign fallback to finalMesh if needed elsewhere
+        } finally {
+            // Optional: Clean up intermediate meshes if they exist (though maybe disposed above)
+            // if (shellResultMesh) this.remove(shellResultMesh); // Example if added temporarily
         }
       }
 
-      // tryDoorCut is no longer needed as the logic is in build()
-      // tryDoorCut(shellGeo, p){ ... }
-
       updateParams(next){
         next = {...next};
-        // Re-clamp parameters based on new logic if needed
+        // Re-clamp parameters
         const crMax = Math.max(0.01, Math.min(next.width, next.depth)/2 - next.wallThickness - 0.01);
+         if(next.cornerRadius < 0) next.cornerRadius = 0; // Ensure non-negative
          if(next.cornerRadius > crMax) next.cornerRadius = crMax;
 
         const dwMax = maxDoorWidth(next);
         const dhMax = maxDoorHeight(next);
+         if(next.doorWidth < 0.1) next.doorWidth = 0.1; // Ensure min size
          if(next.doorWidth  > dwMax) next.doorWidth  = dwMax;
+         if(next.doorHeight < 0.1) next.doorHeight = 0.1; // Ensure min size
          if(next.doorHeight > dhMax) next.doorHeight = dhMax;
 
         this.userData.params = next;
@@ -373,7 +383,6 @@
         propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>'; return;
       }
       const p = object.userData.params;
-      // Updated param config - removed bevels for now
       const paramConfig = {
         height:          { min:1,   max:40, step:0.1, label:'Height' },
         width:           { min:4,   max:60, step:0.1, label:'Width' },
@@ -381,16 +390,14 @@
         wallThickness:   { min:0.1, max:5,  step:0.1, label:'Wall Thickness' },
         cornerRadius:    { min:0,   max:cornerRadiusMaxUI(p), step:0.05, label:'Corner Radius' },
         cornerSmoothness:{ min:8,   max:64, step:1,   label:'Corner Smoothness' },
-        // edgeRoundness:   { min:0,   max:edgeRoundnessMaxUI(p), step:0.05, label:'Edge Roundness' }, // Disabled
-        // edgeSmoothness:  { min:1,   max:12, step:1,   label:'Edge Smoothness' }, // Disabled
         doorWidth:       { min:0.5, max:maxDoorWidth(p),  step:0.1, label:'Door Width' },
         doorHeight:      { min:0.5, max:maxDoorHeight(p), step:0.1, label:'Door Height' }
       };
 
       for(const key in paramConfig){
         const cfg = paramConfig[key];
+        // Dynamically set max values based on current params 'p'
         if(key==='cornerRadius') cfg.max = cornerRadiusMaxUI(p);
-        // if(key==='edgeRoundness') cfg.max = edgeRoundnessMaxUI(p); // Disabled
         if(key==='doorWidth') cfg.max = maxDoorWidth(p);
         if(key==='doorHeight') cfg.max = maxDoorHeight(p);
 
@@ -413,28 +420,31 @@
           const key = slider.dataset.param;
           const cfg = paramConfig[key];
           const val = (cfg.step>=1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
+          // Use a temporary 'next' object to calculate interdependent max values correctly
           const next = {...object.userData.params, [key]: val};
 
-          // Update max values dynamically
+          // Update max values of sliders based on the *potential* new value
           if(key==='width' || key==='depth' || key==='wallThickness'){
-            const cr = document.getElementById('cornerRadius-slider');
-            if(cr){ const maxCR = cornerRadiusMaxUI(next); cr.max = maxCR; if(next.cornerRadius > maxCR){ next.cornerRadius = maxCR; cr.value = maxCR; document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2); } }
-            const dw = document.getElementById('doorWidth-slider');
-            if(dw){ const maxDW = maxDoorWidth(next); dw.max = maxDW; if(next.doorWidth > maxDW){ next.doorWidth = maxDW; dw.value = maxDW; document.getElementById('doorWidth-value').textContent = maxDW.toFixed(2); } }
+            const crSlider = document.getElementById('cornerRadius-slider');
+            if(crSlider){ const maxCR = cornerRadiusMaxUI(next); crSlider.max = maxCR; }
+            const dwSlider = document.getElementById('doorWidth-slider');
+            if(dwSlider){ const maxDW = maxDoorWidth(next); dwSlider.max = maxDW; }
           }
-           if(key==='cornerRadius'){ // Also update door width if corner radius changes
-             const dw = document.getElementById('doorWidth-slider');
-             if(dw){ const maxDW = maxDoorWidth(next); dw.max = maxDW; if(next.doorWidth > maxDW){ next.doorWidth = maxDW; dw.value = maxDW; document.getElementById('doorWidth-value').textContent = maxDW.toFixed(2); } }
+           if(key==='cornerRadius'){
+             const dwSlider = document.getElementById('doorWidth-slider');
+             if(dwSlider){ const maxDW = maxDoorWidth(next); dwSlider.max = maxDW; }
            }
           if(key==='height'){
-            const dh = document.getElementById('doorHeight-slider');
-            if(dh){ const maxDH = maxDoorHeight(next); dh.max = maxDH; if(next.doorHeight > maxDH){ next.doorHeight = maxDH; dh.value = maxDH; document.getElementById('doorHeight-value').textContent = maxDH.toFixed(2); } }
+            const dhSlider = document.getElementById('doorHeight-slider');
+            if(dhSlider){ const maxDH = maxDoorHeight(next); dhSlider.max = maxDH; }
           }
 
+          // Update the label for the current slider
           const lbl = document.getElementById(`${key}-value`);
           if(lbl) lbl.textContent = (cfg.step>=1) ? Math.round(val) : val.toFixed(2);
 
-          object.updateParams(next);
+          // Now, actually update the object's parameters and rebuild
+          object.updateParams(next); // This will re-trigger build()
         });
       });
     }
