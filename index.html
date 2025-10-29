@@ -48,7 +48,7 @@
     <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
   </div>
 
-  <div id="props-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h=[90vh] p-4 transform translate-x-full opacity-0" style="visibility:hidden;">
+  <div id="props-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h-[90vh] p-4 transform translate-x-full opacity-0" style="visibility:hidden;">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-bold">Properties</h3>
       <button id="close-props-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
@@ -191,7 +191,8 @@
           cornerRadius: 1.2,
           cornerSmoothness: 16,
           edgeRoundness: 0.3,
-          edgeSmoothness: 4
+          edgeSmoothness: 4,
+          doorWidth: 4
         };
         const tower = new TowerBase(params);
         tower.position.y = params.height/2;
@@ -220,6 +221,13 @@
     function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(100%)'; setTimeout(()=>p.style.visibility='hidden',300); }
     function showTempMessage(text){ const box=document.getElementById('message-box'); document.getElementById('message-text').textContent=text; box.classList.add('show'); setTimeout(()=>box.classList.remove('show'),1500); }
 
+    // door safe limits (for UI)
+    function maxDoorWidth(p){
+      const eps=0.05;
+      const flat = Math.max(0, p.width - 2*p.cornerRadius);
+      return Math.max(eps, flat - eps);
+    }
+
     // ---------- Properties UI ----------
     function edgeRoundnessMaxUI(p){
       return Math.max(0.05, Math.min(p.wallThickness/2 - 0.01, p.height/4));
@@ -247,12 +255,16 @@
         edgeSmoothness:  { min:1,   max:12, step:1,   label:'Edge Smoothness' }
       };
 
-      const paramConfig = baseConfig;  // No doorWidth for either now
+      const paramConfig = (type === 'TowerBase') ? {
+        ...baseConfig,
+        doorWidth:       { min:0, max:maxDoorWidth(p),  step:0.1, label:'Door Width' }
+      } : baseConfig;
 
       for(const key in paramConfig){
         const cfg = paramConfig[key];
         if(key==='cornerRadius') cfg.max = cornerRadiusMaxUI(p);
         if(key==='edgeRoundness') cfg.max = edgeRoundnessMaxUI(p);
+        if(key==='doorWidth') cfg.max = maxDoorWidth(p);
 
         const value = (p[key] ?? cfg.min);
         const valueFmt = (cfg.step>=1) ? Math.round(value) : value.toFixed(2);
@@ -278,6 +290,8 @@
           if(key==='width' || key==='depth' || key==='wallThickness' || key==='cornerRadius'){
             const cr = document.getElementById('cornerRadius-slider');
             if(cr){ const maxCR = cornerRadiusMaxUI(next); cr.max = maxCR; if(next.cornerRadius > maxCR){ next.cornerRadius = maxCR; cr.value = maxCR; document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2); } }
+            const dw = document.getElementById('doorWidth-slider');
+            if(dw){ const maxDW = maxDoorWidth(next); dw.max = maxDW; if(next.doorWidth > maxDW){ next.doorWidth = maxDW; dw.value = maxDW; document.getElementById('doorWidth-value').textContent = maxDW.toFixed(2); } }
           }
 
           const lbl = document.getElementById(`${key}-value`);
