@@ -524,8 +524,6 @@
       return Math.min(p.edgeRoundness||0, maxByH, maxByT);
     }
 
-    // REMOVED maxDoorWidth and maxDoorHeight functions
-
     // Resolve CSG namespace (UMD)
     function getCSG(){
       const ns = window.threecsg || window.CSG || window.__THREE_CSG_MESH__ || window['three-csgmesh'];
@@ -562,8 +560,6 @@
         resultMesh.receiveShadow = true;
         this.add(resultMesh);
       }
-
-      // REMOVED tryDoorCut method
 
       // MODIFIED: Removed door max checks
       updateParams(next){
@@ -612,7 +608,6 @@
         const cfg = paramConfig[key];
         if(key==='cornerRadius') cfg.max = cornerRadiusMaxUI(p);
         if(key==='edgeRoundness') cfg.max = edgeRoundnessMaxUI(p);
-        // REMOVED door slider max checks
 
         const value = (p[key] ?? cfg.min);
         const valueFmt = (cfg.step>=1) ? Math.round(value) : value.toFixed(2);
@@ -635,7 +630,6 @@
           const val = (cfg.step>=1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
           const next = {...object.userData.params, [key]: val};
 
-          // MODIFIED: Removed door-related checks
           if(key==='width' || key==='depth' || key==='wallThickness' || key==='cornerRadius'){
             const cr = document.getElementById('cornerRadius-slider');
             if(cr){ const maxCR = cornerRadiusMaxUI(next); cr.max = maxCR; if(next.cornerRadius > maxCR){ next.cornerRadius = maxCR; cr.value = maxCR; document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2); } }
