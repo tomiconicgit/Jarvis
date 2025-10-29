@@ -37,14 +37,14 @@ function windowShape(p) {
   const rr     = p.cornerRadius;
 
   const outerPath = roundedRectPath(outerW, outerH, rr);
-  const shape     = new THREE.Shape( outerPath.getPoints() ); // proper Shape outline
+  const shape     = new THREE.Shape( outerPath.getPoints() );
 
   const innerPath = roundedRectPath(
     Math.max(0.01, doorW),
     Math.max(0.01, doorH),
     Math.max(0, rr - p.frameThickness)
   );
-  shape.holes.push(innerPath); // holes are Paths (correct)
+  shape.holes.push(innerPath);
   return shape;
 }
 
@@ -53,7 +53,7 @@ function unifiedWindowGeometry(p, forceNoBevel = false) {
   const bevelEnabled = !forceNoBevel && (p.edgeRoundness || 0) > 0;
 
   const extrudeSettings = {
-    depth: p.depth,                          // thickness
+    depth: p.depth,
     steps: Math.max(1, Math.floor(p.edgeSmoothness || 1)),
     bevelEnabled,
     bevelSegments: Math.max(1, Math.floor(p.edgeSmoothness || 1)),
@@ -63,15 +63,13 @@ function unifiedWindowGeometry(p, forceNoBevel = false) {
   };
 
   const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-
-  // Center on Z so it straddles z=0; DO NOT rotate (front-facing, Y is up).
   geo.translate(0, 0, -p.depth / 2);
   geo.computeVertexNormals();
   return geo;
 }
 
-// ---------- Window ----------
-export default class Window extends THREE.Group {
+// ---------- Window (renamed to avoid global clash) ----------
+export default class WindowFrame extends THREE.Group {
   static getMaxCornerRadius(p) {
     const eps = 0.01;
     return Math.max(0, Math.min(p.totalWidth / 2, p.height / 2) - p.frameThickness - eps);
@@ -114,7 +112,7 @@ export default class Window extends THREE.Group {
       side: THREE.DoubleSide
     });
     this.boltMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5, metalness: 0.8 });
-    this.barMaterial = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.6, metalness: 0.7 });
+    this.barMaterial  = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.6, metalness: 0.7 });
 
     this.build();
   }
@@ -127,33 +125,31 @@ export default class Window extends THREE.Group {
 
     // glass material tweaks
     this.glassMaterial.color.setRGB(p.glassR, p.glassG, p.glassB);
-    this.glassMaterial.opacity       = p.glassOpacity;
-    this.glassMaterial.transmission  = 1 - p.glassOpacity * 0.2;
-    this.glassMaterial.roughness     = p.glassRoughness;
+    this.glassMaterial.opacity      = p.glassOpacity;
+    this.glassMaterial.transmission = 1 - p.glassOpacity * 0.2;
+    this.glassMaterial.roughness    = p.glassRoughness;
 
     // Frame
-    let frameGeo = unifiedWindowGeometry(p);
-    const frame = new THREE.Mesh(frameGeo, this.frameMaterial);
+    const frame = new THREE.Mesh(unifiedWindowGeometry(p), this.frameMaterial);
     frame.castShadow = true; frame.receiveShadow = true;
     this.add(frame);
 
     // Glass
     const glassW = Math.max(0.01, p.totalWidth - 2 * p.frameThickness);
     const glassH = Math.max(0.01, p.height - 2 * p.frameThickness);
-    const glassGeo = new THREE.PlaneGeometry(glassW, glassH);
-    const glass = new THREE.Mesh(glassGeo, this.glassMaterial);
-    glass.position.set(0, 0, 0); // centered
+    const glass  = new THREE.Mesh(new THREE.PlaneGeometry(glassW, glassH), this.glassMaterial);
+    glass.position.set(0, 0, 0);
     this.add(glass);
 
-    // Bolts if toggled
+    // Bolts
     if (p.hasBolts) {
       const boltGeo = new THREE.CylinderGeometry(0.2, 0.2, p.depth + 0.2, 16);
       boltGeo.rotateX(Math.PI / 2);
       const positions = [
         new THREE.Vector3(-p.totalWidth/2 + 0.3, -p.height/2 + 0.3, 0),
-        new THREE.Vector3(-p.totalWidth/2 + 0.3, p.height/2 - 0.3, 0),
-        new THREE.Vector3(p.totalWidth/2 - 0.3, -p.height/2 + 0.3, 0),
-        new THREE.Vector3(p.totalWidth/2 - 0.3, p.height/2 - 0.3, 0)
+        new THREE.Vector3(-p.totalWidth/2 + 0.3,  p.height/2 - 0.3, 0),
+        new THREE.Vector3( p.totalWidth/2 - 0.3, -p.height/2 + 0.3, 0),
+        new THREE.Vector3( p.totalWidth/2 - 0.3,  p.height/2 - 0.3, 0)
       ];
       positions.forEach(pos => {
         const bolt = new THREE.Mesh(boltGeo, this.boltMaterial);
@@ -162,23 +158,23 @@ export default class Window extends THREE.Group {
       });
     }
 
-    // Bars if toggled
+    // Bars
     if (p.hasBars) {
       const barGeo = new THREE.CylinderGeometry(0.15, 0.15, glassH, 16);
-      const numBars = 3; // example 3 horizontal bars
+      const numBars = 3;
       for (let i = 1; i <= numBars; i++) {
         const bar = new THREE.Mesh(barGeo, this.barMaterial);
-        bar.position.set(0, -glassH/2 + (i * glassH / (numBars + 1)), 0.1); // slightly in front
+        bar.position.set(0, -glassH/2 + (i * glassH / (numBars + 1)), 0.1);
         this.add(bar);
-      });
+      }
     }
   }
 
   updateParams(next) {
     next = { ...this.userData.params, ...next };
-    const crMax = Window.getMaxCornerRadius(next);
+    const crMax = WindowFrame.getMaxCornerRadius(next);
     if (next.cornerRadius > crMax) next.cornerRadius = crMax;
-    const erMax = Window.getMaxEdgeRoundness(next);
+    const erMax = WindowFrame.getMaxEdgeRoundness(next);
     if (next.edgeRoundness > erMax) next.edgeRoundness = erMax;
     this.userData.params = next;
     this.build();
