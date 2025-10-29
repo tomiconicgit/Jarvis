@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 // --- Import our custom Assets ---
 import TowerBase from './towerbase.js';
@@ -51,6 +52,10 @@ function init() {
   renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
+
+  // --- Add Environment for Glass Reflections ---
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer)).texture;
 
   // --- Camera ---
   camera = new THREE.PerspectiveCamera(50, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
