@@ -257,7 +257,7 @@
 
       const paramConfig = (type === 'TowerBase') ? {
         ...baseConfig,
-        doorWidth:       { min:0, max:maxDoorWidth(p),  step:0.1, label:'Door Width' }
+        doorWidth:       { min:0.5, max:maxDoorWidth(p),  step:0.1, label:'Door Width' }
       } : baseConfig;
 
       for(const key in paramConfig){
