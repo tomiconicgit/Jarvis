@@ -342,12 +342,7 @@ function updatePropsPanel(object) {
     const cfg = paramConfig[key];
     // Update max values based on current params
     if (key === 'cornerRadius') cfg.max = TowerBase.getMaxCornerRadius(p);
-    // -----------------------------------------------------------------
-    // --- THIS IS THE FIX ---
-    //
-    if (key === 'edgeRoundness') cfg.max = TowerBase.getMaxEdgeRoundness(p); // Was TowerBackase
-    //
-    // -----------------------------------------------------------------
+    if (key === 'edgeRoundness') cfg.max = TowerBase.getMaxEdgeRoundness(p);
     if (key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
 
     const value = (p[key] ?? cfg.min);
@@ -426,4 +421,6 @@ function updatePropsPanel(object) {
 }
 
 // --- Start the application ---
-init();
+window.addEventListener('DOMContentLoaded', init);
+
+
