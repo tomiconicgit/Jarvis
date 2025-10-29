@@ -24,7 +24,6 @@
   <div id="loading-screen"><div>Loading 3D Environment...</div></div>
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
-  <!-- Toolbar -->
   <div class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
     <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12"/></svg>
@@ -34,7 +33,6 @@
     </button>
   </div>
 
-  <!-- Add Panel -->
   <div id="add-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-4">Add Object</h3>
     <div class="grid grid-cols-3 gap-4">
@@ -46,7 +44,6 @@
     <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
   </div>
 
-  <!-- Properties -->
   <div id="props-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h-[90vh] p-4 transform translate-x-full opacity-0" style="visibility:hidden;">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-bold">Properties</h3>
@@ -55,11 +52,9 @@
     <div id="props-content" class="space-y-4 overflow-y-auto max-h-[75vh] pr-2"></div>
   </div>
 
-  <!-- Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-  <!-- CSG (UMD) -->
   <script src="https://unpkg.com/three-csgmesh@1.0.6/build/three-csgmesh.umd.js"></script>
 
   <script>
@@ -329,7 +324,14 @@
         const doorGeo = new THREE.BoxGeometry(doorW, doorH, cutDepth);
         const doorMesh = new THREE.Mesh(doorGeo);
         doorMesh.geometry = doorMesh.geometry.toNonIndexed();
-        doorMesh.position.set(0, doorH/2, p.depth/2 + 0.25); // push slightly beyond front
+        
+        // ---------- ⚠️ THIS IS THE FIX ⚠️ ----------
+        // The shell geometry is centered at y=0, so its bottom is at -p.height/2
+        // The door's center Y should be at the bottom + half the door height.
+        const doorY = -p.height/2 + doorH/2;
+        doorMesh.position.set(0, doorY, p.depth/2 + 0.25); // push slightly beyond front
+        // ---------------------------------------------
+
         doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
 
         const CSG = getCSG();
