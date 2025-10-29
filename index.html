@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler â Tower Base (CSG Build Fix)</title>
+  <title>Mobile 3D Modeler Ã¢ÂÂ Tower Base (CSG Build Fix)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -202,7 +202,7 @@
 
     // ---------- Geometry helpers ----------
     // Creates a rounded box geometry
-    // â ï¸ FIXED TYPO HERE â ï¸
+    // Ã¢ÂÂ Ã¯Â¸Â FIXED TYPO HERE Ã¢ÂÂ Ã¯Â¸Â
     function createRoundedBox(width, height, depth, radiusParam, smoothness) { // Renamed parameter
       const shape = new THREE.Shape();
       const eps = 0.00001;
@@ -316,7 +316,17 @@
 
           // Position the door cutter (relative to the origin where the shell CSG is)
           const doorY = -p.height/2 + doorH/2;
-          const doorZ = p.depth / 2 - p.wallThickness / 2;
+          //
+          // ✅ =================== THE FIX IS HERE =================== ✅
+          //
+          // We set the door's Z position to the *outer face* (p.depth / 2),
+          // not the middle of the wall. This avoids the coplanar/precision
+          // issue that was breaking the CSG subtraction.
+          //
+          const doorZ = p.depth / 2; // <-- WAS: p.depth / 2 - p.wallThickness / 2
+          //
+          // ✅ ======================================================= ✅
+          //
           doorMesh.position.set(0, doorY, doorZ);
           doorMesh.updateMatrix();
 
