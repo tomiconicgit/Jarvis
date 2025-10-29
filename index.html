@@ -111,6 +111,11 @@
       opacity: 1; 
       visibility: visible; 
     }
+
+    /* New: Ensure bottom bar stays on top */
+    #bottom-bar {
+      z-index: 20;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white">
@@ -125,7 +130,7 @@
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
   <!-- Bottom UI Bar -->
-  <div class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
+  <div id="bottom-bar" class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
     <!-- Add Object Button -->
     <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12"/></svg>
@@ -156,7 +161,7 @@
   </div>
 
   <!-- Properties Panel -->
-  <div id="props-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h-[90vh] p-4 transform translate-x-full opacity-0" style="visibility:hidden;">
+  <div id="props-panel" class="ui-panel bottom-0 left-0 right-0 h-[50vh] max-h-[50vh] p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-bold">Properties</h3>
       <button id="close-props-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
