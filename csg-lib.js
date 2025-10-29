@@ -519,14 +519,14 @@
 
             }
 
+            const v0 = vertices[0];
+            const v1 = vertices[1];
+            const v2 = vertices[2];
+            const polyNormal = new THREE__namespace.Vector3().subVectors(v1, v0).cross(new THREE__namespace.Vector3().subVectors(v2, v0)).normalize();
             polygons.push(
                 new Polygon(
                     vertices,
-                    new THREE__namespace.Vector3(
-                        normal[i],
-                        normal[i + 1],
-                        normal[i + 2],
-                    )
+                    polyNormal
                 )
             );
 
