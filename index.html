@@ -3,307 +3,68 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler — Tower Base & Neck</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>3D Tower Asset Demo</title>
   <style>
-    html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
-    #canvas-container{position:fixed;inset:0;z-index:1}
-    canvas{display:block;width:100%;height:100%}
-    *{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-    #loading-screen{position:fixed;inset:0;background:#1a1a1a;color:#fff;display:flex;justify-content:center;align-items:center;font-size:1.5rem;z-index:1000;transition:opacity .5s ease}
-    .ui-panel{position:fixed;background:rgba(30,30,30,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:12px;z-index:10;transition:transform .3s ease-out,opacity .3s ease-out;box-shadow:0 8px 20px rgba(0,0,0,.3)}
-    input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:8px;background:#4a5568;border-radius:4px}
-    input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;background:#3b82f6;border-radius:50%;border:2px solid #fff;box-shadow:0 0 5px rgba(0,0,0,.5)}
-    input[type="range"]::-moz-range-thumb{width:24px;height:24px;background:#3b82f6;border-radius:50%;border:2px solid #fff;box-shadow:0 0 5px rgba(0,0,0,.5)}
-    #message-box{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);background:rgba(40,40,40,.9);color:#fff;padding:20px 30px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:1001;opacity:0;visibility:hidden;transition:all .2s ease-out;text-align:center;backdrop-filter:blur(5px)}
-    #message-box.show{transform:translate(-50%,-50%) scale(1);opacity:1;visibility:visible}
+    /* Basic CSS to make the canvas fullscreen */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      background: #111;
+      font-family: Inter, -apple-system, sans-serif;
+      color: white;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    /* Simple loading text */
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5rem;
+    }
   </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body>
+  <!-- This is where the 3D scene will be rendered -->
   <div id="canvas-container"></div>
-  <div id="loading-screen"><div>Loading 3D Environment...</div></div>
-  <div id="message-box"><p id="message-text">This is a message!</p></div>
+  <div id="loading">Loading 3D Scene...</div>
 
-  <div class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
-    <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
-      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12"/></svg>
-    </button>
-    <button id="tools-btn" class="w-14 h-14 bg-gray-700 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
-      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-    </button>
-  </div>
-
-  <div id="add-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
-    <h3 class="text-lg font-bold mb-4">Add Object</h3>
-    <div class="grid grid-cols-3 gap-4">
-      <button id="add-tower-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
-        <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7v10l8 4M4 7l8 4"/></svg>
-        <span class="text-xs font-medium">Tower Base</span>
-      </button>
-      <button id="add-towerneck-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
-        <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7v10l8 4M4 7l8 4"/></svg>
-        <span class="text-xs font-medium">Tower Neck</span>
-      </button>
-    </div>
-    <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
-  </div>
-
-  <div id="props-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h-[90vh] p-4 transform translate-x-full opacity-0" style="visibility:hidden;">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-bold">Properties</h3>
-      <button id="close-props-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
-    </div>
-    <div id="props-content" class="space-y-4 overflow-y-auto max-h-[75vh] pr-2"></div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-  <script src="assets/towerbase.js"></script>
-  <script src="assets/towerneck.js"></script>
-
-  <script>
-    // ---------- Globals ----------
-    let scene, camera, renderer, orbitControls, transformControls;
-    let raycaster, touchStartPos, currentSelection, allModels;
-    let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
-    let propsPanel, closePropsPanel, propsContent, addTowerBtn, addTowerNeckBtn;
-    let lastTapTime = 0; const DOUBLE_TAP_DELAY = 300;
-
-    // ---------- Init ----------
-    function init(){
-      loadingScreen = document.getElementById('loading-screen');
-      canvasContainer = document.getElementById('canvas-container');
-      addBtn = document.getElementById('add-btn');
-      addPanel = document.getElementById('add-panel');
-      closeAddPanel = document.getElementById('close-add-panel');
-      propsPanel = document.getElementById('props-panel');
-      closePropsPanel = document.getElementById('close-props-panel');
-      propsContent = document.getElementById('props-content');
-      addTowerBtn = document.getElementById('add-tower-btn');
-      addTowerNeckBtn = document.getElementById('add-towerneck-btn');
-
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x2a2a2a);
-      scene.fog = new THREE.Fog(0x2a2a2a, 50, 200);
-
-      renderer = new THREE.WebGLRenderer({ antialias:true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.shadowMap.enabled = true;
-      canvasContainer.appendChild(renderer.domElement);
-
-      camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
-      camera.position.set(15,20,25);
-
-      scene.add(new THREE.AmbientLight(0x808080));
-      const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-      dir.position.set(10,20,5); dir.castShadow = true; dir.shadow.mapSize.set(1024,1024);
-      scene.add(dir);
-
-      scene.add(new THREE.GridHelper(100,100,0x888888,0x444444));
-
-      const ground = new THREE.Mesh(new THREE.PlaneGeometry(100,100), new THREE.MeshStandardMaterial({color:0x3a3a3a, roughness:1}));
-      ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
-
-      orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
-      orbitControls.enableDamping = true; orbitControls.dampingFactor = .1; orbitControls.enablePan = true;
-
-      transformControls = new THREE.TransformControls(camera, renderer.domElement);
-      transformControls.setMode("translate");
-      transformControls.addEventListener('dragging-changed', e => { orbitControls.enabled = !e.value; });
-      scene.add(transformControls);
-
-      raycaster = new THREE.Raycaster();
-      touchStartPos = new THREE.Vector2();
-      allModels = [];
-
-      window.addEventListener('resize', onWindowResize);
-      canvasContainer.addEventListener('touchstart', onTouchStart, {passive:false});
-      canvasContainer.addEventListener('touchend', onTouchEnd);
-
-      initUI();
-
-      loadingScreen.style.opacity='0';
-      setTimeout(()=>loadingScreen.style.display='none', 500);
-
-      animate();
+  <!-- 
+    IMPORT MAP:
+    This tells the browser how to resolve "bare" import specifiers
+    like `import * as THREE from 'three';`. This is the modern
+    way to use libraries from a CDN as modules.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+      "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js"
     }
-
-    function animate(){ requestAnimationFrame(animate); orbitControls.update(); renderer.render(scene,camera); }
-
-    // ---------- Events ----------
-    function onWindowResize(){
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-    function onTouchStart(e){ e.preventDefault(); if(e.touches.length===1){const t=e.touches[0]; touchStartPos.set(t.clientX,t.clientY);} }
-    function onTouchEnd(e){
-      if(e.changedTouches.length===1){
-        const t=e.changedTouches[0]; const endPos = new THREE.Vector2(t.clientX,t.clientY);
-        if(touchStartPos.distanceTo(endPos)<10){
-          const now=Date.now();
-          if(now-lastTapTime<DOUBLE_TAP_DELAY) handleDoubleTap(t); else handleSingleTap(t);
-          lastTapTime=now;
-        }
-      }
-    }
-    function getTouchNDC(t){return {x:(t.clientX/window.innerWidth)*2-1, y:-(t.clientY/window.innerHeight)*2+1};}
-    function handleSingleTap(t){
-      const ndc=getTouchNDC(t); raycaster.setFromCamera(ndc,camera);
-      const hits = raycaster.intersectObjects(allModels,true);
-      if(hits.length){
-        let obj=hits[0].object; while(obj.parent && obj.parent.userData.isModel) obj=obj.parent;
-        selectObject(obj);
-      } else deselectAll();
-    }
-    function handleDoubleTap(t){
-      const ndc=getTouchNDC(t); raycaster.setFromCamera(ndc,camera);
-      const hits = raycaster.intersectObjects(allModels,true);
-      if(hits.length){
-        const box=new THREE.Box3().setFromObject(hits[0].object);
-        orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-        showTempMessage("Camera Focused");
-      }
-    }
-    function selectObject(o){ if(currentSelection===o) return; currentSelection=o; transformControls.attach(o); updatePropsPanel(o); showPanel(propsPanel); }
-    function deselectAll(){ if(currentSelection) transformControls.detach(); currentSelection=null; hidePanel(propsPanel); }
-
-    function initUI(){
-      addBtn.addEventListener('click', ()=>{showPanel(addPanel); hidePanel(propsPanel);});
-      closeAddPanel.addEventListener('click', ()=>hidePanel(addPanel));
-      closePropsPanel.addEventListener('click', ()=>deselectAll());
-      document.getElementById('tools-btn').addEventListener('click', ()=>{
-        if(!currentSelection) return showTempMessage("Select an object first");
-        const m = transformControls.getMode();
-        transformControls.setMode(m==="translate"?"rotate":m==="rotate"?"scale":"translate");
-        showTempMessage(`Mode: ${transformControls.getMode()[0].toUpperCase()+transformControls.getMode().slice(1)}`);
-      });
-
-      // Add Tower Base
-      addTowerBtn.addEventListener('click', ()=>{
-        const params = {
-          width: 12,
-          depth: 12,
-          height: 6,
-          wallThickness: 1,
-          cornerRadius: 1.2,
-          cornerSmoothness: 16,
-          edgeRoundness: 0.3,
-          edgeSmoothness: 4,
-          doorWidth: 4
-        };
-        const tower = new TowerBase(params);
-        tower.position.y = params.height/2;
-        scene.add(tower); allModels.push(tower); selectObject(tower); hidePanel(addPanel);
-      });
-
-      // Add Tower Neck
-      addTowerNeckBtn.addEventListener('click', ()=>{
-        const params = {
-          width: 12,
-          depth: 12,
-          height: 6,
-          wallThickness: 1,
-          cornerRadius: 1.2,
-          cornerSmoothness: 16,
-          edgeRoundness: 0.3,
-          edgeSmoothness: 4
-        };
-        const neck = new TowerNeck(params);
-        neck.position.y = params.height/2;
-        scene.add(neck); allModels.push(neck); selectObject(neck); hidePanel(addPanel);
-      });
-    }
-
-    function showPanel(p){ p.style.visibility='visible'; p.style.opacity='1'; p.style.transform=p.id.includes('props')?'translateX(0)':'translateY(0)'; }
-    function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(100%)'; setTimeout(()=>p.style.visibility='hidden',300); }
-    function showTempMessage(text){ const box=document.getElementById('message-box'); document.getElementById('message-text').textContent=text; box.classList.add('show'); setTimeout(()=>box.classList.remove('show'),1500); }
-
-    // door safe limits (for UI)
-    function maxDoorWidth(p){
-      const eps=0.05;
-      const flat = Math.max(0, p.width - 2*p.cornerRadius);
-      return Math.max(eps, flat - eps);
-    }
-
-    // ---------- Properties UI ----------
-    function edgeRoundnessMaxUI(p){
-      return Math.max(0.05, Math.min(p.wallThickness/2 - 0.01, p.height/4));
-    }
-    function cornerRadiusMaxUI(p){
-      const eps=0.01; return Math.max(0, Math.min(p.width, p.depth)/2 - p.wallThickness - eps);
-    }
-
-    function updatePropsPanel(object){
-      propsContent.innerHTML = '';
-      if(!object || !object.userData.params){
-        propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>'; return;
-      }
-      const type = object.userData.type;
-      const p = object.userData.params;
-
-      const baseConfig = {
-        height:          { min:1,   max:40, step:0.1, label:'Height' },
-        width:           { min:4,   max:60, step:0.1, label:'Width' },
-        depth:           { min:4,   max:60, step:0.1, label:'Depth' },
-        wallThickness:   { min:0.1, max:5,  step:0.1, label:'Wall Thickness' },
-        cornerRadius:    { min:0,   max:cornerRadiusMaxUI(p), step:0.05, label:'Corner Radius' },
-        cornerSmoothness:{ min:8,   max:64, step:1,   label:'Corner Smoothness' },
-        edgeRoundness:   { min:0,   max:edgeRoundnessMaxUI(p), step:0.05, label:'Edge Roundness' },
-        edgeSmoothness:  { min:1,   max:12, step:1,   label:'Edge Smoothness' }
-      };
-
-      const paramConfig = (type === 'TowerBase') ? {
-        ...baseConfig,
-        doorWidth:       { min:0.5, max:maxDoorWidth(p),  step:0.1, label:'Door Width' }
-      } : baseConfig;
-
-      for(const key in paramConfig){
-        const cfg = paramConfig[key];
-        if(key==='cornerRadius') cfg.max = cornerRadiusMaxUI(p);
-        if(key==='edgeRoundness') cfg.max = edgeRoundnessMaxUI(p);
-        if(key==='doorWidth') cfg.max = maxDoorWidth(p);
-
-        const value = (p[key] ?? cfg.min);
-        const valueFmt = (cfg.step>=1) ? Math.round(value) : value.toFixed(2);
-        const html = `
-          <div class="space-y-1">
-            <label class="text-sm font-medium text-gray-300 flex justify-between">
-              <span>${cfg.label}</span>
-              <span id="${key}-value">${valueFmt}</span>
-            </label>
-            <input type="range" id="${key}-slider" data-param="${key}"
-              min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${value}">
-          </div>`;
-        propsContent.insertAdjacentHTML('beforeend', html);
-      }
-
-      propsContent.querySelectorAll('input[type="range"]').forEach(slider=>{
-        slider.addEventListener('input', ()=>{
-          const key = slider.dataset.param;
-          const cfg = paramConfig[key];
-          const val = (cfg.step>=1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
-          const next = {...object.userData.params, [key]: val};
-
-          if(key==='width' || key==='depth' || key==='wallThickness' || key==='cornerRadius'){
-            const cr = document.getElementById('cornerRadius-slider');
-            if(cr){ const maxCR = cornerRadiusMaxUI(next); cr.max = maxCR; if(next.cornerRadius > maxCR){ next.cornerRadius = maxCR; cr.value = maxCR; document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2); } }
-            const dw = document.getElementById('doorWidth-slider');
-            if(dw){ const maxDW = maxDoorWidth(next); dw.max = maxDW; if(next.doorWidth > maxDW){ next.doorWidth = maxDW; dw.value = maxDW; document.getElementById('doorWidth-value').textContent = maxDW.toFixed(2); } }
-          }
-
-          const lbl = document.getElementById(`${key}-value`);
-          if(lbl) lbl.textContent = (cfg.step>=1) ? Math.round(val) : val.toFixed(2);
-
-          object.updateParams(next);
-        });
-      });
-    }
-
-    // ---------- bootstrap ----------
-    window.addEventListener('DOMContentLoaded', init);
+  }
   </script>
+
+  <!-- 
+    MAIN.JS:
+    This is your application's entry point. It's a "module"
+    so it can use the `import` keyword.
+  -->
+  <script type="module" src="main.js"></script>
+
 </body>
 </html>
+
