@@ -4,8 +4,6 @@
   <meta charset="utf-t" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   
-  <meta http-equiv="Content-Security-Policy" 
-        content="script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;">
   <title>Iconic Editor â Rebuilt</title>
   <meta name="theme-color" content="#0a0a0a" />
 
@@ -17,7 +15,7 @@
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
       "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.4/build/index.module.js",
-      "@gkjohnson/three-bvh-csg": "https://unpkg.com/@gkjohnson/three-bvh-csg@0.0.8/build/index.module.js"
+      "@gkjohnson/three-bvh-csg": "./src/libs/three-bvh-csg.js" 
     }
   }
   </script>
