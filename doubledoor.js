@@ -65,7 +65,7 @@ function unifiedDoorGeometry(p, forceNoBevel = false) {
 
   const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
   geo.translate(0, 0, -p.depth / 2);
-  // Removed rotateX(-Math.PI / 2) to keep orientation with height along y, thickness along z
+  geo.rotateX(-Math.PI / 2); // make Y up
   geo.computeVertexNormals();
   return geo;
 }
@@ -156,7 +156,8 @@ export default class DoubleDoor extends THREE.Group {
     const glassH = p.height - 2 * p.frameThickness;
     const glassGeo = new THREE.PlaneGeometry(glassW, glassH);
     const leftGlass = new THREE.Mesh(glassGeo, this.glassMaterial);
-    leftGlass.position.set(0, 0, 0);
+    leftGlass.position.set(0, p.height / 2, 0);
+    leftGlass.rotation.x = -Math.PI / 2; // To match rotation if needed, but since geo rotated, perhaps not.
     leftDoor.add(leftGlass);
 
     leftDoor.position.x = -p.totalWidth / 4;
