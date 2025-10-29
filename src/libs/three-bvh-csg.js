@@ -2406,4 +2406,1486 @@ function performSplitTriangleOperations(
 			const ib0 = bIndex.getX( ib3 + 0 );
 			const ib1 = bIndex.getX( ib3 + 1 );
 			const ib2 = bIndex.getX( ib3 + 2 );
-			_tri
+			_triB.a.fromBufferAttribute( bPosition, ib0 );
+			_triB.b.fromBufferAttribute( bPosition, ib1 );
+			_triB.c.fromBufferAttribute( bPosition, ib2 );
+			splitter.splitByTriangle( _triB );
+
+		}
+
+		// for all triangles in the split result
+		const triangles = splitter.triangles;
+		for ( let ib = 0, l = triangles.length; ib < l; ib ++ ) {
+
+			// get the barycentric coordinates of the clipped triangle to add
+			const clippedTri = triangles[ ib ];
+
+			// try to use the side derived from the clipping but if it turns out to be
+			// uncertain then fall back to the raycasting approach
+			const hitSide = splitter.coplanarTriangleUsed ?
+				getHitSideWithCoplanarCheck( clippedTri, bBVH ) :
+				getHitSide( clippedTri, bBVH );
+
+			_attr.length = 0;
+			_actions.length = 0;
+			for ( let o = 0, lo = operations.length; o < lo; o ++ ) {
+
+				const op = getOperationAction( operations[ o ], hitSide, invert );
+				if ( op !== SKIP_TRI ) {
+
+					_actions.push( op );
+					_attr.push( attributeData[ o ].getGroupAttrSet( groupIndex ) );
+
+				}
+
+			}
+
+			if ( _attr.length !== 0 ) {
+
+				_triA.getBarycoord( clippedTri.a, _barycoordTri.a );
+				_triA.getBarycoord( clippedTri.b, _barycoordTri.b );
+				_triA.getBarycoord( clippedTri.c, _barycoordTri.c );
+
+				for ( let k = 0, lk = _attr.length; k < lk; k ++ ) {
+
+					const attrSet = _attr[ k ];
+					const action = _actions[ k ];
+					const invertTri = action === INVERT_TRI;
+					appendAttributeFromTriangle( ia, _barycoordTri, a.geometry, a.matrixWorld, _normalMatrix, attrSet, invertedGeometry !== invertTri );
+
+				}
+
+			}
+
+		}
+
+	}
+
+	return splitIds.length;
+
+}
+
+// perform CSG operations on the set of whole triangles using a half edge structure
+// at the moment this isn't always faster due to overhead of building the half edge structure
+// and degraded connectivity due to split triangles.
+
+function performWholeTriangleOperations(
+	a,
+	b,
+	splitTriSet,
+	operations,
+	invert,
+	attributeData,
+	groupOffset = 0,
+) {
+
+	const invertedGeometry = a.matrixWorld.determinant() < 0;
+
+	// matrix for transforming into the local frame of geometry b
+	_matrix$1
+		.copy( b.matrixWorld )
+		.invert()
+		.multiply( a.matrixWorld );
+
+	_normalMatrix
+		.getNormalMatrix( a.matrixWorld )
+		.multiplyScalar( invertedGeometry ? - 1 : 1 );
+
+	const bBVH = b.geometry.boundsTree;
+	const groupIndices = a.geometry.groupIndices;
+	const aIndex = a.geometry.index;
+	const aAttributes = a.geometry.attributes;
+	const aPosition = aAttributes.position;
+
+	const stack = [];
+	const halfEdges = a.geometry.halfEdges;
+	const traverseSet = new Set();
+	const triCount = getTriCount( a.geometry );
+	for ( let i = 0, l = triCount; i < l; i ++ ) {
+
+		if ( ! ( i in splitTriSet.intersectionSet ) ) {
+
+			traverseSet.add( i );
+
+		}
+
+	}
+
+	while ( traverseSet.size > 0 ) {
+
+		const id = getFirstIdFromSet( traverseSet );
+		traverseSet.delete( id );
+
+		stack.push( id );
+
+		// get the vertex indices
+		const i3 = 3 * id;
+		const i0 = aIndex.getX( i3 + 0 );
+		const i1 = aIndex.getX( i3 + 1 );
+		const i2 = aIndex.getX( i3 + 2 );
+
+		// get the vertex position in the frame of geometry b so we can
+		// perform hit testing
+		_tri$1.a.fromBufferAttribute( aPosition, i0 ).applyMatrix4( _matrix$1 );
+		_tri$1.b.fromBufferAttribute( aPosition, i1 ).applyMatrix4( _matrix$1 );
+		_tri$1.c.fromBufferAttribute( aPosition, i2 ).applyMatrix4( _matrix$1 );
+
+		// get the side and decide if we need to cull the triangle based on the operation
+		const hitSide = getHitSide( _tri$1, bBVH );
+
+		_actions.length = 0;
+		_attr.length = 0;
+		for ( let o = 0, lo = operations.length; o < lo; o ++ ) {
+
+			const op = getOperationAction( operations[ o ], hitSide, invert );
+			if ( op !== SKIP_TRI ) {
+
+				_actions.push( op );
+				_attr.push( attributeData[ o ] );
+
+			}
+
+		}
+
+		while ( stack.length > 0 ) {
+
+			const currId = stack.pop();
+			for ( let i = 0; i < 3; i ++ ) {
+
+				const sid = halfEdges.getSiblingTriangleIndex( currId, i );
+				if ( sid !== - 1 && traverseSet.has( sid ) ) {
+
+					stack.push( sid );
+					traverseSet.delete( sid );
+
+				}
+
+			}
+
+			if ( _attr.length !== 0 ) {
+
+				const i3 = 3 * currId;
+				const i0 = aIndex.getX( i3 + 0 );
+				const i1 = aIndex.getX( i3 + 1 );
+				const i2 = aIndex.getX( i3 + 2 );
+				const groupIndex = groupOffset === - 1 ? 0 : groupIndices[ currId ] + groupOffset;
+
+				_tri$1.a.fromBufferAttribute( aPosition, i0 );
+				_tri$1.b.fromBufferAttribute( aPosition, i1 );
+				_tri$1.c.fromBufferAttribute( aPosition, i2 );
+				if ( ! isTriDegenerate( _tri$1 ) ) {
+
+					for ( let k = 0, lk = _attr.length; k < lk; k ++ ) {
+
+						const action = _actions[ k ];
+						const attrSet = _attr[ k ].getGroupAttrSet( groupIndex );
+						const invertTri = action === INVERT_TRI;
+						appendAttributesFromIndices( i0, i1, i2, aAttributes, a.matrixWorld, _normalMatrix, attrSet, invertTri !== invertedGeometry );
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
+}
+
+// merges groups with common material indices in place
+function joinGroups( groups ) {
+
+	for ( let i = 0; i < groups.length - 1; i ++ ) {
+
+		const group = groups[ i ];
+		const nextGroup = groups[ i + 1 ];
+		if ( group.materialIndex === nextGroup.materialIndex ) {
+
+			const start = group.start;
+			const end = nextGroup.start + nextGroup.count;
+			nextGroup.start = start;
+			nextGroup.count = end - start;
+
+			groups.splice( i, 1 );
+			i --;
+
+		}
+
+	}
+
+}
+
+// initialize the target geometry and attribute data to be based on
+// the given reference geometry
+function prepareAttributesData( referenceGeometry, targetGeometry, attributeData, relevantAttributes ) {
+
+	attributeData.clear();
+
+	// initialize and clear unused data from the attribute buffers and vice versa
+	const aAttributes = referenceGeometry.attributes;
+	for ( let i = 0, l = relevantAttributes.length; i < l; i ++ ) {
+
+		const key = relevantAttributes[ i ];
+		const aAttr = aAttributes[ key ];
+		attributeData.initializeArray( key, aAttr.array.constructor, aAttr.itemSize, aAttr.normalized );
+
+	}
+
+	for ( const key in attributeData.attributes ) {
+
+		if ( ! relevantAttributes.includes( key ) ) {
+
+			attributeData.delete( key );
+
+		}
+
+	}
+
+	for ( const key in targetGeometry.attributes ) {
+
+		if ( ! relevantAttributes.includes( key ) ) {
+
+			targetGeometry.deleteAttribute( key );
+			targetGeometry.dispose();
+
+		}
+
+	}
+
+}
+
+// Assigns the given tracked attribute data to the geometry and returns whether the
+// geometry needs to be disposed of.
+function assignBufferData( geometry, attributeData, groupOrder ) {
+
+	let needsDisposal = false;
+	let drawRange = - 1;
+
+	// set the data
+	const attributes = geometry.attributes;
+	const referenceAttrSet = attributeData.groupAttributes[ 0 ];
+	for ( const key in referenceAttrSet ) {
+
+		const requiredLength = attributeData.getTotalLength( key );
+		const type = attributeData.getType( key );
+		const itemSize = attributeData.getItemSize( key );
+		const normalized = attributeData.getNormalized( key );
+		let geoAttr = attributes[ key ];
+		if ( ! geoAttr || geoAttr.array.length < requiredLength ) {
+
+			// create the attribute if it doesn't exist yet
+			geoAttr = new BufferAttribute( new type( requiredLength ), itemSize, normalized );
+			geometry.setAttribute( key, geoAttr );
+			needsDisposal = true;
+
+		}
+
+		// assign the data to the geometry attribute buffers in the provided order
+		// of the groups list
+		let offset = 0;
+		for ( let i = 0, l = Math.min( groupOrder.length, attributeData.groupCount ); i < l; i ++ ) {
+
+			const index = groupOrder[ i ].index;
+			const { array, type, length } = attributeData.groupAttributes[ index ][ key ];
+			const trimmedArray = new type( array.buffer, 0, length );
+			geoAttr.array.set( trimmedArray, offset );
+			offset += trimmedArray.length;
+
+		}
+
+		geoAttr.needsUpdate = true;
+		drawRange = requiredLength / geoAttr.itemSize;
+
+	}
+
+	// remove or update the index appropriately
+	if ( geometry.index ) {
+
+		const indexArray = geometry.index.array;
+		if ( indexArray.length < drawRange ) {
+
+			geometry.index = null;
+			needsDisposal = true;
+
+		} else {
+
+			for ( let i = 0, l = indexArray.length; i < l; i ++ ) {
+
+				indexArray[ i ] = i;
+
+			}
+
+		}
+
+	}
+
+	// initialize the groups
+	let groupOffset = 0;
+	geometry.clearGroups();
+	for ( let i = 0, l = Math.min( groupOrder.length, attributeData.groupCount ); i < l; i ++ ) {
+
+		const { index, materialIndex } = groupOrder[ i ];
+		const vertCount = attributeData.getCount( index );
+		if ( vertCount !== 0 ) {
+
+			geometry.addGroup( groupOffset, vertCount, materialIndex );
+			groupOffset += vertCount;
+
+		}
+
+	}
+
+	// update the draw range
+	geometry.setDrawRange( 0, drawRange );
+
+	// remove the bounds tree if it exists because its now out of date
+	// TODO: can we have this dispose in the same way that a brush does?
+	// TODO: why are half edges and group indices not removed here?
+	geometry.boundsTree = null;
+
+	if ( needsDisposal ) {
+
+		geometry.dispose();
+
+	}
+
+}
+
+// Returns the list of materials used for the given set of groups
+function getMaterialList( groups, materials ) {
+
+	let result = materials;
+	if ( ! Array.isArray( materials ) ) {
+
+		result = [];
+		groups.forEach( g => {
+
+			result[ g.materialIndex ] = materials;
+
+		} );
+
+	}
+
+	return result;
+
+}
+
+// Utility class for performing CSG operations
+class Evaluator {
+
+	constructor() {
+
+		this.triangleSplitter = new TriangleSplitter();
+		this.attributeData = [];
+		this.attributes = [ 'position', 'uv', 'normal' ];
+		this.useGroups = true;
+		this.consolidateGroups = true;
+		this.debug = new OperationDebugData();
+
+	}
+
+	getGroupRanges( geometry ) {
+
+		return ! this.useGroups || geometry.groups.length === 0 ?
+			[ { start: 0, count: Infinity, materialIndex: 0 } ] :
+			geometry.groups.map( group => ( { ...group } ) );
+
+	}
+
+	evaluate( a, b, operations, targetBrushes = new Brush() ) {
+
+		let wasArray = true;
+		if ( ! Array.isArray( operations ) ) {
+
+			operations = [ operations ];
+
+		}
+
+		if ( ! Array.isArray( targetBrushes ) ) {
+
+			targetBrushes = [ targetBrushes ];
+			wasArray = false;
+
+		}
+
+		if ( targetBrushes.length !== operations.length ) {
+
+			throw new Error( 'Evaluator: operations and target array passed as different sizes.' );
+
+		}
+
+		a.prepareGeometry();
+		b.prepareGeometry();
+
+		const {
+			triangleSplitter,
+			attributeData,
+			attributes,
+			useGroups,
+			consolidateGroups,
+			debug,
+		} = this;
+
+		// expand the attribute data array to the necessary size
+		while ( attributeData.length < targetBrushes.length ) {
+
+			attributeData.push( new TypedAttributeData() );
+
+		}
+
+		// prepare the attribute data buffer information
+		targetBrushes.forEach( ( brush, i ) => {
+
+			prepareAttributesData( a.geometry, brush.geometry, attributeData[ i ], attributes );
+
+		} );
+
+		// run the operation to fill the list of attribute data
+		debug.init();
+		performOperation( a, b, operations, triangleSplitter, attributeData, { useGroups } );
+		debug.complete();
+
+		// get the materials and group ranges
+		const aGroups = this.getGroupRanges( a.geometry );
+		const aMaterials = getMaterialList( aGroups, a.material );
+
+		const bGroups = this.getGroupRanges( b.geometry );
+		const bMaterials = getMaterialList( bGroups, b.material );
+		bGroups.forEach( g => g.materialIndex += aMaterials.length );
+
+		let groups = [ ...aGroups, ...bGroups ]
+			.map( ( group, index ) => ( { ...group, index } ) );
+
+		// generate the minimum set of materials needed for the list of groups and adjust the groups
+		// if they're needed
+		if ( useGroups ) {
+
+			const allMaterials = [ ...aMaterials, ...bMaterials ];
+			if ( consolidateGroups ) {
+
+				groups = groups
+					.map( group => {
+
+						const mat = allMaterials[ group.materialIndex ];
+						group.materialIndex = allMaterials.indexOf( mat );
+						return group;
+
+					} )
+					.sort( ( a, b ) => {
+
+						return a.materialIndex - b.materialIndex;
+
+					} );
+
+			}
+
+			// create a map from old to new index and remove materials that aren't used
+			const finalMaterials = [];
+			for ( let i = 0, l = allMaterials.length; i < l; i ++ ) {
+
+				let foundGroup = false;
+				for ( let g = 0, lg = groups.length; g < lg; g ++ ) {
+
+					const group = groups[ g ];
+					if ( group.materialIndex === i ) {
+
+						foundGroup = true;
+						group.materialIndex = finalMaterials.length;
+
+					}
+
+				}
+
+				if ( foundGroup ) {
+
+					finalMaterials.push( allMaterials[ i ] );
+
+				}
+
+			}
+
+			targetBrushes.forEach( tb => {
+
+				tb.material = finalMaterials;
+
+			} );
+
+		} else {
+
+			groups = [ { start: 0, count: Infinity, index: 0, materialIndex: 0 } ];
+			targetBrushes.forEach( tb => {
+
+				tb.material = aMaterials[ 0 ];
+
+			} );
+
+		}
+
+		// apply groups and attribute data to the geometry
+		targetBrushes.forEach( ( brush, i ) => {
+
+			const targetGeometry = brush.geometry;
+			assignBufferData( targetGeometry, attributeData[ i ], groups );
+			if ( consolidateGroups ) {
+
+				joinGroups( targetGeometry.groups );
+
+			}
+
+		} );
+
+		return wasArray ? targetBrushes : targetBrushes[ 0 ];
+
+	}
+
+	// TODO: fix
+	evaluateHierarchy( root, target = new Brush() ) {
+
+		root.updateMatrixWorld( true );
+
+		const flatTraverse = ( obj, cb ) => {
+
+			const children = obj.children;
+			for ( let i = 0, l = children.length; i < l; i ++ ) {
+
+				const child = children[ i ];
+				if ( child.isOperationGroup ) {
+
+					flatTraverse( child, cb );
+
+				} else {
+
+					cb( child );
+
+				}
+
+			}
+
+		};
+
+
+		const traverse = brush => {
+
+			const children = brush.children;
+			let didChange = false;
+			for ( let i = 0, l = children.length; i < l; i ++ ) {
+
+				const child = children[ i ];
+				didChange = traverse( child ) || didChange;
+
+			}
+
+			const isDirty = brush.isDirty();
+			if ( isDirty ) {
+
+				brush.markUpdated();
+
+			}
+
+			if ( didChange && ! brush.isOperationGroup ) {
+
+				let result;
+				flatTraverse( brush, child => {
+
+					if ( ! result ) {
+
+						result = this.evaluate( brush, child, child.operation );
+
+					} else {
+
+						result = this.evaluate( result, child, child.operation );
+
+					}
+
+				} );
+
+				brush._cachedGeometry = result.geometry;
+				brush._cachedMaterials = result.material;
+				return true;
+
+			} else {
+
+				return didChange || isDirty;
+
+			}
+
+		};
+
+		traverse( root );
+
+		target.geometry = root._cachedGeometry;
+		target.material = root._cachedMaterials;
+
+		return target;
+
+	}
+
+	reset() {
+
+		this.triangleSplitter.reset();
+
+	}
+
+}
+
+class Operation extends Brush {
+
+	constructor( ...args ) {
+
+		super( ...args );
+
+		this.isOperation = true;
+		this.operation = ADDITION;
+
+		this._cachedGeometry = new BufferGeometry();
+		this._cachedMaterials = null;
+		this._previousOperation = null;
+
+	}
+
+	markUpdated() {
+
+		super.markUpdated();
+		this._previousOperation = this.operation;
+
+	}
+
+	isDirty() {
+
+		return this.operation !== this._previousOperation || super.isDirty();
+
+	}
+
+	insertBefore( brush ) {
+
+		const parent = this.parent;
+		const index = parent.children.indexOf( this );
+		parent.children.splice( index, 0, brush );
+
+	}
+
+	insertAfter( brush ) {
+
+		const parent = this.parent;
+		const index = parent.children.indexOf( this );
+		parent.children.splice( index + 1, 0, brush );
+
+	}
+
+}
+
+class OperationGroup extends Group {
+
+	constructor() {
+
+		super();
+		this.isOperationGroup = true;
+		this._previousMatrix = new Matrix4();
+
+	}
+
+	markUpdated() {
+
+		this._previousMatrix.copy( this.matrix );
+
+	}
+
+	isDirty() {
+
+		const { matrix, _previousMatrix } = this;
+		const el1 = matrix.elements;
+		const el2 = _previousMatrix.elements;
+		for ( let i = 0; i < 16; i ++ ) {
+
+			if ( el1[ i ] !== el2[ i ] ) {
+
+				return true;
+
+			}
+
+		}
+
+		return false;
+
+	}
+
+}
+
+function addWorldPosition( shader ) {
+
+	if ( /varying\s+vec3\s+wPosition/.test( shader.vertexShader ) ) return;
+
+	shader.vertexShader = `
+			varying vec3 wPosition;
+			${shader.vertexShader}
+		`.replace(
+		/#include <displacementmap_vertex>/,
+		v =>
+			`${v}
+				wPosition = (modelMatrix * vec4( transformed, 1.0 )).xyz;
+				`,
+	);
+
+	shader.fragmentShader = `
+		varying vec3 wPosition;
+		${shader.fragmentShader}
+		`;
+
+	return shader;
+
+}
+
+function csgGridShaderMixin( shader ) {
+
+	shader.uniforms = {
+		...shader.uniforms,
+		checkerboardColor: { value: new Color( 0x111111 ) }
+	};
+
+	addWorldPosition( shader );
+
+	shader.defines = { CSG_GRID: 1 };
+
+	shader.fragmentShader = shader.fragmentShader.replace(
+		/#include <common>/,
+		v =>
+		/* glsl */`
+			${v}
+
+			uniform vec3 checkerboardColor;
+			float getCheckerboard( vec2 p, float scale ) {
+
+				p /= scale;
+				p += vec2( 0.5 );
+
+				vec2 line = mod( p, 2.0 ) - vec2( 1.0 );
+				line = abs( line );
+
+				vec2 pWidth = fwidth( line );
+				vec2 value = smoothstep( 0.5 - pWidth / 2.0, 0.5 + pWidth / 2.0, line );
+				float result = value.x * value.y + ( 1.0 - value.x ) * ( 1.0 - value.y );
+
+				return result;
+
+			}
+
+			float getGrid( vec2 p, float scale, float thickness ) {
+
+				p /= 0.5 * scale;
+
+				vec2 stride = mod( p, 2.0 ) - vec2( 1.0 );
+				stride = abs( stride );
+
+				vec2 pWidth = fwidth( p );
+				vec2 line = smoothstep( 1.0 - pWidth / 2.0, 1.0 + pWidth / 2.0, stride + thickness * pWidth );
+
+				return max( line.x, line.y );
+
+			}
+
+			vec3 getFaceColor( vec2 p, vec3 color ) {
+
+				float checkLarge = getCheckerboard( p, 1.0 );
+				float checkSmall = abs( getCheckerboard( p, 0.1 ) );
+				float lines = getGrid( p, 10.0, 1.0 );
+
+				vec3 checkColor = mix(
+					vec3( 0.7 ) * color,
+					vec3( 1.0 ) * color,
+					checkSmall * 0.4 + checkLarge * 0.6
+				);
+
+				vec3 gridColor = vec3( 1.0 );
+
+				return mix( checkColor, gridColor, lines );
+
+			}
+
+			float angleBetween( vec3 a, vec3 b ) {
+
+				return acos( abs( dot( a, b ) ) );
+
+			}
+
+			vec3 planeProject( vec3 norm, vec3 other ) {
+
+				float d = dot( norm, other );
+				return normalize( other - norm * d );
+
+			}
+
+			vec3 getBlendFactors( vec3 norm ) {
+
+				vec3 xVec = vec3( 1.0, 0.0, 0.0 );
+				vec3 yVec = vec3( 0.0, 1.0, 0.0 );
+				vec3 zVec = vec3( 0.0, 0.0, 1.0 );
+
+				vec3 projX = planeProject( xVec, norm );
+				vec3 projY = planeProject( yVec, norm );
+				vec3 projZ = planeProject( zVec, norm );
+
+				float xAngle = max(
+					angleBetween( xVec, projY ),
+					angleBetween( xVec, projZ )
+				);
+
+				float yAngle = max(
+					angleBetween( yVec, projX ),
+					angleBetween( yVec, projZ )
+				);
+
+				float zAngle = max(
+					angleBetween( zVec, projX ),
+					angleBetween( zVec, projY )
+				);
+
+				return vec3( xAngle, yAngle, zAngle ) / ( 0.5 * PI );
+
+			}
+		` ).replace(
+		/#include <normal_fragment_maps>/,
+		v =>
+		/* glsl */`${v}
+				#if CSG_GRID
+				{
+
+					vec3 worldNormal = inverseTransformDirection( normal, viewMatrix );
+
+					float yCont = abs( dot( vec3( 0.0, 1.0, 0.0 ), worldNormal ) );
+					float zCont = abs( dot( vec3( 0.0, 0.0, 1.0 ), worldNormal ) );
+					float xCont = abs( dot( vec3( 1.0, 0.0, 0.0 ), worldNormal ) );
+
+					vec3 factors = getBlendFactors( worldNormal );
+					factors = smoothstep( vec3( 0.475 ), vec3( 0.525 ), vec3( 1.0 ) - factors );
+
+					float weight = factors.x + factors.y + factors.z;
+					factors /= weight;
+
+					vec3 color =
+						getFaceColor( wPosition.yz, diffuseColor.rgb ) * factors.x +
+						getFaceColor( wPosition.xz, diffuseColor.rgb ) * factors.y +
+						getFaceColor( wPosition.xy, diffuseColor.rgb ) * factors.z;
+
+					diffuseColor.rgb = color;
+
+				}
+				#endif
+				`,
+	);
+
+	return shader;
+
+}
+
+class GridMaterial extends MeshPhongMaterial {
+
+	get enableGrid() {
+
+		return Boolean( this._enableGrid );
+
+	}
+
+	set enableGrid( v ) {
+
+		if ( this._enableGrid !== v ) {
+
+			this._enableGrid = v;
+			this.needsUpdate = true;
+
+		}
+
+	}
+
+	constructor( ...args ) {
+
+		super( ...args );
+		this.enableGrid = true;
+
+	}
+
+	onBeforeCompile( shader ) {
+
+		csgGridShaderMixin( shader );
+		shader.defines.CSG_GRID = Number( this.enableGrid );
+
+	}
+
+	customProgramCacheKey() {
+
+		return this.enableGrid.toString();
+
+	}
+
+}
+
+function getTriangleDefinitions( ...triangles ) {
+
+	function getVectorDefinition( v ) {
+
+		return /* js */`new THREE.Vector3( ${ v.x }, ${ v.y }, ${ v.z } )`;
+
+	}
+
+	return triangles.map( t => {
+
+		return /* js */`
+new THREE.Triangle(
+	${ getVectorDefinition( t.a ) },
+	${ getVectorDefinition( t.b ) },
+	${ getVectorDefinition( t.c ) },
+)
+		`.trim();
+
+	} );
+
+}
+
+function logTriangleDefinitions( ...triangles ) {
+
+	console.log( getTriangleDefinitions( ...triangles ).join( ',\n' ) );
+
+}
+
+function generateRandomTriangleColors( geometry ) {
+
+	const position = geometry.attributes.position;
+	const array = new Float32Array( position.count * 3 );
+
+	const color = new Color();
+	for ( let i = 0, l = array.length; i < l; i += 9 ) {
+
+		color.setHSL(
+			Math.random(),
+			MathUtils.lerp( 0.5, 1.0, Math.random() ),
+			MathUtils.lerp( 0.5, 0.75, Math.random() ),
+		);
+
+		array[ i + 0 ] = color.r;
+		array[ i + 1 ] = color.g;
+		array[ i + 2 ] = color.b;
+
+		array[ i + 3 ] = color.r;
+		array[ i + 4 ] = color.g;
+		array[ i + 5 ] = color.b;
+
+		array[ i + 6 ] = color.r;
+		array[ i + 7 ] = color.g;
+		array[ i + 8 ] = color.b;
+
+	}
+
+	geometry.setAttribute( 'color', new BufferAttribute( array, 3 ) );
+
+}
+
+class TriangleSetHelper extends Group {
+
+	get color() {
+
+		return this._mesh.material.color;
+
+	}
+
+	get side() {
+
+		return this._mesh.material.side;
+
+	}
+
+	set side( v ) {
+
+		this._mesh.material.side = v;
+
+	}
+
+	constructor( triangles = [] ) {
+
+		super();
+
+		const geometry = new BufferGeometry();
+		const lineGeom = new BufferGeometry();
+		this._mesh = new Mesh( geometry, new MeshPhongMaterial( {
+			flatShading: true,
+			transparent: true,
+			opacity: 0.25,
+			depthWrite: false,
+		} ) );
+		this._lines = new LineSegments( lineGeom, new LineBasicMaterial() );
+		this._mesh.material.color = this._lines.material.color;
+
+		this._lines.frustumCulled = false;
+		this._mesh.frustumCulled = false;
+
+		this.add( this._lines, this._mesh );
+
+		this.setTriangles( triangles );
+
+	}
+
+	setTriangles( triangles ) {
+
+		const triPositions = new Float32Array( 3 * 3 * triangles.length );
+		const linePositions = new Float32Array( 6 * 3 * triangles.length );
+		for ( let i = 0, l = triangles.length; i < l; i ++ ) {
+
+			const i9 = 9 * i;
+			const i18 = 18 * i;
+			const tri = triangles[ i ];
+
+			tri.a.toArray( triPositions, i9 + 0 );
+			tri.b.toArray( triPositions, i9 + 3 );
+			tri.c.toArray( triPositions, i9 + 6 );
+
+
+			tri.a.toArray( linePositions, i18 + 0 );
+			tri.b.toArray( linePositions, i18 + 3 );
+
+			tri.b.toArray( linePositions, i18 + 6 );
+			tri.c.toArray( linePositions, i18 + 9 );
+
+			tri.c.toArray( linePositions, i18 + 12 );
+			tri.a.toArray( linePositions, i18 + 15 );
+
+		}
+
+		this._mesh.geometry.dispose();
+		this._mesh.geometry.setAttribute( 'position', new BufferAttribute( triPositions, 3 ) );
+
+		this._lines.geometry.dispose();
+		this._lines.geometry.setAttribute( 'position', new BufferAttribute( linePositions, 3 ) );
+
+	}
+
+}
+
+class EdgesHelper extends LineSegments {
+
+	get color() {
+
+		return this.material.color;
+
+	}
+
+	constructor( edges = [] ) {
+
+		super();
+		this.frustumCulled = false;
+		this.setEdges( edges );
+
+	}
+
+	setEdges( edges ) {
+
+		const { geometry } = this;
+		const points = edges.flatMap( e => [ e.start, e.end ] );
+		geometry.dispose();
+		geometry.setFromPoints( points );
+
+	}
+
+}
+
+const _matrix = new Matrix4();
+class PointsHelper extends InstancedMesh {
+
+	get color() {
+
+		return this.material.color;
+
+	}
+
+	constructor( count = 1000, points = [] ) {
+
+		super( new SphereGeometry( 0.025 ), new MeshBasicMaterial(), count );
+		this.frustumCulled = false;
+		this.setPoints( points );
+
+	}
+
+	setPoints( points ) {
+
+		for ( let i = 0, l = points.length; i < l; i ++ ) {
+
+			const point = points[ i ];
+			_matrix.makeTranslation( point.x, point.y, point.z );
+			this.setMatrixAt( i, _matrix );
+
+		}
+
+		this.count = points.length;
+
+	}
+
+}
+
+const vertKeys = [ 'a', 'b', 'c' ];
+const _tri1 = new Triangle();
+const _tri2 = new Triangle();
+const _center = new Vector3();
+const _center2 = new Vector3();
+const _projected = new Vector3();
+const _projected2 = new Vector3();
+const _projectedDir = new Vector3();
+const _projectedDir2 = new Vector3();
+const _edgeDir = new Vector3();
+const _edgeDir2 = new Vector3();
+const _vec = new Vector3();
+const _vec2 = new Vector3();
+const _finalPoint = new Vector3();
+const _finalPoint2 = new Vector3();
+const _plane = new Plane();
+const _plane2 = new Plane();
+const _centerPoint = new Vector3();
+const _ray = new Ray();
+const _edge = new Line3();
+
+function getTriangle( geometry, triIndex, target ) {
+
+	const i3 = 3 * triIndex;
+	let i0 = i3 + 0;
+	let i1 = i3 + 1;
+	let i2 = i3 + 2;
+
+	const indexAttr = geometry.index;
+	const posAttr = geometry.attributes.position;
+	if ( indexAttr ) {
+
+		i0 = indexAttr.getX( i0 );
+		i1 = indexAttr.getX( i1 );
+		i2 = indexAttr.getX( i2 );
+
+	}
+
+	target.a.fromBufferAttribute( posAttr, i0 );
+	target.b.fromBufferAttribute( posAttr, i1 );
+	target.c.fromBufferAttribute( posAttr, i2 );
+
+	return target;
+
+}
+
+function getOverlapEdge( tri1, e1, tri2, e2, target ) {
+
+	// get the two edges
+	const nextE_0 = ( e1 + 1 ) % 3;
+	const v0_1 = tri1[ vertKeys[ e1 ] ];
+	const v1_1 = tri1[ vertKeys[ nextE_0 ] ];
+
+	const nextE_1 = ( e2 + 1 ) % 3;
+	const v0_2 = tri2[ vertKeys[ e2 ] ];
+	const v1_2 = tri2[ vertKeys[ nextE_1 ] ];
+
+	// get the ray defined by the edges
+	toNormalizedRay( v0_1, v1_1, _ray );
+
+	// get the min and max stride across the rays
+	let d0_1 = _vec.subVectors( v0_1, _ray.origin ).dot( _ray.direction );
+	let d1_1 = _vec.subVectors( v1_1, _ray.origin ).dot( _ray.direction );
+	if ( d0_1 > d1_1 ) [ d0_1, d1_1 ] = [ d1_1, d0_1 ];
+
+	let d0_2 = _vec.subVectors( v0_2, _ray.origin ).dot( _ray.direction );
+	let d1_2 = _vec.subVectors( v1_2, _ray.origin ).dot( _ray.direction );
+	if ( d0_2 > d1_2 ) [ d0_2, d1_2 ] = [ d1_2, d0_2 ];
+
+	// get the range of overlap
+	const final_0 = Math.max( d0_1, d0_2 );
+	const final_1 = Math.min( d1_1, d1_2 );
+	_ray.at( final_0, target.start );
+	_ray.at( final_1, target.end );
+
+}
+
+
+class HalfEdgeHelper extends EdgesHelper {
+
+	constructor( geometry = null, halfEdges = null ) {
+
+		super();
+		this.straightEdges = false;
+		this.displayDisconnectedEdges = false;
+
+		if ( geometry && halfEdges ) {
+
+			this.setHalfEdges( geometry, halfEdges );
+
+		}
+
+	}
+
+	setHalfEdges( geometry, halfEdges ) {
+
+		const { straightEdges, displayDisconnectedEdges } = this;
+		const edges = [];
+		const offset = geometry.drawRange.start;
+		let triCount = getTriCount( geometry );
+		if ( geometry.drawRange.count !== Infinity ) {
+
+			triCount = ~ ~ ( geometry.drawRange.count / 3 );
+
+		}
+
+		if ( displayDisconnectedEdges ) {
+
+			if ( halfEdges.unmatchedDisjointEdges ) {
+
+				halfEdges
+					.unmatchedDisjointEdges
+					.forEach( ( { forward, reverse, ray } ) => {
+
+						[ ...forward, ...reverse ]
+							.forEach( ( { start, end } ) => {
+
+								const edge = new Line3();
+								ray.at( start, edge.start );
+								ray.at( end, edge.end );
+								edges.push( edge );
+
+							} );
+
+					} );
+
+			} else {
+
+				for ( let triIndex = offset; triIndex < triCount; triIndex ++ ) {
+
+					getTriangle( geometry, triIndex, _tri1 );
+					for ( let e = 0; e < 3; e ++ ) {
+
+						const otherTriIndex = halfEdges.getSiblingTriangleIndex( triIndex, e );
+						if ( otherTriIndex === - 1 ) {
+
+							const nextE = ( e + 1 ) % 3;
+							const v0 = _tri1[ vertKeys[ e ] ];
+							const v1 = _tri1[ vertKeys[ nextE ] ];
+							const edge = new Line3();
+							edge.start.copy( v0 );
+							edge.end.copy( v1 );
+							edges.push( edge );
+
+						}
+
+					}
+
+				}
+
+			}
+
+		} else {
+
+			for ( let triIndex = offset; triIndex < triCount; triIndex ++ ) {
+
+				getTriangle( geometry, triIndex, _tri1 );
+				for ( let e = 0; e < 3; e ++ ) {
+
+					const otherTriIndex = halfEdges.getSiblingTriangleIndex( triIndex, e );
+					if ( otherTriIndex === - 1 ) {
+
+						continue;
+
+					}
+
+					// get other triangle
+					getTriangle( geometry, otherTriIndex, _tri2 );
+
+					// get edge centers
+					const nextE = ( e + 1 ) % 3;
+					const v0 = _tri1[ vertKeys[ e ] ];
+					const v1 = _tri1[ vertKeys[ nextE ] ];
+					_centerPoint.lerpVectors( v0, v1, 0.5 );
+					addConnectionEdge( _tri1, _tri2, _centerPoint );
+
+				}
+
+				if ( halfEdges.disjointConnections ) {
+
+					for ( let e = 0; e < 3; e ++ ) {
+
+						const disjointTriIndices = halfEdges.getDisjointSiblingTriangleIndices( triIndex, e );
+						const disjointEdgeIndices = halfEdges.getDisjointSiblingEdgeIndices( triIndex, e );
+
+						for ( let i = 0; i < disjointTriIndices.length; i ++ ) {
+
+							const ti = disjointTriIndices[ i ];
+							const ei = disjointEdgeIndices[ i ];
+
+							// get other triangle
+							getTriangle( geometry, ti, _tri2 );
+
+							getOverlapEdge( _tri1, e, _tri2, ei, _edge );
+
+							_centerPoint.lerpVectors( _edge.start, _edge.end, 0.5 );
+							addConnectionEdge( _tri1, _tri2, _centerPoint );
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+		super.setEdges( edges );
+
+		function addConnectionEdge( tri1, tri2, centerPoint ) {
+
+			tri1.getMidpoint( _center );
+			tri2.getMidpoint( _center2 );
+
+			tri1.getPlane( _plane );
+			tri2.getPlane( _plane2 );
+
+			const edge = new Line3();
+			edge.start.copy( _center );
+
+			if ( straightEdges ) {
+
+				// get the projected centers
+				_plane.projectPoint( _center2, _projected );
+				_plane2.projectPoint( _center, _projected2 );
+
+				// get the directions so we can flip them if needed
+				_projectedDir.subVectors( _projected, _center );
+				_projectedDir2.subVectors( _projected2, _center2 );
+
+				// get the directions so we can flip them if needed
+				_edgeDir.subVectors( centerPoint, _center );
+				_edgeDir2.subVectors( centerPoint, _center2 );
+
+				if ( _projectedDir.dot( _edgeDir ) < 0 ) {
+
+					_projectedDir.multiplyScalar( - 1 );
+
+				}
+
+				if ( _projectedDir2.dot( _edgeDir2 ) < 0 ) {
+
+					_projectedDir2.multiplyScalar( - 1 );
+
+				}
+
+				// find the new points after inversion
+				_vec.addVectors( _center, _projectedDir );
+				_vec2.addVectors( _center2, _projectedDir2 );
+
+				// project the points onto the triangle edge. This would be better
+				// if we clipped instead of chose the closest point
+				tri1.closestPointToPoint( _vec, _finalPoint );
+				tri2.closestPointToPoint( _vec2, _finalPoint2 );
+
+				edge.end.lerpVectors( _finalPoint, _finalPoint2, 0.5 );
+
+			} else {
+
+				edge.end.copy( centerPoint );
+
+			}
+
+			edges.push( edge );
+
+		}
+
+	}
+
+}
+
+// https://stackoverflow.com/questions/1406029/how-to-calculate-the-volume-of-a-3d-mesh-object-the-surface-of-which-is-made-up
+const _tri = new Triangle();
+const _normal = new Vector3();
+const _relPoint = new Vector3();
+function computeMeshVolume( mesh ) {
+
+	// grab the matrix and the geometry
+	let geometry;
+	let matrix;
+	if ( mesh.isBufferGeometry ) {
+
+		geometry = mesh;
+		matrix = null;
+
+	} else {
+
+		geometry = mesh.geometry;
+		matrix = Math.abs( mesh.matrixWorld.determinant() - 1.0 ) < 1e-15 ? null : mesh.matrixWorld;
+
+	}
+
+	// determine the number of relevant draw range elements to use
+	const index = geometry.index;
+	const pos = geometry.attributes.position;
+	const drawRange = geometry.drawRange;
+	const triCount = Math.min( getTriCount( geometry ), drawRange.count / 3 );
+
+	// get a point relative to the position of the geometry to avoid floating point error
+	_tri.setFromAttributeAndIndices( pos, 0, 1, 2 );
+	applyMatrix4ToTri( _tri, matrix );
+	_tri.getNormal( _normal );
+	_tri.getMidpoint( _relPoint ).add( _normal );
+
+	// iterate over all triangles
+	let volume = 0;
+	const startIndex = drawRange.start / 3;
+	for ( let i = startIndex, l = startIndex + triCount; i < l; i ++ ) {
+
+		let i0 = 3 * i + 0;
+		let i1 = 3 * i + 1;
+		let i2 = 3 * i + 2;
+		if ( index ) {
+
+			i0 = index.getX( i0 );
+			i1 = index.getX( i1 );
+			i2 = index.getX( i2 );
+
+		}
+
+		// get the triangle
+		_tri.setFromAttributeAndIndices( pos, i0, i1, i2 );
+		applyMatrix4ToTri( _tri, matrix );
+		subVectorFromTri( _tri, _relPoint );
+
+		// add the signed volume
+		volume += signedVolumeOfTriangle( _tri.a, _tri.b, _tri.c );
+
+	}
+
+	return Math.abs( volume );
+
+}
+
+function signedVolumeOfTriangle( p1, p2, p3 ) {
+
+	const v321 = p3.x * p2.y * p1.z;
+	const v231 = p2.x * p3.y * p1.z;
+	const v312 = p3.x * p1.y * p2.z;
+	const v132 = p1.x * p3.y * p2.z;
+	const v213 = p2.x * p1.y * p3.z;
+	const v123 = p1.x * p2.y * p3.z;
+	return ( 1 / 6 ) * ( - v321 + v231 + v312 - v132 - v213 + v123 );
+
+}
+
+function subVectorFromTri( tri, pos ) {
+
+	tri.a.sub( pos );
+	tri.b.sub( pos );
+	tri.c.sub( pos );
+
+}
+
+function applyMatrix4ToTri( tri, mat = null ) {
+
+	if ( mat !== null ) {
+
+		tri.a.applyMatrix4( mat );
+		tri.b.applyMatrix4( mat );
+		tri.c.applyMatrix4( mat );
+
+	}
+
+}
+
+export { ADDITION, Brush, DIFFERENCE, EdgesHelper, Evaluator, GridMaterial, HOLLOW_INTERSECTION, HOLLOW_SUBTRACTION, HalfEdgeHelper, HalfEdgeMap, INTERSECTION, Operation, OperationGroup, PointsHelper, REVERSE_SUBTRACTION, SUBTRACTION, TriangleSetHelper, TriangleSplitter, computeMeshVolume, generateRandomTriangleColors, getTriangleDefinitions, logTriangleDefinitions };
+//# sourceMappingURL=index.module.js.map
