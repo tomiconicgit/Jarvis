@@ -33,17 +33,17 @@ function clampEdgeRoundnessThickness(p) {
 }
 
 function doorFrameShape(p) {
-  const doorW = p.totalWidth / 2 - p.frameThickness / 2; // Single door width
-  const doorH = p.height - p.frameThickness;
-  const outerW = doorW + 2 * p.frameThickness;
+  const outerW = p.totalWidth / 2;
   const outerH = p.height;
+  const doorW = outerW - 2 * p.frameThickness;
+  const doorH = p.height - 2 * p.frameThickness;
   const rr = p.cornerRadius;
 
   const shape = new THREE.Shape();
   shape.add(roundedRectPath(outerW, outerH, rr));
 
   const inner = roundedRectPath(doorW, doorH, Math.max(0, rr - p.frameThickness));
-  inner.translate(0, p.frameThickness / 2);
+  inner.translate(0, 0); // Centered
   shape.holes.push(inner);
 
   return shape;
@@ -65,7 +65,7 @@ function unifiedDoorGeometry(p, forceNoBevel = false) {
 
   const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
   geo.translate(0, 0, -p.depth / 2);
-  geo.rotateX(Math.PI / 2); // Orient properly, Y up
+  geo.rotateX(-Math.PI / 2); // Orient properly, match towerbase
   geo.computeVertexNormals();
   return geo;
 }
@@ -80,8 +80,7 @@ export default class DoubleDoor extends THREE.Group {
   /** Calculates max corner radius for sliders */
   static getMaxCornerRadius(p) {
     const eps = 0.01;
-    const singleW = p.totalWidth / 2;
-    return Math.max(0, Math.min(singleW, p.height) / 2 - p.frameThickness - eps);
+    return Math.max(0, Math.min(p.totalWidth / 4, p.height / 2) - p.frameThickness - eps);
   }
   
   /** Calculates max edge roundness for sliders */
@@ -122,7 +121,8 @@ export default class DoubleDoor extends THREE.Group {
       opacity: 0.5,
       transmission: 0.9,
       roughness: 0.2,
-      metalness: 0
+      metalness: 0,
+      side: THREE.DoubleSide
     });
 
     this.userData.params = { ...defaultParams, ...params };
@@ -152,20 +152,19 @@ export default class DoubleDoor extends THREE.Group {
     leftDoor.add(leftFrame);
 
     // Glass for left door
-    const glassW = (p.totalWidth / 2 - 2 * p.frameThickness);
+    const glassW = p.totalWidth / 2 - 2 * p.frameThickness;
     const glassH = p.height - 2 * p.frameThickness;
     const glassGeo = new THREE.PlaneGeometry(glassW, glassH);
     const leftGlass = new THREE.Mesh(glassGeo, this.glassMaterial);
-    leftGlass.position.set(0, p.frameThickness, 0);
+    leftGlass.position.set(0, 0, 0);
     leftDoor.add(leftGlass);
 
     leftDoor.position.x = -p.totalWidth / 4;
     this.add(leftDoor);
 
-    // Create right door (clone and mirror)
+    // Create right door (clone)
     const rightDoor = leftDoor.clone();
     rightDoor.position.x = p.totalWidth / 4;
-    rightDoor.rotation.y = Math.PI; // Mirror
     this.add(rightDoor);
   }
 
