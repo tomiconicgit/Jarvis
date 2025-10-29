@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 
-// --- Import our custom TowerBase Asset ---
+// --- Import our custom Assets ---
 import TowerBase from './towerbase.js';
+import DoubleDoor from './doubledoor.js';
 
 // --- Global Variables ---
 // 3D Scene
@@ -15,7 +16,7 @@ let allModels = []; // Array to hold all selectable models
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, toolsBtn;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, toolsBtn;
 
 // Touch/Tap Controls
 let lastTapTime = 0;
@@ -37,6 +38,7 @@ function init() {
   propsContent = document.getElementById('props-content');
   addTowerDoorBtn = document.getElementById('add-tower-door-btn');
   addTowerSolidBtn = document.getElementById('add-tower-solid-btn');
+  addDoubleDoorBtn = document.getElementById('add-double-door-btn');
 
   // --- Scene Setup ---
   scene = new THREE.Scene();
@@ -278,33 +280,49 @@ function initUI() {
     selectObject(tower);
     hidePanel(addPanel);
   });
+
+  // Add Double Door
+  addDoubleDoorBtn.addEventListener('click', () => {
+    const params = {
+      totalWidth: 8,
+      height: 10,
+      depth: 0.5,
+      frameThickness: 0.5,
+      cornerRadius: 0.2,
+      cornerSmoothness: 16,
+      edgeRoundness: 0.1,
+      edgeSmoothness: 4,
+      glassR: 1,
+      glassG: 1,
+      glassB: 1,
+      glassOpacity: 0.5,
+      glassRoughness: 0.2
+    };
+    const doors = new DoubleDoor(params);
+    doors.position.y = params.height / 2;
+    
+    scene.add(doors);
+    allModels.push(doors);
+    selectObject(doors);
+    hidePanel(addPanel);
+  });
 }
 
 function showPanel(p) {
   p.style.visibility = 'visible';
   p.style.opacity = '1';
+  p.style.transform = 'translateY(0)';
   if (p.id === 'props-panel') {
-    canvasContainer.style.height = '50vh';
-    p.style.transform = 'translateY(0)';
     p.style.borderTopLeftRadius = '12px';
     p.style.borderTopRightRadius = '12px';
     p.style.borderBottomLeftRadius = '0';
     p.style.borderBottomRightRadius = '0';
-    setTimeout(resizeRenderer, 300); // After transition
-  } else {
-    p.style.transform = 'translateY(0)';
   }
 }
 
 function hidePanel(p) {
   p.style.opacity = '0';
-  if (p.id === 'props-panel') {
-    canvasContainer.style.height = '100vh';
-    p.style.transform = 'translateY(100%)';
-    setTimeout(resizeRenderer, 300); // After transition
-  } else {
-    p.style.transform = 'translateY(100%)';
-  }
+  p.style.transform = 'translateY(100%)';
   setTimeout(() => p.style.visibility = 'hidden', 300);
 }
 
@@ -325,35 +343,57 @@ function showTempMessage(text) {
 function updatePropsPanel(object) {
   propsContent.innerHTML = ''; // Clear old sliders
   
-  if (!object || !object.userData.params || object.userData.type !== 'TowerBase') {
+  if (!object || !object.userData.params) {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
     return;
   }
   
+  const type = object.userData.type;
   const p = object.userData.params;
   
-  // Define the sliders
-  const paramConfig = {
-    height:          { min: 1,   max: 40, step: 0.1, label: 'Height' },
-    width:           { min: 4,   max: 60, step: 0.1, label: 'Width' },
-    depth:           { min: 4,   max: 60, step: 0.1, label: 'Depth' },
-    wallThickness:   { min: 0.1, max: 5,  step: 0.1, label: 'Wall Thickness' },
-    cornerRadius:    { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-    cornerSmoothness:{ min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-    edgeRoundness:   { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-    edgeSmoothness:  { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-    // Only show Door Width slider if the model is supposed to have a door
-    ...(p.doorWidth > 0 && {
-      doorWidth:     { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
-    })
-  };
-
+  let paramConfig = {};
+  if (type === 'TowerBase') {
+    paramConfig = {
+      height:          { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      width:           { min: 4,   max: 60, step: 0.1, label: 'Width' },
+      depth:           { min: 4,   max: 60, step: 0.1, label: 'Depth' },
+      wallThickness:   { min: 0.1, max: 5,  step: 0.1, label: 'Wall Thickness' },
+      cornerRadius:    { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness:{ min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:   { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:  { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      // Only show Door Width slider if the model is supposed to have a door
+      ...(p.doorWidth > 0 && {
+        doorWidth:     { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+      })
+    };
+  } else if (type === 'DoubleDoor') {
+    paramConfig = {
+      height:          { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      totalWidth:      { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
+      depth:           { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
+      frameThickness:  { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
+      cornerRadius:    { min: 0,   max: DoubleDoor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness:{ min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:   { min: 0,   max: DoubleDoor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:  { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      glassR:          { min: 0,   max: 1,  step: 0.01, label: 'Glass Red' },
+      glassG:          { min: 0,   max: 1,  step: 0.01, label: 'Glass Green' },
+      glassB:          { min: 0,   max: 1,  step: 0.01, label: 'Glass Blue' },
+      glassOpacity:    { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+      glassRoughness:  { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+    };
+  } else {
+    propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
+    return;
+  }
+  
   // Create HTML for each slider
   for (const key in paramConfig) {
     const cfg = paramConfig[key];
     // Update max values based on current params
-    if (key === 'cornerRadius') cfg.max = TowerBase.getMaxCornerRadius(p);
-    if (key === 'edgeRoundness') cfg.max = TowerBase.getMaxEdgeRoundness(p);
+    if (key === 'cornerRadius') cfg.max = type === 'TowerBase' ? TowerBase.getMaxCornerRadius(p) : DoubleDoor.getMaxCornerRadius(p);
+    if (key === 'edgeRoundness') cfg.max = type === 'TowerBase' ? TowerBase.getMaxEdgeRoundness(p) : DoubleDoor.getMaxEdgeRoundness(p);
     if (key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
 
     const value = (p[key] ?? cfg.min);
@@ -382,12 +422,12 @@ function updatePropsPanel(object) {
 
       // --- Dynamic Max Value Updates ---
       // If a base parameter changes, update the max of dependent sliders
-      if (['width', 'depth', 'wallThickness', 'cornerRadius', 'height'].includes(key)) {
+      if (['totalWidth', 'width', 'depth', 'frameThickness', 'wallThickness', 'cornerRadius', 'height'].includes(key)) {
         
         // 1. Update Corner Radius Slider
         const crSlider = document.getElementById('cornerRadius-slider');
         if (crSlider) {
-          const maxCR = TowerBase.getMaxCornerRadius(next);
+          const maxCR = type === 'TowerBase' ? TowerBase.getMaxCornerRadius(next) : DoubleDoor.getMaxCornerRadius(next);
           crSlider.max = maxCR;
           if (next.cornerRadius > maxCR) {
             next.cornerRadius = maxCR;
@@ -399,7 +439,7 @@ function updatePropsPanel(object) {
         // 2. Update Edge Roundness Slider
         const erSlider = document.getElementById('edgeRoundness-slider');
         if (erSlider) {
-          const maxER = TowerBase.getMaxEdgeRoundness(next);
+          const maxER = type === 'TowerBase' ? TowerBase.getMaxEdgeRoundness(next) : DoubleDoor.getMaxEdgeRoundness(next);
           erSlider.max = maxER;
           if (next.edgeRoundness > maxER) {
             next.edgeRoundness = maxER;
@@ -408,9 +448,9 @@ function updatePropsPanel(object) {
           }
         }
 
-        // 3. Update Door Width Slider
+        // 3. Update Door Width Slider (for TowerBase only)
         const dwSlider = document.getElementById('doorWidth-slider');
-        if (dwSlider) {
+        if (dwSlider && type === 'TowerBase') {
           const maxDW = TowerBase.getMaxDoorWidth(next);
           dwSlider.max = maxDW;
           if (next.doorWidth > maxDW) {
