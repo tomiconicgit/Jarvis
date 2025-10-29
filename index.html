@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler — Tower Base (Unified + Door)</title>
+  <title>Mobile 3D Modeler — Destructive Cutout Tool</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -28,6 +28,11 @@
     <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12"/></svg>
     </button>
+    
+    <button id="cut-btn" class="w-14 h-14 bg-gray-700 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
+      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 4V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2z"/></svg>
+    </button>
+
     <button id="tools-btn" class="w-14 h-14 bg-gray-700 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
       <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
     </button>
@@ -52,6 +57,29 @@
     <div id="props-content" class="space-y-4 overflow-y-auto max-h-[75vh] pr-2"></div>
   </div>
 
+  <div id="cutout-panel" class="ui-panel top-4 right-4 w-72 max-w-[80vw] max-h-[90vh] p-4 transform translate-x-full opacity-0" style="visibility:hidden;">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold">Cutout Tool</h3>
+      <button id="close-cutout-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center">&times;</button>
+    </div>
+    <div id="cutout-content" class="space-y-4 overflow-y-auto max-h-[70vh] pr-2">
+      <p class="text-gray-400 text-sm">Tap on an object's face to place the cutter.</p>
+      <div class="space-y-1">
+        <label class="text-sm font-medium text-gray-300 flex justify-between"><span>Width</span><span id="cut-width-value">3.00</span></label>
+        <input type="range" id="cut-width-slider" data-param="width" min="0.1" max="10" step="0.1" value="3">
+      </div>
+      <div class="space-y-1">
+        <label class="text-sm font-medium text-gray-300 flex justify-between"><span>Height</span><span id="cut-height-value">2.00</span></label>
+        <input type="range" id="cut-height-slider" data-param="height" min="0.1" max="10" step="0.1" value="2">
+      </div>
+      <div class="space-y-1">
+        <label class="text-sm font-medium text-gray-300 flex justify-between"><span>Depth</span><span id="cut-depth-value">1.50</span></label>
+        <input type="range" id="cut-depth-slider" data-param="depth" min="0.1" max="5" step="0.1" value="1.5">
+      </div>
+    </div>
+    <button id="perform-cut-btn" class="mt-4 w-full bg-blue-600 p-3 rounded-lg font-bold active:scale-95 transition-transform">Perform Cut</button>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
@@ -66,8 +94,14 @@
     let propsPanel, closePropsPanel, propsContent, addTowerBtn;
     let lastTapTime = 0; const DOUBLE_TAP_DELAY = 300;
 
+    // NEW Cutout UI Globals
+    let cutBtn, cutoutPanel, closeCutoutPanel, performCutBtn;
+    let isCutoutMode = false;
+    let cutterPreview; // This will be our red wireframe box
+
     // ---------- Init ----------
     function init(){
+      // Get standard UI elements
       loadingScreen = document.getElementById('loading-screen');
       canvasContainer = document.getElementById('canvas-container');
       addBtn = document.getElementById('add-btn');
@@ -78,6 +112,13 @@
       propsContent = document.getElementById('props-content');
       addTowerBtn = document.getElementById('add-tower-btn');
 
+      // Get NEW Cutout UI elements
+      cutBtn = document.getElementById('cut-btn');
+      cutoutPanel = document.getElementById('cutout-panel');
+      closeCutoutPanel = document.getElementById('close-cutout-panel');
+      performCutBtn = document.getElementById('perform-cut-btn');
+
+      // --- Scene Setup ---
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x2a2a2a);
       scene.fog = new THREE.Fog(0x2a2a2a, 50, 200);
@@ -108,6 +149,14 @@
       transformControls.setMode("translate");
       transformControls.addEventListener('dragging-changed', e => { orbitControls.enabled = !e.value; });
       scene.add(transformControls);
+
+      // --- NEW Cutter Preview Mesh ---
+      // We use wireframe to see through it. We'll set its size from sliders later.
+      const cutterMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.7 });
+      const cutterGeo = new THREE.BoxGeometry(3, 2, 1.5).toNonIndexed(); // Default values from sliders
+      cutterPreview = new THREE.Mesh(cutterGeo, cutterMat);
+      cutterPreview.visible = false;
+      scene.add(cutterPreview);
 
       raycaster = new THREE.Raycaster();
       touchStartPos = new THREE.Vector2();
@@ -145,14 +194,66 @@
       }
     }
     function getTouchNDC(t){return {x:(t.clientX/window.innerWidth)*2-1, y:-(t.clientY/window.innerHeight)*2+1};}
+
+    // MODIFIED Single Tap: Now checks for Cutout Mode
     function handleSingleTap(t){
-      const ndc=getTouchNDC(t); raycaster.setFromCamera(ndc,camera);
-      const hits = raycaster.intersectObjects(allModels,true);
-      if(hits.length){
-        let obj=hits[0].object; while(obj.parent && obj.parent.userData.isModel) obj=obj.parent;
-        selectObject(obj);
-      } else deselectAll();
+      const ndc = getTouchNDC(t);
+      raycaster.setFromCamera(ndc, camera);
+
+      // Route tap to correct handler
+      if (isCutoutMode) {
+        handleCutoutTap(raycaster);
+      } else {
+        // This is the original selection logic
+        const hits = raycaster.intersectObjects(allModels, true);
+        if(hits.length){
+          let obj=hits[0].object; 
+          while(obj.parent && obj.parent.userData.isModel) obj=obj.parent;
+          selectObject(obj);
+        } else {
+          deselectAll();
+        }
+      }
     }
+    
+    // NEW Tap Handler for Cutout Mode
+    function handleCutoutTap(raycaster) {
+      const hits = raycaster.intersectObjects(allModels, true);
+      
+      if (hits.length) {
+        const hit = hits[0];
+        
+        // Find the root model (the Group) that was hit
+        let targetObject = hit.object;
+        while(targetObject.parent && targetObject.parent.userData.isModel) {
+          targetObject = targetObject.parent;
+        }
+        
+        // Select the object we're about to cut
+        selectObject(targetObject);
+
+        // Position and align the cutter preview
+        // 1. Position at the hit point
+        cutterPreview.position.copy(hit.point);
+        
+        // 2. Align the cutter's Z-axis (depth) with the face normal
+        // We create a lookAt target slightly away from the surface
+        const lookAtTarget = new THREE.Vector3().addVectors(hit.point, hit.face.normal);
+        cutterPreview.lookAt(lookAtTarget);
+
+        // 3. Make sure it's the correct size
+        updateCutterPreviewGeometry();
+        
+        // 4. Show it
+        cutterPreview.visible = true;
+
+      } else {
+        // Tapped empty space
+        cutterPreview.visible = false;
+        deselectAll();
+      }
+    }
+
     function handleDoubleTap(t){
       const ndc=getTouchNDC(t); raycaster.setFromCamera(ndc,camera);
       const hits = raycaster.intersectObjects(allModels,true);
@@ -162,39 +263,201 @@
         showTempMessage("Camera Focused");
       }
     }
-    function selectObject(o){ if(currentSelection===o) return; currentSelection=o; transformControls.attach(o); updatePropsPanel(o); showPanel(propsPanel); }
-    function deselectAll(){ if(currentSelection) transformControls.detach(); currentSelection=null; hidePanel(propsPanel); }
+
+    // MODIFIED: Deselecting also hides the cutout panel if not in cutout mode
+    function selectObject(o){ 
+      if(currentSelection===o) return; 
+      currentSelection=o; 
+      transformControls.attach(o); 
+      updatePropsPanel(o); 
+      // Only show props panel if NOT in cutout mode
+      if (!isCutoutMode) {
+        showPanel(propsPanel); 
+      }
+    }
+    function deselectAll(){ 
+      if(currentSelection) transformControls.detach(); 
+      currentSelection=null; 
+      hidePanel(propsPanel); 
+    }
 
     function initUI(){
-      addBtn.addEventListener('click', ()=>{showPanel(addPanel); hidePanel(propsPanel);});
+      addBtn.addEventListener('click', ()=>{ showPanel(addPanel); hidePanel(propsPanel); deactivateCutoutMode(); });
       closeAddPanel.addEventListener('click', ()=>hidePanel(addPanel));
       closePropsPanel.addEventListener('click', ()=>deselectAll());
+      
       document.getElementById('tools-btn').addEventListener('click', ()=>{
+        if (isCutoutMode) return showTempMessage("Exit Cutout Mode to use tools");
         if(!currentSelection) return showTempMessage("Select an object first");
         const m = transformControls.getMode();
         transformControls.setMode(m==="translate"?"rotate":m==="rotate"?"scale":"translate");
         showTempMessage(`Mode: ${transformControls.getMode()[0].toUpperCase()+transformControls.getMode().slice(1)}`);
       });
 
-      // Add Tower Base with door
+      // --- NEW Cutout UI Listeners ---
+      cutBtn.addEventListener('click', toggleCutoutMode);
+      closeCutoutPanel.addEventListener('click', deactivateCutoutMode);
+      performCutBtn.addEventListener('click', performCut);
+      initCutoutPanelSliders(); // Set up sliders
+
+      // --- MODIFIED Tower Button ---
+      // Removed door parameters
       addTowerBtn.addEventListener('click', ()=>{
         const params = {
           width: 12,
           depth: 12,
           height: 6,
           wallThickness: 1,
-          cornerRadius: 1.2,      // vertical edge roundness (footprint)
-          cornerSmoothness: 16,   // curveSegments for footprint
-          edgeRoundness: 0.3,     // top/bottom fillet size (may be auto-zeroed in fallback)
-          edgeSmoothness: 4,      // bevelSegments / steps
-          doorWidth: 4,
-          doorHeight: 3
+          cornerRadius: 1.2,
+          cornerSmoothness: 16,
+          edgeRoundness: 0.3,
+          edgeSmoothness: 4
         };
         const tower = new TowerBase(params);
         tower.position.y = params.height/2;
-        scene.add(tower); allModels.push(tower); selectObject(tower); hidePanel(addPanel);
+        scene.add(tower); allModels.push(tower); 
+        selectObject(tower); 
+        hidePanel(addPanel);
+        deactivateCutoutMode(); // Make sure we're not in cutout mode
       });
     }
+
+    // --- NEW Cutout Mode Functions ---
+    function toggleCutoutMode() {
+      if (isCutoutMode) {
+        deactivateCutoutMode();
+      } else {
+        activateCutoutMode();
+      }
+    }
+
+    function activateCutoutMode() {
+      isCutoutMode = true;
+      showPanel(cutoutPanel);
+      hidePanel(propsPanel); // Hide props
+      cutBtn.classList.add('bg-blue-600');
+      cutBtn.classList.remove('bg-gray-700');
+      deselectAll();
+      transformControls.detach(); // Hide transform controls
+      orbitControls.enablePan = false; // Prevent panning while in this mode
+      showTempMessage("Cutout Mode Activated");
+    }
+
+    function deactivateCutoutMode() {
+      isCutoutMode = false;
+      hidePanel(cutoutPanel);
+      cutBtn.classList.remove('bg-blue-600');
+      cutBtn.classList.add('bg-gray-700');
+      cutterPreview.visible = false; // Hide cutter
+      orbitControls.enablePan = true;
+      // Don't show message on deactivation, it's annoying
+    }
+
+    function initCutoutPanelSliders() {
+      const sliders = [
+        { id: 'cut-width-slider', label: 'cut-width-value' },
+        { id: 'cut-height-slider', label: 'cut-height-value' },
+        { id: 'cut-depth-slider', label: 'cut-depth-value' },
+      ];
+      
+      sliders.forEach(s => {
+        const slider = document.getElementById(s.id);
+        const label = document.getElementById(s.label);
+        slider.addEventListener('input', () => {
+          label.textContent = parseFloat(slider.value).toFixed(2);
+          updateCutterPreviewGeometry(); // Update the red box
+        });
+      });
+    }
+    
+    function getCutterParams() {
+      const w = parseFloat(document.getElementById('cut-width-slider').value);
+      const h = parseFloat(document.getElementById('cut-height-slider').value);
+      const d = parseFloat(document.getElementById('cut-depth-slider').value);
+      return { w, h, d };
+    }
+
+    function updateCutterPreviewGeometry() {
+      const params = getCutterParams();
+      // Dispose of old geometry to prevent memory leaks
+      cutterPreview.geometry.dispose();
+      // Create new geometry
+      cutterPreview.geometry = new THREE.BoxGeometry(params.w, params.h, params.d).toNonIndexed();
+    }
+
+    function performCut() {
+      if (!currentSelection) {
+        showTempMessage("Select an object to cut first.");
+        return;
+      }
+      if (!cutterPreview.visible) {
+        showTempMessage("Tap on the object's face to place the cut.");
+        return;
+      }
+      
+      const CSG = getCSG();
+      if (!CSG) {
+        console.warn('three-csgmesh not found; cutout skipped.');
+        showTempMessage("Error: CSG Library not found.");
+        return;
+      }
+
+      // --- This is the destructive part ---
+      try {
+        const targetObject = currentSelection;
+        // Assume the mesh is the first child (which it is for our TowerBase)
+        const targetMesh = targetObject.children[0];
+        
+        // Ensure geometries are ready for CSG
+        // We already made TowerBase non-indexed in its build()
+        // We already made the cutter non-indexed when we created it
+
+        // CSG library needs meshes with world transforms applied
+        targetMesh.updateMatrixWorld(true);
+        cutterPreview.updateMatrixWorld(true);
+
+        const a = CSG.fromMesh(targetMesh); // The object
+        const b = CSG.fromMesh(cutterPreview); // The cutter
+        
+        const sub = CSG.subtract(a, b);
+        
+        const newMesh = CSG.toMesh(sub, targetObject.matrix, targetMesh.material);
+        newMesh.castShadow = true;
+        newMesh.receiveShadow = true;
+
+        // Create a new Group to replace the old one
+        const newModel = new THREE.Group();
+        newModel.add(newMesh);
+        
+        // Copy transform from the old object
+        newModel.position.copy(targetObject.position);
+        newModel.rotation.copy(targetObject.rotation);
+        newModel.scale.copy(targetObject.scale);
+        
+        // Mark it as a selectable model
+        newModel.userData.isModel = true;
+        newModel.userData.type = 'CustomMesh'; // It's no longer a 'TowerBase'
+
+        // Remove old object from scene and array
+        scene.remove(targetObject);
+        allModels.splice(allModels.indexOf(targetObject), 1);
+        
+        // Add new object
+        scene.add(newModel);
+        allModels.push(newModel);
+        
+        // Clean up
+        deactivateCutoutMode();
+        selectObject(newModel); // Select the new mesh
+        showTempMessage("Cut successful! Object is now a static mesh.");
+
+      } catch (err) {
+        console.warn('CSG failed, operation aborted:', err);
+        showTempMessage("Cut operation failed.");
+      }
+    }
+
+    // --- End Cutout Mode Functions ---
 
     function showPanel(p){ p.style.visibility='visible'; p.style.opacity='1'; p.style.transform=p.id.includes('props')?'translateX(0)':'translateY(0)'; }
     function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(100%)'; setTimeout(()=>p.style.visibility='hidden',300); }
@@ -261,16 +524,7 @@
       return Math.min(p.edgeRoundness||0, maxByH, maxByT);
     }
 
-    // door safe limits
-    function maxDoorWidth(p){
-      const eps=0.05;
-      const flat = Math.max(0, p.width - 2*Math.max(p.cornerRadius, p.wallThickness));
-      return Math.max(eps, flat - eps);
-    }
-    function maxDoorHeight(p){
-      const eps=0.05;
-      return Math.max(eps, p.height - eps);
-    }
+    // REMOVED maxDoorWidth and maxDoorHeight functions
 
     // Resolve CSG namespace (UMD)
     function getCSG(){
@@ -290,84 +544,32 @@
         this.build();
       }
 
+      // MODIFIED: Simplified build, no door logic
       build(){
         for(const c of this.children){ c.geometry && c.geometry.dispose(); }
         this.clear();
 
         const p = this.userData.params;
 
-        // 1) Try with fillets
+        // Build the shell
         let shellGeo = unifiedShellGeometry(p, /*forceNoBevel*/ false);
-        let resultMesh = this.tryDoorCut(shellGeo, p);
+        let resultMesh = new THREE.Mesh(shellGeo, this.material);
 
-        // 2) If CSG failed (triangle count unchanged), fallback: no top/bottom fillets
-        if(!resultMesh.__hasDoor){
-          shellGeo.dispose();
-          const pNoBevel = {...p, edgeRoundness: 0};
-          shellGeo = unifiedShellGeometry(pNoBevel, /*forceNoBevel*/ true);
-          resultMesh = this.tryDoorCut(shellGeo, pNoBevel);
-          resultMesh.__fallbackNoFillet = true;
-        }
-
-        resultMesh.castShadow = true; resultMesh.receiveShadow = true;
+        // Make geometry non-indexed, WHICH IS REQUIRED FOR CSG
+        resultMesh.geometry = resultMesh.geometry.toNonIndexed();
+        
+        resultMesh.castShadow = true; 
+        resultMesh.receiveShadow = true;
         this.add(resultMesh);
       }
 
-      tryDoorCut(shellGeo, p){
-        const shellMesh = new THREE.Mesh(shellGeo, this.material);
-        shellMesh.geometry = shellMesh.geometry.toNonIndexed();
-        shellMesh.updateMatrix(); shellMesh.updateMatrixWorld(true);
+      // REMOVED tryDoorCut method
 
-        // Door cutter — over-penetrate to guarantee subtraction on mobile/Safari
-        const cutDepth = p.wallThickness * 3.0;
-        const doorW = Math.min(p.doorWidth || 4, maxDoorWidth(p));
-        const doorH = Math.min(p.doorHeight || 3, maxDoorHeight(p));
-        const doorGeo = new THREE.BoxGeometry(doorW, doorH, cutDepth);
-        const doorMesh = new THREE.Mesh(doorGeo);
-        doorMesh.geometry = doorMesh.geometry.toNonIndexed();
-        
-        // ---------- ⚠️ THIS IS THE FIX ⚠️ ----------
-        // The shell geometry is centered at y=0, so its bottom is at -p.height/2
-        // The door's center Y should be at the bottom + half the door height.
-        // We add a tiny epsilon (0.01) to prevent co-planar faces, which makes the CSG stable.
-        const doorY = -p.height/2 + doorH/2 + 0.01; // Added + 0.01 epsilon
-        doorMesh.position.set(0, doorY, p.depth/2 + 0.25); // push slightly beyond front
-        // ---------------------------------------------
-
-        doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
-
-        const CSG = getCSG();
-        if(!CSG){
-          console.warn('three-csgmesh not found; door cutout skipped.');
-          return shellMesh;
-        }
-
-        try{
-          const a = CSG.fromMesh(shellMesh);
-          const b = CSG.fromMesh(doorMesh);
-          const before = shellMesh.geometry.index ? shellMesh.geometry.index.count : shellMesh.geometry.attributes.position.count;
-          const sub = CSG.subtract(a, b);
-          const out = CSG.toMesh(sub, shellMesh.matrix, this.material);
-          out.geometry.computeVertexNormals();
-
-          const after = out.geometry.index ? out.geometry.index.count : out.geometry.attributes.position.count;
-          out.__hasDoor = after !== before; // simple heuristic
-          return out;
-        }catch(err){
-          console.warn('CSG failed, showing uncut shell:', err);
-          return shellMesh;
-        }
-      }
-
+      // MODIFIED: Removed door max checks
       updateParams(next){
         next = {...next};
         const crMax = Math.max(0, Math.min(next.width, next.depth)/2 - next.wallThickness - 0.01);
         if(next.cornerRadius > crMax) next.cornerRadius = crMax;
-
-        const dwMax = maxDoorWidth(next);
-        const dhMax = maxDoorHeight(next);
-        if(next.doorWidth  > dwMax) next.doorWidth  = dwMax;
-        if(next.doorHeight > dhMax) next.doorHeight = dhMax;
 
         this.userData.params = next;
         this.build();
@@ -382,12 +584,19 @@
       const eps=0.01; return Math.max(0, Math.min(p.width, p.depth)/2 - p.wallThickness - eps);
     }
 
+    // MODIFIED: Simplified props panel
     function updatePropsPanel(object){
       propsContent.innerHTML = '';
+      
+      // If it's not a parametric object, show a message
       if(!object || !object.userData.params){
-        propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>'; return;
+        propsContent.innerHTML = '<p class="text-gray-400">This is a static mesh. Its properties cannot be edited.</p>'; 
+        return;
       }
+
       const p = object.userData.params;
+      
+      // REMOVED doorWidth and doorHeight from config
       const paramConfig = {
         height:          { min:1,   max:40, step:0.1, label:'Height' },
         width:           { min:4,   max:60, step:0.1, label:'Width' },
@@ -396,17 +605,14 @@
         cornerRadius:    { min:0,   max:cornerRadiusMaxUI(p), step:0.05, label:'Corner Radius' },
         cornerSmoothness:{ min:8,   max:64, step:1,   label:'Corner Smoothness' },
         edgeRoundness:   { min:0,   max:edgeRoundnessMaxUI(p), step:0.05, label:'Edge Roundness' },
-        edgeSmoothness:  { min:1,   max:12, step:1,   label:'Edge Smoothness' },
-        doorWidth:       { min:0.5, max:maxDoorWidth(p),  step:0.1, label:'Door Width' },
-        doorHeight:      { min:0.5, max:maxDoorHeight(p), step:0.1, label:'Door Height' }
+        edgeSmoothness:  { min:1,   max:12, step:1,   label:'Edge Smoothness' }
       };
 
       for(const key in paramConfig){
         const cfg = paramConfig[key];
         if(key==='cornerRadius') cfg.max = cornerRadiusMaxUI(p);
         if(key==='edgeRoundness') cfg.max = edgeRoundnessMaxUI(p);
-        if(key==='doorWidth') cfg.max = maxDoorWidth(p);
-        if(key==='doorHeight') cfg.max = maxDoorHeight(p);
+        // REMOVED door slider max checks
 
         const value = (p[key] ?? cfg.min);
         const valueFmt = (cfg.step>=1) ? Math.round(value) : value.toFixed(2);
@@ -429,17 +635,12 @@
           const val = (cfg.step>=1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
           const next = {...object.userData.params, [key]: val};
 
+          // MODIFIED: Removed door-related checks
           if(key==='width' || key==='depth' || key==='wallThickness' || key==='cornerRadius'){
             const cr = document.getElementById('cornerRadius-slider');
             if(cr){ const maxCR = cornerRadiusMaxUI(next); cr.max = maxCR; if(next.cornerRadius > maxCR){ next.cornerRadius = maxCR; cr.value = maxCR; document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2); } }
-            const dw = document.getElementById('doorWidth-slider');
-            if(dw){ const maxDW = maxDoorWidth(next); dw.max = maxDW; if(next.doorWidth > maxDW){ next.doorWidth = maxDW; dw.value = maxDW; document.getElementById('doorWidth-value').textContent = maxDW.toFixed(2); } }
           }
-          if(key==='height'){
-            const dh = document.getElementById('doorHeight-slider');
-            if(dh){ const maxDH = maxDoorHeight(next); dh.max = maxDH; if(next.doorHeight > maxDH){ next.doorHeight = maxDH; dh.value = maxDH; document.getElementById('doorHeight-value').textContent = maxDH.toFixed(2); } }
-          }
-
+          
           const lbl = document.getElementById(`${key}-value`);
           if(lbl) lbl.textContent = (cfg.step>=1) ? Math.round(val) : val.toFixed(2);
 
