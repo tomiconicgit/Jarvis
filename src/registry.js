@@ -5,6 +5,9 @@ File: src/registry.js
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
+// Import directly using the bare specifier, which the import map resolves.
+import { Brush, Evaluator, SUBTRACTION } from '@gkjohnson/three-bvh-csg';
+
 /* ---------- Materials ---------- */
 export const metalMat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.1, roughness:.4, side:THREE.DoubleSide });
 export const glassMat = new THREE.MeshStandardMaterial({ color:0x88ccff, transparent:true, opacity:.32, side:THREE.DoubleSide, depthWrite:false });
@@ -52,52 +55,42 @@ function cylBetween(a,b,r,mat){
   m.position.copy(a).addScaledVector(dir,0.5); m.quaternion.setFromUnitVectors(up, dir.normalize()); return m;
 }
 
-/* ---------- CSG loader (Simplified) ---------- */
-// *** THIS IS THE MODIFIED FUNCTION ***
-async function loadCSGModule() {
-  try {
-    // ONLY try loading via import map using the bare specifier
-    const mod = await import('@gkjohnson/three-bvh-csg');
-    // Ensure the necessary exports exist
-    if (!mod || !mod.Brush || !mod.Evaluator || !mod.SUBTRACTION) {
-        throw new Error('Required exports not found in @gkjohnson/three-bvh-csg module');
-    }
-    return { lib: 'bvh-csg', mod };
-  } catch (e) {
-     console.error("Failed to load CSG module (@gkjohnson/three-bvh-csg) via import map:", e);
-     // Add more specific error logging
-     __logErr('CSG Lib Load Fail: ' + e.message);
-     throw new Error('CSG library failed to load');
-  }
-}
-// *** END MODIFIED FUNCTION ***
+
+/* ---------- CSG Functions ---------- */
+
+// Removed loadCSGModule
 
 async function subtractCSGInPlace(targetMesh, cutters /* array of Mesh */) {
-  // Now loadCSGModule only returns the bvh-csg version or throws
-  const { mod } = await loadCSGModule();
+  // BVH-CSG path - Use imports from top of file
+  try { // Add try...catch for better error reporting during CSG
+      for (const cutter of cutters) {
+        targetMesh.updateWorldMatrix(true, true);
+        cutter.updateWorldMatrix(true, true);
+        const a = new Brush(targetMesh.geometry, targetMesh.matrixWorld);
+        const b = new Brush(cutter.geometry, cutter.matrixWorld);
+        const evaluator = new Evaluator();
+        // Use SUBTRACTION directly
+        const result = evaluator.evaluate(a, b, SUBTRACTION);
 
-  // BVH-CSG path is the only path now
-  const { Brush, Evaluator, SUBTRACTION } = mod;
-  for (const cutter of cutters) {
-    targetMesh.updateWorldMatrix(true, true);
-    cutter.updateWorldMatrix(true, true);
-    const a = new Brush(targetMesh.geometry, targetMesh.matrixWorld);
-    const b = new Brush(cutter.geometry, cutter.matrixWorld);
-    const evaluator = new Evaluator();
-    const result = evaluator.evaluate(a, b, SUBTRACTION);
+        if (!result || !result.geometry) {
+            console.error("CSG operation resulted in null geometry. Target:", targetMesh, "Cutter:", cutter);
+            throw new Error('CSG operation returned no geometry');
+        }
 
-    // Check if result geometry exists
-    if (!result || !result.geometry) {
-        throw new Error('CSG operation returned no geometry');
-    }
+        const newGeom = result.geometry;
+        targetMesh.geometry.dispose(); // Dispose old geometry
+        targetMesh.geometry = newGeom;
+        targetMesh.geometry.computeVertexNormals(); // Recompute normals
 
-    const newGeom = result.geometry;
-    targetMesh.geometry.dispose();
-    targetMesh.geometry = newGeom;
-    targetMesh.geometry.computeVertexNormals();
-    const inv = new THREE.Matrix4().copy(targetMesh.matrixWorld).invert();
-    targetMesh.geometry.applyMatrix4(inv);
-    targetMesh.matrixWorldNeedsUpdate = true; // Flag world matrix as needing update
+        // Apply inverse world matrix to bring geometry back to object local space
+        const inv = new THREE.Matrix4().copy(targetMesh.matrixWorld).invert();
+        targetMesh.geometry.applyMatrix4(inv);
+        targetMesh.matrixWorldNeedsUpdate = true;
+      }
+  } catch(e) {
+      console.error("Error during CSG subtraction:", e);
+      __logErr("CSG Subtraction Error: " + e.message);
+      throw e; // Re-throw the error to be caught by the caller
   }
 }
 
@@ -179,9 +172,10 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
 }
 
 /* ================================================================================
-START COMPONENT DEFINITIONS (Copied from Launch Tower)
+COMPONENT DEFINITIONS
 ================================================================================
 */
+// ... (Tower Base, Neck, Roof, Spire, Top Floor, Piping definitions remain unchanged) ...
 
 /* Tower Base */
 register(
@@ -400,7 +394,7 @@ register(
   'piping','Piping',
   {
     count:{type:'range',label:'Count',min:1,max:12,step:1,default:2},
-    angleStart:{type:'range',label:'Start Angle°',min:0,max:360,step:1,default:0},
+    angleStart:{type:'range',label:'Start AngleÂ°',min:0,max:360,step:1,default:0},
     radius:{type:'range',label:'Pipe Radius',min:0.05,max:0.8,step:0.01,default:0.18},
     riserH:{type:'range',label:'Riser Height',min:4,max:120,step:0.5,default:30},
     elbowR:{type:'range',label:'Elbow Radius',min:0.5,max:8,step:0.1,default:2.5},
@@ -466,9 +460,21 @@ register(
           const tgt = State.getEntity(targetId);
           if(!tgt) return alert('Target not found');
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
-          const cutters = [];
+
+          // --- ADD SCALING ---
+          const originalScale = ent.object.scale.clone();
+          ent.object.scale.multiplyScalar(1.001); // Slightly bigger
           ent.object.updateWorldMatrix(true,true);
+          // --- END SCALING ---
+
+          const cutters = [];
           ent.object.traverse(o=>{ if(o.isMesh){ const w=o.clone(); w.applyMatrix4(ent.object.matrixWorld); cutters.push(w); }});
+
+          // --- RESET SCALE AFTER GETTING CUTTERS ---
+          ent.object.scale.copy(originalScale);
+          ent.object.updateWorldMatrix(true,true);
+           // --- END RESET ---
+
           await subtractCSGInPlace(targetMesh, cutters);
           alert('Window cut applied.');
         }catch(e){ console.error(e); __logErr('Cut failed: ' + e.message); alert('Cut failed: ' + e.message); }
@@ -575,11 +581,23 @@ register(
           const tgt = State.getEntity(targetId);
           if(!tgt) return alert('Target not found');
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
-          const cutters = [];
+
+          // --- ADD SCALING ---
+          const originalScale = ent.object.scale.clone();
+          ent.object.scale.multiplyScalar(1.001); // Slightly bigger
           ent.object.updateWorldMatrix(true,true);
+          // --- END SCALING ---
+
+          const cutters = [];
           ent.object.traverse(o=>{
             if(o.isMesh){ const w=o.clone(); w.applyMatrix4(ent.object.matrixWorld); cutters.push(w); }
           });
+
+          // --- RESET SCALE AFTER GETTING CUTTERS ---
+          ent.object.scale.copy(originalScale);
+          ent.object.updateWorldMatrix(true,true);
+          // --- END RESET ---
+
           await subtractCSGInPlace(targetMesh, cutters);
           alert('Double-door cut applied.');
         }catch(e){ console.error(e); __logErr('Cut failed: ' + e.message); alert('Cut failed: '+e.message); }
