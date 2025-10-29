@@ -156,18 +156,23 @@
         <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7v10l8 4M4 7l8 4"></path></svg>
         <span class="text-xs font-medium text-center">Tower Base (Solid)</span>
       </button>
+      <!-- Button to add Double Door -->
+      <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+        <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h2m8-16h2a2 2 0 012 2v12a2 2 0 01-2 2h-2M4 10h4m8 0h4M4 14h4m8 0h4M10 4v16m4-16v16"></path></svg>
+        <span class="text-xs font-medium text-center">Double Door</span>
+      </button>
     </div>
     <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
   <!-- Properties Panel -->
-  <div id="props-panel" class="ui-panel bottom-0 left-0 right-0 h-[50vh] max-h-[50vh] p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
+  <div id="props-panel" class="ui-panel bottom-0 left-0 right-0 h-[45vh] max-h-[45vh] p-4 transform translate-y-full opacity-0" style="visibility:hidden; z-index: 15;">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-bold">Properties</h3>
       <button id="close-props-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
     </div>
     <!-- Sliders will be dynamically injected here -->
-    <div id="props-content" class="space-y-4 overflow-y-auto max-h-[75vh] pr-2">
+    <div id="props-content" class="space-y-4 overflow-y-auto max-h-[calc(45vh-4rem)] pr-2">
       <!-- Example: <p>Select an object to edit.</p> -->
     </div>
   </div>
