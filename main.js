@@ -3,24 +3,22 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { BendModifier } from 'three/addons/modifiers/BendModifier.js';
 
 // --- Import our custom Assets ---
 import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
-import Window from './window.js';
+import WindowAsset from './window.js';   // rename to avoid global Window confusion
 import Floor from './floor.js';
 
 // --- Global Variables ---
 let scene, camera, renderer, orbitControls, transformControls;
 let raycaster, touchStartPos, currentSelection;
-let allModels = []; // Selectable root objects
+let allModels = [];
 
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
 let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, toolsBtn, gizmoText;
-// Scene UI
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Touch/Tap Controls
@@ -58,8 +56,8 @@ function init() {
   addTowerDoorBtn = document.getElementById('add-tower-door-btn');
   addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
   addDoubleDoorBtn= document.getElementById('add-double-door-btn');
-  addWindowBtn = document.getElementById('add-window-btn');
-  addFloorBtn = document.getElementById('add-floor-btn');
+  addWindowBtn    = document.getElementById('add-window-btn');
+  addFloorBtn     = document.getElementById('add-floor-btn');
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
@@ -77,9 +75,9 @@ function init() {
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
-  // Environment
+  // Environment (pass renderer for r180)
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const envTex = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
   scene.environment = envTex;
 
   // Camera
@@ -348,7 +346,7 @@ function initUI() {
       glassR: 0.8, glassG: 0.8, glassB: 1, glassOpacity: 0.3, glassRoughness: 0.1,
       curveRadius: 0, hasBolts: false, hasBars: false
     };
-    const win = new Window(params);
+    const win = new WindowAsset(params);
     win.position.y = params.height / 2;
     assignDefaultName(win);
     scene.add(win);
@@ -390,16 +388,11 @@ function duplicateModel(src) {
   const type = src.userData?.type || 'Object';
   const params = { ...(src.userData?.params || {}) };
 
-  if (type === 'TowerBase') {
-    copy = new TowerBase(params);
-  } else if (type === 'DoubleDoor') {
-    copy = new DoubleDoor(params);
-  } else if (type === 'Window') {
-    copy = new Window(params);
-  } else if (type === 'Floor') {
-    copy = new Floor(params);
-  } else {
-    // Fallback: deep clone (not preferred for custom classes)
+  if (type === 'TowerBase')       copy = new TowerBase(params);
+  else if (type === 'DoubleDoor') copy = new DoubleDoor(params);
+  else if (type === 'Window')     copy = new WindowAsset(params);
+  else if (type === 'Floor')      copy = new Floor(params);
+  else {
     copy = src.clone(true);
     copy.userData = { ...src.userData };
   }
@@ -424,16 +417,13 @@ function deleteModel(obj) {
 
   if (currentSelection === obj) deselectAll();
 
-  // Prefer class dispose, then safety cleanup
-  if (typeof obj.dispose === 'function') {
-    obj.dispose();
-  }
+  if (typeof obj.dispose === 'function') obj.dispose();
   obj.traverse((n) => {
     if (n.isMesh) {
-      if (n.geometry && typeof n.geometry.dispose === 'function') n.geometry.dispose();
+      if (n.geometry?.dispose) n.geometry.dispose();
       const m = n.material;
-      if (Array.isArray(m)) m.forEach((mm) => mm && mm.dispose && mm.dispose());
-      else if (m && typeof m.dispose === 'function') m.dispose();
+      if (Array.isArray(m)) m.forEach((mm) => mm?.dispose && mm.dispose());
+      else if (m?.dispose) m.dispose();
     }
   });
 
@@ -457,20 +447,14 @@ function refreshSceneList() {
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-md px-3 py-2';
 
-    // Left: name button (select)
     const nameBtn = document.createElement('button');
     nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform';
     nameBtn.textContent = name;
-    nameBtn.addEventListener('click', () => {
-      selectObject(obj);
-      hidePanel(scenePanel);
-    });
+    nameBtn.addEventListener('click', () => { selectObject(obj); hidePanel(scenePanel); });
 
-    // Right: action buttons container
     const actions = document.createElement('div');
     actions.className = 'flex items-center gap-2';
 
-    // Duplicate button (two-squares icon)
     const dupBtn = document.createElement('button');
     dupBtn.className = 'p-2 rounded-md bg-gray-800 hover:bg-gray-900 active:scale-95 transition-transform';
     dupBtn.title = 'Duplicate';
@@ -480,12 +464,8 @@ function refreshSceneList() {
         <rect x="9" y="9" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect>
         <rect x="5" y="5" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect>
       </svg>`;
-    dupBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      duplicateModel(obj);
-    });
+    dupBtn.addEventListener('click', (e) => { e.stopPropagation(); duplicateModel(obj); });
 
-    // Delete button (bin/trash icon)
     const delBtn = document.createElement('button');
     delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-95 transition-transform';
     delBtn.title = 'Delete';
@@ -497,17 +477,13 @@ function refreshSceneList() {
         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path>
         <path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path>
       </svg>`;
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteModel(obj);
-    });
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(obj); });
 
     actions.appendChild(dupBtn);
     actions.appendChild(delBtn);
 
     row.appendChild(nameBtn);
     row.appendChild(actions);
-
     sceneList.appendChild(row);
   });
 }
@@ -588,9 +564,9 @@ function updatePropsPanel(object) {
       totalWidth:       { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
       depth:            { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
       frameThickness:   { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
-      cornerRadius:     { min: 0,   max: Window.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerRadius:     { min: 0,   max: WindowAsset.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
       cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-      edgeRoundness:    { min: 0,   max: Window.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeRoundness:    { min: 0,   max: WindowAsset.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
       edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
       curveRadius:      { min: 0,   max: 20, step: 0.1, label: 'Curve Radius' },
       hasBolts:         { type: 'checkbox', label: 'Has Bolts' },
@@ -615,7 +591,7 @@ function updatePropsPanel(object) {
     return;
   }
 
-  // Sliders or checkboxes
+  // Sliders / checkboxes
   for (const key in paramConfig) {
     const cfg = paramConfig[key];
 
@@ -635,7 +611,7 @@ function updatePropsPanel(object) {
       : type === 'DoubleDoor'
       ? DoubleDoor.getMaxCornerRadius(p)
       : type === 'Window'
-      ? Window.getMaxCornerRadius(p)
+      ? WindowAsset.getMaxCornerRadius(p)
       : cfg.max;
 
     if (key === 'edgeRoundness') cfg.max = type === 'TowerBase'
@@ -643,7 +619,7 @@ function updatePropsPanel(object) {
       : type === 'DoubleDoor'
       ? DoubleDoor.getMaxEdgeRoundness(p)
       : type === 'Window'
-      ? Window.getMaxEdgeRoundness(p)
+      ? WindowAsset.getMaxEdgeRoundness(p)
       : cfg.max;
 
     if (key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
@@ -676,13 +652,10 @@ function updatePropsPanel(object) {
         // Corner Radius
         const crSlider = document.getElementById('cornerRadius-slider');
         if (crSlider) {
-          const maxCR = (object.userData.type === 'TowerBase')
-            ? TowerBase.getMaxCornerRadius(next)
-            : (object.userData.type === 'DoubleDoor')
-            ? DoubleDoor.getMaxCornerRadius(next)
-            : (object.userData.type === 'Window')
-            ? Window.getMaxCornerRadius(next)
-            : maxCR;
+          let maxCR = cfg.max;
+          if (object.userData.type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
+          else if (object.userData.type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
+          else if (object.userData.type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
           crSlider.max = maxCR;
           if (next.cornerRadius > maxCR) {
             next.cornerRadius = maxCR;
@@ -694,13 +667,10 @@ function updatePropsPanel(object) {
         // Edge Roundness
         const erSlider = document.getElementById('edgeRoundness-slider');
         if (erSlider) {
-          const maxER = (object.userData.type === 'TowerBase')
-            ? TowerBase.getMaxEdgeRoundness(next)
-            : (object.userData.type === 'DoubleDoor')
-            ? DoubleDoor.getMaxEdgeRoundness(next)
-            : (object.userData.type === 'Window')
-            ? Window.getMaxEdgeRoundness(next)
-            : maxER;
+          let maxER = cfg.max;
+          if (object.userData.type === 'TowerBase')      maxER = TowerBase.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
           erSlider.max = maxER;
           if (next.edgeRoundness > maxER) {
             next.edgeRoundness = maxER;
@@ -730,7 +700,7 @@ function updatePropsPanel(object) {
     });
   });
 
-  // Checkbox events for toggles
+  // Checkbox events
   propsContent.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
     checkbox.addEventListener('change', () => {
       const key = checkbox.dataset.param;
@@ -745,3 +715,17 @@ function updatePropsPanel(object) {
 // Start
 // -----------------------------
 window.addEventListener('DOMContentLoaded', init);
+
+// Optional: show runtime errors in the toast so you’re never “stuck” silently
+window.addEventListener('error', (e) => {
+  const msg = e?.error?.message || e.message || 'Unknown error';
+  const box = document.getElementById('message-box');
+  if (box) {
+    document.getElementById('message-text').textContent = msg;
+    box.classList.add('show');
+    setTimeout(() => box.classList.remove('show'), 3500);
+  }
+  // ensure loading screen goes away even on error
+  const ls = document.getElementById('loading-screen');
+  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+});
