@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler — Tower Base (ESM)</title>
+  <title>Mobile 3D Modeler — Tower Base (Fixed)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -55,11 +55,10 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+  
+  <script src="./csg-lib.js"></script>
 
-  <script type="module">
-    // ---------- IMPORTED CSG MODULE ----------
-    import * as CSG from './index.module.js';
-
+  <script>
     // ---------- Globals ----------
     let scene, camera, renderer, orbitControls, transformControls;
     let raycaster, touchStartPos, currentSelection, allModels;
@@ -273,6 +272,13 @@
       return Math.max(eps, p.height - eps);
     }
 
+    // ⚠️ FIXED: This function will find the 'threecsg' variable loaded by csg-lib.js
+    function getCSG(){
+      const ns = window.threecsg || window.CSG || window.__THREE_CSG_MESH__ || window['three-csgmesh'];
+      return ns && (ns.fromMesh && ns.toMesh && ns.subtract ? ns :
+                    ns.CSG && ns.CSG.fromMesh ? ns.CSG : null);
+    }
+
     // ---------- Unified model (Tower Base) ----------
     class TowerBase extends THREE.Group{
       constructor(params){
@@ -326,6 +332,13 @@
         doorMesh.position.set(0, doorY, p.depth/2 + 0.25); // push slightly beyond front
 
         doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
+
+        // ⚠️ FIXED: Added back CSG check
+        const CSG = getCSG();
+        if(!CSG){
+          console.warn('CSG library not found (tried csg-lib.js); door cutout skipped.');
+          return shellMesh;
+        }
 
         try{
           const a = CSG.fromMesh(shellMesh);
@@ -434,11 +447,8 @@
     }
 
     // ---------- bootstrap ----------
-    // ⚠️ THIS IS THE FIX ⚠️
-    // We call init() directly. Module scripts are "deferred" by default,
-    // so the DOM is guaranteed to be ready when this code runs.
-    init();
-    // window.addEventListener('DOMContentLoaded', init); // <-- REMOVED
+    // ⚠️ FIXED: Added back DOMContentLoaded listener
+    window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
