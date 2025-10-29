@@ -46,12 +46,12 @@ function init() {
   // --- Renderer ---
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
   // --- Camera ---
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(50, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
   camera.position.set(15, 20, 25);
 
   // --- Lights ---
@@ -96,7 +96,7 @@ function init() {
   touchStartPos = new THREE.Vector2();
 
   // --- Event Listeners ---
-  window.addEventListener('resize', onWindowResize);
+  window.addEventListener('resize', resizeRenderer);
   canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
   canvasContainer.addEventListener('touchend', onTouchEnd);
 
@@ -124,10 +124,11 @@ function animate() {
 // --- EVENT HANDLERS (Resize, Touch) ---
 // ----------------------------------------------------
 
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+function resizeRenderer() {
+  const container = canvasContainer;
+  camera.aspect = container.clientWidth / container.clientHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(container.clientWidth, container.clientHeight);
 }
 
 function onTouchStart(e) {
@@ -282,17 +283,27 @@ function initUI() {
 function showPanel(p) {
   p.style.visibility = 'visible';
   p.style.opacity = '1';
-  p.style.transform = p.id.includes('props') ? 'translateX(0)' : 'translateY(0) translate(-50%, 0)';
-  if (p.id.includes('add')) {
-     p.style.transform = 'translateY(0)';
+  if (p.id === 'props-panel') {
+    canvasContainer.style.height = '50vh';
+    p.style.transform = 'translateY(0)';
+    p.style.borderTopLeftRadius = '12px';
+    p.style.borderTopRightRadius = '12px';
+    p.style.borderBottomLeftRadius = '0';
+    p.style.borderBottomRightRadius = '0';
+    setTimeout(resizeRenderer, 300); // After transition
+  } else {
+    p.style.transform = 'translateY(0)';
   }
 }
 
 function hidePanel(p) {
   p.style.opacity = '0';
-  p.style.transform = p.id.includes('props') ? 'translateX(100%)' : 'translateY(100%)';
-  if (p.id.includes('add')) {
-     p.style.transform = 'translateY(100%)';
+  if (p.id === 'props-panel') {
+    canvasContainer.style.height = '100vh';
+    p.style.transform = 'translateY(100%)';
+    setTimeout(resizeRenderer, 300); // After transition
+  } else {
+    p.style.transform = 'translateY(100%)';
   }
   setTimeout(() => p.style.visibility = 'hidden', 300);
 }
