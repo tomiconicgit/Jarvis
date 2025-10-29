@@ -48,7 +48,25 @@ function superellipsePoint(a,b,n,t){
     b * Math.sign(s) * Math.pow(Math.abs(s), m)
   );
 }
-export function firstMeshIn(object3d) { let m=null; object3d.traverse(o=>{ if(!m && o.isMesh) m=o; }); return m; }
+
+// --- MODIFIED: firstMeshIn ---
+// Prefer finding a mesh named 'outerShell', otherwise fall back to the first mesh found.
+export function firstMeshIn(object3d) {
+  let namedMesh = null;
+  let firstMesh = null;
+  object3d.traverse(o => {
+      if (o.isMesh) {
+          if (!firstMesh) firstMesh = o; // Track the first one found
+          if (o.name === 'outerShell') {
+              namedMesh = o; // Found the preferred one
+          }
+      }
+  });
+  console.log('Target Mesh:', namedMesh || firstMesh); // Log which mesh we're returning
+  return namedMesh || firstMesh; // Return the named one if found, else the first
+}
+// --- END MODIFIED ---
+
 function cylBetween(a,b,r,mat){
   const dir=b.clone().sub(a); const len=dir.length()||1; const geo=new THREE.CylinderGeometry(r,r,len,16);
   const m=new THREE.Mesh(geo, mat||metalMat); const up=new THREE.Vector3(0,1,0);
@@ -60,39 +78,77 @@ function cylBetween(a,b,r,mat){
 
 // Removed loadCSGModule
 
+// --- MODIFIED: Added Logging ---
 async function subtractCSGInPlace(targetMesh, cutters /* array of Mesh */) {
+  console.log(`Starting CSG: Target Mesh ID ${targetMesh.uuid}, Cutters: ${cutters.length}`);
   // BVH-CSG path - Use imports from top of file
-  try { // Add try...catch for better error reporting during CSG
-      for (const cutter of cutters) {
+  try {
+      for (let i = 0; i < cutters.length; i++) {
+        const cutter = cutters[i];
+        console.log(`Processing Cutter ${i+1}/${cutters.length}, ID ${cutter.uuid}`);
+
         targetMesh.updateWorldMatrix(true, true);
-        cutter.updateWorldMatrix(true, true);
+        cutter.updateWorldMatrix(true, true); // Cutter matrix comes from world transform
+
+        // --- Log Input Geometries ---
+        console.log("Target Geometry Vertices:", targetMesh.geometry.attributes.position.count);
+        console.log("Cutter Geometry Vertices:", cutter.geometry.attributes.position.count);
+        if (!targetMesh.geometry.index) console.warn("Target mesh has no index!");
+        if (!cutter.geometry.index) console.warn("Cutter mesh has no index!"); // Cutters SHOULD have index from ExtrudeGeometry
+        // --- End Log ---
+
         const a = new Brush(targetMesh.geometry, targetMesh.matrixWorld);
-        const b = new Brush(cutter.geometry, cutter.matrixWorld);
+        const b = new Brush(cutter.geometry, cutter.matrixWorld); // Use cutter's world matrix
         const evaluator = new Evaluator();
-        // Use SUBTRACTION directly
+
+        console.log("Evaluating CSG SUBTRACTION...");
         const result = evaluator.evaluate(a, b, SUBTRACTION);
+        console.log("CSG Evaluation Complete.");
 
         if (!result || !result.geometry) {
-            console.error("CSG operation resulted in null geometry. Target:", targetMesh, "Cutter:", cutter);
+            console.error("CSG operation resulted in null or invalid geometry. Target:", targetMesh, "Cutter:", cutter);
             throw new Error('CSG operation returned no geometry');
         }
 
         const newGeom = result.geometry;
+        console.log('CSG Result Geometry:', newGeom);
+        if (newGeom && newGeom.attributes.position) {
+            console.log('Result Vertex Count:', newGeom.attributes.position.count);
+            newGeom.computeBoundingBox();
+            console.log('Result Bounding Box:', newGeom.boundingBox);
+        } else {
+            console.error('CSG returned invalid geometry object!');
+            throw new Error('CSG returned invalid geometry object');
+        }
+
+        // --- Log before replacing geometry ---
+        const oldVertexCount = targetMesh.geometry.attributes.position.count;
+        console.log(`Replacing target geometry (Old vertices: ${oldVertexCount}, New vertices: ${newGeom.attributes.position.count})`);
+        // --- End Log ---
+
         targetMesh.geometry.dispose(); // Dispose old geometry
         targetMesh.geometry = newGeom;
+        console.log("Assigning new geometry successful.");
+
         targetMesh.geometry.computeVertexNormals(); // Recompute normals
+        console.log("Normals recomputed.");
 
         // Apply inverse world matrix to bring geometry back to object local space
         const inv = new THREE.Matrix4().copy(targetMesh.matrixWorld).invert();
         targetMesh.geometry.applyMatrix4(inv);
-        targetMesh.matrixWorldNeedsUpdate = true;
+        console.log("Inverse matrix applied.");
+
+        targetMesh.matrixWorldNeedsUpdate = true; // Flag world matrix as needing update
+        console.log(`Finished processing Cutter ${i+1}`);
       }
+      console.log("All cutters processed.");
   } catch(e) {
       console.error("Error during CSG subtraction:", e);
       __logErr("CSG Subtraction Error: " + e.message);
       throw e; // Re-throw the error to be caught by the caller
   }
 }
+// --- END MODIFIED ---
 
 /* ---------- Registry (plugins) ---------- */
 export const Registry = new Map();
@@ -171,11 +227,11 @@ export function buildInspectorUI(rootEl, type, values, onChange, onAction, state
   }
 }
 
+
 /* ================================================================================
 COMPONENT DEFINITIONS
 ================================================================================
 */
-// ... (Tower Base, Neck, Roof, Spire, Top Floor, Piping definitions remain unchanged) ...
 
 /* Tower Base */
 register(
@@ -232,12 +288,16 @@ register(
     const g=new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts),3));
     g.setIndex(idx); g.computeVertexNormals(); addCylUV(g);
-    const m=new THREE.Mesh(g, metalMat); m.name='solid';
+    const m=new THREE.Mesh(g, metalMat);
+    // --- ADDED NAME ---
+    m.name = 'outerShell'; // Give the main mesh a specific name
+    // --- END ADDED ---
     return m;
   }
 );
 
 /* Tower Neck (reuses base builder, offset Y) */
+// This will inherit the 'outerShell' name from the base builder
 register(
   'tower.neck','Tower Neck',
   {
@@ -435,14 +495,19 @@ register(
 register(
   'window.cut','Window Cutout',
   {
-    target:{type:'entity', label:'Target', whereType:['tower.base','tower.neck','roof','top.floor','bridge.tunnel']},
+    // *** MODIFIED: Added shape types to whereType ***
+    target:{type:'entity', label:'Target', whereType:[
+        'tower.base','tower.neck','roof','top.floor','bridge.tunnel', // Original
+        'shape.box', 'shape.sphere', 'shape.cylinder', 'shape.torus' // Added Primitives (Plane excluded)
+    ]},
+    // *** END MODIFIED ***
     width:{type:'range',label:'Width',min:0.5,max:16,step:0.1,default:6},
     height:{type:'range',label:'Height',min:0.5,max:16,step:0.1,default:3},
     depth:{type:'range',label:'Cut Depth',min:0.1,max:4,step:0.05,default:1.2},
     radius:{type:'range',label:'Corner Radius',min:0,max:1.5,step:0.05,default:0.3},
     APPLY:{type:'button',text:'Apply Cut'}
   },
-  (p)=>{
+  (p)=>{ // Builder function remains the same
     const grp=new THREE.Group(); grp.name='cutter.window';
     const cutG = new THREE.ExtrudeGeometry(roundedRectShape(p.width, p.height, p.radius), { depth: p.depth, bevelEnabled: false });
     addPlanarUV(cutG,'xy');
@@ -451,7 +516,7 @@ register(
     grp.add(cutter);
     return grp;
   },
-  [
+  [ // Action remains the same (with scaling fix)
     {
       key:'APPLY',
       run: async (ent, State)=>{
@@ -461,19 +526,15 @@ register(
           if(!tgt) return alert('Target not found');
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
 
-          // --- ADD SCALING ---
           const originalScale = ent.object.scale.clone();
           ent.object.scale.multiplyScalar(1.001); // Slightly bigger
           ent.object.updateWorldMatrix(true,true);
-          // --- END SCALING ---
 
           const cutters = [];
           ent.object.traverse(o=>{ if(o.isMesh){ const w=o.clone(); w.applyMatrix4(ent.object.matrixWorld); cutters.push(w); }});
 
-          // --- RESET SCALE AFTER GETTING CUTTERS ---
-          ent.object.scale.copy(originalScale);
+          ent.object.scale.copy(originalScale); // Reset scale
           ent.object.updateWorldMatrix(true,true);
-           // --- END RESET ---
 
           await subtractCSGInPlace(targetMesh, cutters);
           alert('Window cut applied.');
@@ -554,7 +615,12 @@ register(
 register(
   'cut.double','Cut: Double Doors',
   {
-    target:{type:'entity', label:'Target', whereType:['tower.base','tower.neck','roof','top.floor','bridge.tunnel']},
+    // *** MODIFIED: Added shape types to whereType ***
+    target:{type:'entity', label:'Target', whereType:[
+        'tower.base','tower.neck','roof','top.floor','bridge.tunnel', // Original
+        'shape.box', 'shape.sphere', 'shape.cylinder', 'shape.torus' // Added Primitives (Plane excluded)
+    ]},
+    // *** END MODIFIED ***
     width:{type:'range',label:'Opening Width',min:2,max:16,step:0.1,default:6},
     height:{type:'range',label:'Opening Height',min:1.5,max:12,step:0.1,default:3},
     gap:{type:'range',label:'Center Gap',min:0,max:0.5,step:0.01,default:0.06},
@@ -562,7 +628,7 @@ register(
     radius:{type:'range',label:'Corner Radius',min:0,max:0.6,step:0.02,default:0.12},
     APPLY:{type:'button',text:'Apply Cut'}
   },
-  (p)=>{
+  (p)=>{ // Builder function remains the same
     const cutterGroup = new THREE.Group(); cutterGroup.name='cutter.double';
     const leafW = (p.width - p.gap) / 2;
     const mkCut = ()=> new THREE.Mesh(new THREE.ExtrudeGeometry(roundedRectShape(leafW, p.height, p.radius), {depth:p.depth, bevelEnabled:false}), metalMat);
@@ -572,7 +638,7 @@ register(
     cutterGroup.add(left,right);
     return cutterGroup;
   },
-  [
+  [ // Action remains the same (with scaling fix)
     {
       key:'APPLY',
       run: async (ent, State)=>{
@@ -582,21 +648,17 @@ register(
           if(!tgt) return alert('Target not found');
           const targetMesh = firstMeshIn(tgt.object); if(!targetMesh) return alert('No mesh on target');
 
-          // --- ADD SCALING ---
           const originalScale = ent.object.scale.clone();
           ent.object.scale.multiplyScalar(1.001); // Slightly bigger
           ent.object.updateWorldMatrix(true,true);
-          // --- END SCALING ---
 
           const cutters = [];
           ent.object.traverse(o=>{
             if(o.isMesh){ const w=o.clone(); w.applyMatrix4(ent.object.matrixWorld); cutters.push(w); }
           });
 
-          // --- RESET SCALE AFTER GETTING CUTTERS ---
-          ent.object.scale.copy(originalScale);
+          ent.object.scale.copy(originalScale); // Reset scale
           ent.object.updateWorldMatrix(true,true);
-          // --- END RESET ---
 
           await subtractCSGInPlace(targetMesh, cutters);
           alert('Double-door cut applied.');
