@@ -21,57 +21,49 @@ function unifiedShellGeometry(p, forceNoBevel=false){
   const cornerRadius = Math.min(Math.max(0, p.cornerRadius||0), maxCorner);
 
   const innerW = Math.max(eps, p.width - 2*p.wallThickness);
-  const innerD = Math.max(eps, p.depth - 2*p.wallThickness);
-  const innerR = Math.max(0, cornerRadius - p.wallThickness);
-
-  const hasDoor = p.doorWidth > 0;
+  const innerD = max(eps, p.depth - 2*p.wallThickness);
+  const innerR = max(0, cornerRadius - p.wallThickness);
 
   const shape = new THREE.Shape();
 
-  if(!hasDoor){
-    shape.add(roundedRectPath(p.width, p.depth, cornerRadius));
-    const inner = roundedRectPath(innerW, innerD, innerR);
-    shape.holes.push(inner);
-  } else {
-    const hw = p.width / 2;
-    const hd = p.depth / 2;
-    const rr = cornerRadius;
-    const ihw = innerW / 2;
-    const ihd = innerD / 2;
-    const ir = innerR;
-    const doorW = Math.min(p.doorWidth, maxDoorWidth(p));
-    const doorLeftX = -doorW / 2;
-    const doorRightX = doorW / 2;
+  const hw = p.width / 2;
+  const hd = p.depth / 2;
+  const rr = cornerRadius;
+  const ihw = innerW / 2;
+  const ihd = innerD / 2;
+  const ir = innerR;
+  const doorW = maxDoorWidth(p);
+  const doorLeftX = -doorW / 2;
+  const doorRightX = doorW / 2;
 
-    // Outer partial CCW from doorLeft outer to doorRight outer the long way
-    shape.moveTo(doorLeftX, hd);
-    shape.lineTo(-hw + rr, hd);
-    shape.absarc(-hw + rr, hd - rr, rr, Math.PI / 2, Math.PI, false);
-    shape.lineTo(-hw, -hd + rr);
-    shape.absarc(-hw + rr, -hd + rr, rr, Math.PI, 3 * Math.PI / 2, false);
-    shape.lineTo(hw - rr, -hd);
-    shape.absarc(hw - rr, -hd + rr, rr, -Math.PI / 2, 0, false);
-    shape.lineTo(hw, hd - rr);
-    shape.absarc(hw - rr, hd - rr, rr, 0, Math.PI / 2, false);
-    shape.lineTo(doorRightX, hd);
+  // Outer partial CCW from doorLeft outer to doorRight outer the long way
+  shape.moveTo(doorLeftX, hd);
+  shape.lineTo(-hw + rr, hd);
+  shape.absarc(-hw + rr, hd - rr, rr, Math.PI / 2, Math.PI, false);
+  shape.lineTo(-hw, -hd + rr);
+  shape.absarc(-hw + rr, -hd + rr, rr, Math.PI, 3 * Math.PI / 2, false);
+  shape.lineTo(hw - rr, -hd);
+  shape.absarc(hw - rr, -hd + rr, rr, -Math.PI / 2, 0, false);
+  shape.lineTo(hw, hd - rr);
+  shape.absarc(hw - rr, hd - rr, rr, 0, Math.PI / 2, false);
+  shape.lineTo(doorRightX, hd);
 
-    // Connect to inner right
-    shape.lineTo(doorRightX, ihd);
+  // Connect to inner right
+  shape.lineTo(doorRightX, ihd);
 
-    // Inner partial CW from doorRight inner to doorLeft inner the long way
-    shape.lineTo(ihw - ir, ihd);
-    shape.absarc(ihw - ir, ihd - ir, ir, Math.PI / 2, 0, true);
-    shape.lineTo(ihw, -ihd + ir);
-    shape.absarc(ihw - ir, -ihd + ir, ir, 0, -Math.PI / 2, true);
-    shape.lineTo(-ihw + ir, -ihd);
-    shape.absarc(-ihw + ir, -ihd + ir, ir, 3 * Math.PI / 2, Math.PI, true);
-    shape.lineTo(-ihw, ihd - ir);
-    shape.absarc(-ihw + ir, ihd - ir, ir, Math.PI, Math.PI / 2, true);
-    shape.lineTo(doorLeftX, ihd);
+  // Inner partial CW from doorRight inner to doorLeft inner the long way
+  shape.lineTo(ihw - ir, ihd);
+  shape.absarc(ihw - ir, ihd - ir, ir, Math.PI / 2, 0, true);
+  shape.lineTo(ihw, -ihd + ir);
+  shape.absarc(ihw - ir, -ihd + ir, ir, 0, -Math.PI / 2, true);
+  shape.lineTo(-ihw + ir, -ihd);
+  shape.absarc(-ihw + ir, -ihd + ir, ir, 3 * Math.PI / 2, Math.PI, true);
+  shape.lineTo(-ihw, ihd - ir);
+  shape.absarc(-ihw + ir, ihd - ir, ir, Math.PI, Math.PI / 2, true);
+  shape.lineTo(doorLeftX, ihd);
 
-    // Connect back to start
-    shape.lineTo(doorLeftX, hd);
-  }
+  // Connect back to start
+  shape.lineTo(doorLeftX, hd);
 
   const bevelEnabled = !forceNoBevel && (p.edgeRoundness||0) > 0;
 
@@ -103,7 +95,6 @@ function clampEdgeRoundnessThickness(p){
   return Math.min(p.edgeRoundness||0, maxByH, maxByT);
 }
 
-// door safe limits
 function maxDoorWidth(p){
   const eps=0.05;
   const flat = Math.max(0, p.width - 2*p.cornerRadius);
@@ -127,7 +118,6 @@ class TowerBase extends THREE.Group{
 
     const p = this.userData.params;
 
-    // Try with fillets
     let shellGeo = unifiedShellGeometry(p, /*forceNoBevel*/ false);
     const resultMesh = new THREE.Mesh(shellGeo, this.material);
 
@@ -139,9 +129,6 @@ class TowerBase extends THREE.Group{
     next = {...next};
     const crMax = Math.max(0, Math.min(next.width, next.depth)/2 - next.wallThickness - 0.01);
     if(next.cornerRadius > crMax) next.cornerRadius = crMax;
-
-    const dwMax = maxDoorWidth(next);
-    if(next.doorWidth  > dwMax) next.doorWidth  = dwMax;
 
     this.userData.params = next;
     this.build();
