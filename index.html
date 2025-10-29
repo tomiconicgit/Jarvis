@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-t" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  
+
   <title>Iconic Editor â Rebuilt</title>
   <meta name="theme-color" content="#0a0a0a" />
 
@@ -15,7 +15,7 @@
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
       "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.4/build/index.module.js",
-      "@gkjohnson/three-bvh-csg": "./src/libs/three-bvh-csg.js" 
+      "@gkjohnson/three-bvh-csg": "./src/libs/three-bvh-csg.js"
     }
   }
   </script>
@@ -28,6 +28,7 @@
       --panel-w:340px;
       --radius-sm: 4px;
       --radius-md: 0px;
+      --safe-inset-bottom: env(safe-area-inset-bottom, 0px); /* Define variable */
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
@@ -36,7 +37,19 @@
     html,body,#viewport{overscroll-behavior:none}
     canvas{display:block;width:100%;height:100%;touch-action:none}
 
-    .app{position:fixed;inset:0;display:grid;grid-template-rows:48px 1fr;min-height:0}
+    /* --- MODIFIED --- */
+    .app{
+      position:fixed;
+      inset:0;
+      display:grid;
+      grid-template-rows:48px 1fr;
+      /* Use 100vh and ensure height calculation respects safe area */
+      height: 100vh;
+      height: calc(100vh - var(--safe-inset-bottom));
+      min-height:0; /* Keep this */
+    }
+    /* --- END MODIFIED --- */
+
     #toolbar{
       background:var(--toolbar);border-bottom:1px solid var(--panel-border);
       display:flex;align-items:center;gap:12px;padding:0 12px 0 16px;user-select:none
@@ -47,13 +60,27 @@
     }
     #toolbar .menu:hover{background:rgba(255,255,255,.08)}
 
-    #main{display:grid;grid-template-columns:1fr var(--panel-w);min-height:0}
+    /* --- MODIFIED --- */
+    #main{
+      display:grid;
+      grid-template-columns:1fr var(--panel-w);
+      min-height:0; /* Keep this */
+      /* Ensure the grid itself doesn't overflow */
+      overflow: hidden;
+    }
+    /* --- END MODIFIED --- */
+
     #viewport{position:relative;min-height:0}
+
+    /* --- MODIFIED --- */
     #panel{
       border-left:1px solid var(--panel-border);background:var(--panel);
       min-width:260px;display:flex;flex-direction:column;min-height:0;overflow:hidden;
+      /* Add padding at the bottom equal to the safe area inset */
+      padding-bottom: var(--safe-inset-bottom);
     }
-    
+    /* --- END MODIFIED --- */
+
     #panel-tabs{ display:flex; background:var(--bg); border-bottom:1px solid var(--panel-border); user-select:none; }
     .panel-tab{
       padding: 10px 16px; font-weight:600; cursor:pointer;
@@ -63,22 +90,31 @@
     .panel-tab:hover{ background:rgba(255,255,255,.03); }
 
     /* --- PANEL SCROLLING FIX --- */
-    .panel-pane{ 
-      display:none; 
-      flex:1; 
-      min-height:0; 
-      overflow-y:auto; /* Changed from 'auto' */
+    /* --- MODIFIED --- */
+    .panel-pane{
+      display:none;
+      flex:1;
+      min-height:0;
+      overflow-y:auto; /* Keep this */
       overflow-x:hidden;
-      padding:12px; 
+      padding:12px;
+      /* Padding *inside* the scrolling area */
+      /* Removed bottom padding here as it's now on #panel */
     }
+    /* --- END MODIFIED --- */
     .panel-pane.active{ display:block; }
-    
+
     @media (max-width:768px){
       :root{ --panel-w: auto; }
-      #main{ grid-template-columns:1fr; grid-template-rows:60vh 40vh; }
+      /* --- MODIFIED --- */
+      #main{
+        grid-template-columns:1fr; /* Change to single column */
+        grid-template-rows:minmax(0, 1fr) auto; /* Viewport takes available space, panel takes needed space */
+      }
+      /* --- END MODIFIED --- */
       #panel{border-left:none;border-top:1px solid var(--panel-border)}
     }
-    
+
     /* --- Component Styles (from Launch Tower) --- */
     .group{
       border:1px solid var(--panel-border);
@@ -91,7 +127,7 @@
       font-weight:600;text-transform:uppercase;
       letter-spacing:.5px;opacity:.7;
     }
-    
+
     .list{
       max-height:220px; overflow:auto;
       border:1px solid var(--panel-border);
@@ -100,11 +136,11 @@
     .item{padding:10px 12px;border-bottom:1px solid var(--panel-border);cursor:pointer; display:flex; justify-content:space-between; align-items:center;}
     .item:last-child{border-bottom:0}
     .item.active, .item:hover{background:rgba(77,163,255,.12)}
-    
+
     .row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;margin:10px 0}
     .row label{color:var(--muted);font-size:13px;white-space:nowrap;opacity:.9}
     .row output{min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
-    
+
     select, input[type="text"], input[type="range"], input[type="file"]{
       width:100%;background:var(--input-bg);border:1px solid var(--panel-border);
       border-radius:var(--radius-sm);
@@ -126,7 +162,7 @@
     }
 
     input[type="range"]{ padding: 0; accent-color: var(--accent); }
-    
+
     button{
       appearance:none; width: 100%;
       background:var(--input-bg);
@@ -140,7 +176,7 @@
     }
     .btnbar{ display:flex; gap:8px; }
     .btnbar button{ width: auto; flex: 1; }
-    
+
     button:hover{ border-color:var(--accent); }
     button.primary{
       background:var(--accent);
@@ -149,7 +185,7 @@
     }
     button.primary:hover{ background: #6ab0ff; border-color: #6ab0ff; }
     small.note{display:block;color:var(--muted);margin-top:6px; font-size: 12px;}
-    
+
     /* --- HUD (from Launch Tower) --- */
     .hud{position:absolute;left:10px;top:10px;z-index:3;pointer-events:none;font-size:12px;color:#cfd6e6;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12)}
 
@@ -166,7 +202,7 @@
     }
     .row input[type="number"]::-webkit-outer-spin-button,
     .row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    
+
     .row.slider {
         grid-template-columns: 100px 1fr 70px; /* Label, Slider, Number */
         gap: 8px;
@@ -180,7 +216,8 @@
     .zoom-slider {
       position: absolute;
       left: 10px;
-      bottom: 10px;
+      bottom: 10px; /* Adjusted if safe-area padding is used on viewport */
+      bottom: calc(10px + var(--safe-inset-bottom));
       width: 200px;
       z-index: 10;
       accent-color: var(--accent);
