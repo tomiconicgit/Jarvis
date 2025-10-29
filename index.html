@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler — Tower Base (Unified + Door)</title>
+  <title>Mobile 3D Modeler — Tower Base (ESM)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -55,9 +55,10 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-  <script src="https://unpkg.com/three-csgmesh@1.0.6/build/three-csgmesh.umd.js"></script>
+  <script type="module">
+    // ---------- ⚠️ IMPORTED CSG MODULE ⚠️ ----------
+    import * as CSG from './index.module.js';
 
-  <script>
     // ---------- Globals ----------
     let scene, camera, renderer, orbitControls, transformControls;
     let raycaster, touchStartPos, currentSelection, allModels;
@@ -271,12 +272,8 @@
       return Math.max(eps, p.height - eps);
     }
 
-    // Resolve CSG namespace (UMD)
-    function getCSG(){
-      const ns = window.threecsg || window.CSG || window.__THREE_CSG_MESH__ || window['three-csgmesh'];
-      return ns && (ns.fromMesh && ns.toMesh && ns.subtract ? ns :
-                    ns.CSG && ns.CSG.fromMesh ? ns.CSG : null);
-    }
+    // ---------- ⚠️ REMOVED getCSG() FUNCTION ⚠️ ----------
+    // No longer needed, as we import CSG directly.
 
     // ---------- Unified model (Tower Base) ----------
     class TowerBase extends THREE.Group{
@@ -325,20 +322,15 @@
         const doorMesh = new THREE.Mesh(doorGeo);
         doorMesh.geometry = doorMesh.geometry.toNonIndexed();
         
-        // ---------- ⚠️ THIS IS THE FIX ⚠️ ----------
         // The shell geometry is centered at y=0, so its bottom is at -p.height/2
         // The door's center Y should be at the bottom + half the door height.
         const doorY = -p.height/2 + doorH/2;
         doorMesh.position.set(0, doorY, p.depth/2 + 0.25); // push slightly beyond front
-        // ---------------------------------------------
 
         doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
 
-        const CSG = getCSG();
-        if(!CSG){
-          console.warn('three-csgmesh not found; door cutout skipped.');
-          return shellMesh;
-        }
+        // ---------- ⚠️ REMOVED CSG CHECK ⚠️ ----------
+        // We now use the imported 'CSG' module directly inside the try block.
 
         try{
           const a = CSG.fromMesh(shellMesh);
