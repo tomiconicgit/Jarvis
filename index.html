@@ -55,7 +55,8 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-  <script src="https://unpkg.com/three-csgmesh@1.0.6/build/three-csgmesh.umd.js"></script>
+  
+  <script src="three-csgmesh.umd.js"></script>
 
   <script>
     // ---------- Globals ----------
@@ -328,7 +329,8 @@
         // ---------- ⚠️ THIS IS THE FIX ⚠️ ----------
         // The shell geometry is centered at y=0, so its bottom is at -p.height/2
         // The door's center Y should be at the bottom + half the door height.
-        const doorY = -p.height/2 + doorH/2;
+        // We add a tiny epsilon (0.01) to prevent co-planar faces, which makes the CSG stable.
+        const doorY = -p.height/2 + doorH/2 + 0.01; // Added + 0.01 epsilon
         doorMesh.position.set(0, doorY, p.depth/2 + 0.25); // push slightly beyond front
         // ---------------------------------------------
 
