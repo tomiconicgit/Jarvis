@@ -55,7 +55,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-  
+
   <script src="./csg-lib.js"></script>
 
   <script>
@@ -272,7 +272,7 @@
       return Math.max(eps, p.height - eps);
     }
 
-    // ⚠️ FIXED: This function will find the 'threecsg' variable loaded by csg-lib.js
+    // This function will find the 'threecsg' variable loaded by csg-lib.js
     function getCSG(){
       const ns = window.threecsg || window.CSG || window.__THREE_CSG_MESH__ || window['three-csgmesh'];
       return ns && (ns.fromMesh && ns.toMesh && ns.subtract ? ns :
@@ -315,7 +315,7 @@
 
       tryDoorCut(shellGeo, p){
         const shellMesh = new THREE.Mesh(shellGeo, this.material);
-        shellMesh.geometry = shellMesh.geometry.toNonIndexed();
+        // shellMesh.geometry = shellMesh.geometry.toNonIndexed(); // TEMP DISABLED
         shellMesh.updateMatrix(); shellMesh.updateMatrixWorld(true);
 
         // Door cutter — over-penetrate to guarantee subtraction on mobile/Safari
@@ -324,8 +324,8 @@
         const doorH = Math.min(p.doorHeight || 3, maxDoorHeight(p));
         const doorGeo = new THREE.BoxGeometry(doorW, doorH, cutDepth);
         const doorMesh = new THREE.Mesh(doorGeo);
-        doorMesh.geometry = doorMesh.geometry.toNonIndexed();
-        
+        // doorMesh.geometry = doorMesh.geometry.toNonIndexed(); // TEMP DISABLED
+
         // The shell geometry is centered at y=0, so its bottom is at -p.height/2
         // The door's center Y should be at the bottom + half the door height.
         const doorY = -p.height/2 + doorH/2;
@@ -333,7 +333,7 @@
 
         doorMesh.updateMatrix(); doorMesh.updateMatrixWorld(true);
 
-        // ⚠️ FIXED: Added back CSG check
+        // Added back CSG check
         const CSG = getCSG();
         if(!CSG){
           console.warn('CSG library not found (tried csg-lib.js); door cutout skipped.');
@@ -447,7 +447,7 @@
     }
 
     // ---------- bootstrap ----------
-    // ⚠️ FIXED: Added back DOMContentLoaded listener
+    // Added back DOMContentLoaded listener
     window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
