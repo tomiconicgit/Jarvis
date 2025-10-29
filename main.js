@@ -73,12 +73,12 @@ function init() {
   scene.add(ground);
 
   // --- Controls ---
-  orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+  orbitControls = new OrbitControls(camera, renderer.domElement);
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.1;
   orbitControls.enablePan = true;
 
-  transformControls = new THREE.TransformControls(camera, renderer.domElement);
+  transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode("translate");
   transformControls.addEventListener('dragging-changed', e => {
     orbitControls.enabled = !e.value;
@@ -89,7 +89,7 @@ function init() {
       updatePropsPanel(currentSelection);
     }
   });
-  scene.add(transformControls);
+  scene.add(transformControls.getHelper());
 
   // --- Raycasting & Touch ---
   raycaster = new THREE.Raycaster();
@@ -422,5 +422,3 @@ function updatePropsPanel(object) {
 
 // --- Start the application ---
 window.addEventListener('DOMContentLoaded', init);
-
-
