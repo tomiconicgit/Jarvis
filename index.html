@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mobile 3D Modeler — Tower Base (CSG Build Fix)</title>
+  <title>Mobile 3D Modeler â Tower Base (CSG Build Fix)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html,body{margin:0;padding:0;overflow:hidden;height:100%;width:100%;background:#111;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
@@ -202,7 +202,7 @@
 
     // ---------- Geometry helpers ----------
     // Creates a rounded box geometry
-    // ⚠️ FIXED TYPO HERE ⚠️
+    // â ï¸ FIXED TYPO HERE â ï¸
     function createRoundedBox(width, height, depth, radiusParam, smoothness) { // Renamed parameter
       const shape = new THREE.Shape();
       const eps = 0.00001;
@@ -223,13 +223,12 @@
       const extrudeSettings = {
         depth: height,
         bevelEnabled: false, // Keep it simple for CSG
-        curveSegments: Math.max(1, Math.floor(smoothness / 4)) || 8 // Use fewer segments for extrusion
+        curveSegments: smoothness || 8 // Use fewer segments for extrusion
       };
 
       const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
       geo.translate(0, 0, -height / 2); // Center Z
       geo.rotateX(-Math.PI / 2);      // Make Y up
-      geo.computeVertexNormals();
       return geo;
     }
 
@@ -294,7 +293,7 @@
           const innerW = Math.max(0.1, p.width - 2 * p.wallThickness);
           const innerD = Math.max(0.1, p.depth - 2 * p.wallThickness);
           const innerH = p.height; // Use full height to ensure clean top/bottom
-          const innerRadius = Math.max(0.01, outerRadius - p.wallThickness); // Use outerRadius as base
+          const innerRadius = Math.max(0, outerRadius - p.wallThickness); // Use outerRadius as base
           const innerGeo = createRoundedBox(innerW, innerH, innerD, innerRadius, p.cornerSmoothness);
           const innerMesh = new THREE.Mesh(innerGeo);
           innerMesh.updateMatrix();
