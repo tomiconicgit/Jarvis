@@ -152,9 +152,12 @@
       scene.add(transformControls);
 
       // --- NEW Cutter Preview Mesh ---
-      // We use wireframe to see through it. We'll set its size from sliders later.
       const cutterMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.7 });
-      const cutterGeo = new THREE.BoxGeometry(3, 2, 1.5).toNonIndexed(); // Default values from sliders
+      
+      // FIX 1: Removed .toNonIndexed()
+      // THREE.Geometry (from r124) does not have this method.
+      const cutterGeo = new THREE.BoxGeometry(3, 2, 1.5); // Default values from sliders
+      
       cutterPreview = new THREE.Mesh(cutterGeo, cutterMat);
       cutterPreview.visible = false;
       scene.add(cutterPreview);
@@ -382,8 +385,9 @@
       const params = getCutterParams();
       // Dispose of old geometry to prevent memory leaks
       cutterPreview.geometry.dispose();
-      // Create new geometry
-      cutterPreview.geometry = new THREE.BoxGeometry(params.w, params.h, params.d).toNonIndexed();
+      
+      // FIX 2: Removed .toNonIndexed()
+      cutterPreview.geometry = new THREE.BoxGeometry(params.w, params.h, params.d);
     }
 
     function performCut() {
@@ -409,10 +413,6 @@
         // Assume the mesh is the first child (which it is for our TowerBase)
         const targetMesh = targetObject.children[0];
         
-        // Ensure geometries are ready for CSG
-        // We already made TowerBase non-indexed in its build()
-        // We already made the cutter non-indexed when we created it
-
         // CSG library needs meshes with world transforms applied
         targetMesh.updateMatrixWorld(true);
         cutterPreview.updateMatrixWorld(true);
@@ -554,8 +554,8 @@
         let shellGeo = unifiedShellGeometry(p, /*forceNoBevel*/ false);
         let resultMesh = new THREE.Mesh(shellGeo, this.material);
 
-        // Make geometry non-indexed, WHICH IS REQUIRED FOR CSG
-        resultMesh.geometry = resultMesh.geometry.toNonIndexed();
+        // FIX 3: Removed .toNonIndexed()
+        // This is not needed as the CSG lib will handle the Geometry
         
         resultMesh.castShadow = true; 
         resultMesh.receiveShadow = true;
