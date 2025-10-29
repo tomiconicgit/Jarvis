@@ -3,10 +3,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { BendModifier } from 'three/addons/modifiers/BendModifier.js';
 
 // --- Import our custom Assets ---
 import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
+import Window from './window.js';
+import Floor from './floor.js';
 
 // --- Global Variables ---
 let scene, camera, renderer, orbitControls, transformControls;
@@ -16,7 +19,7 @@ let allModels = []; // Selectable root objects
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, toolsBtn, gizmoText;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, toolsBtn, gizmoText;
 // Scene UI
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
@@ -55,6 +58,8 @@ function init() {
   addTowerDoorBtn = document.getElementById('add-tower-door-btn');
   addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
   addDoubleDoorBtn= document.getElementById('add-double-door-btn');
+  addWindowBtn = document.getElementById('add-window-btn');
+  addFloorBtn = document.getElementById('add-floor-btn');
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
@@ -333,6 +338,41 @@ function initUI() {
     selectObject(doors);
     hidePanel(addPanel);
   });
+
+  // Add Window
+  addWindowBtn.addEventListener('click', () => {
+    const params = {
+      totalWidth: 6, height: 8, depth: 0.3,
+      frameThickness: 0.4, cornerRadius: 0.1,
+      cornerSmoothness: 16, edgeRoundness: 0.05, edgeSmoothness: 4,
+      glassR: 0.8, glassG: 0.8, glassB: 1, glassOpacity: 0.3, glassRoughness: 0.1,
+      curveRadius: 0, hasBolts: false, hasBars: false
+    };
+    const win = new Window(params);
+    win.position.y = params.height / 2;
+    assignDefaultName(win);
+    scene.add(win);
+    allModels.push(win);
+    refreshSceneList();
+    selectObject(win);
+    hidePanel(addPanel);
+  });
+
+  // Add Floor
+  addFloorBtn.addEventListener('click', () => {
+    const params = {
+      width: 20, depth: 20, thickness: 0.5,
+      colorR: 0.5, colorG: 0.5, colorB: 0.5
+    };
+    const floor = new Floor(params);
+    floor.position.y = -params.thickness / 2;
+    assignDefaultName(floor);
+    scene.add(floor);
+    allModels.push(floor);
+    refreshSceneList();
+    selectObject(floor);
+    hidePanel(addPanel);
+  });
 }
 
 function updateGizmoButtonLabel() {
@@ -347,13 +387,17 @@ function updateGizmoButtonLabel() {
 // -----------------------------
 function duplicateModel(src) {
   let copy;
-  const type = src.userData?.type;
+  const type = src.userData?.type || 'Object';
   const params = { ...(src.userData?.params || {}) };
 
   if (type === 'TowerBase') {
     copy = new TowerBase(params);
   } else if (type === 'DoubleDoor') {
     copy = new DoubleDoor(params);
+  } else if (type === 'Window') {
+    copy = new Window(params);
+  } else if (type === 'Floor') {
+    copy = new Floor(params);
   } else {
     // Fallback: deep clone (not preferred for custom classes)
     copy = src.clone(true);
@@ -538,22 +582,69 @@ function updatePropsPanel(object) {
       glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
       glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
     };
+  } else if (type === 'Window') {
+    paramConfig = {
+      height:           { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      totalWidth:       { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
+      depth:            { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
+      frameThickness:   { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
+      cornerRadius:     { min: 0,   max: Window.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:    { min: 0,   max: Window.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      curveRadius:      { min: 0,   max: 20, step: 0.1, label: 'Curve Radius' },
+      hasBolts:         { type: 'checkbox', label: 'Has Bolts' },
+      hasBars:          { type: 'checkbox', label: 'Has Bars' },
+      glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Red' },
+      glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Green' },
+      glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Blue' },
+      glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+      glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+    };
+  } else if (type === 'Floor') {
+    paramConfig = {
+      width:            { min: 4,   max: 100, step: 0.1, label: 'Width' },
+      depth:            { min: 4,   max: 100, step: 0.1, label: 'Depth' },
+      thickness:        { min: 0.1, max: 5,   step: 0.1, label: 'Thickness' },
+      colorR:           { min: 0,   max: 1,   step: 0.01, label: 'Color Red' },
+      colorG:           { min: 0,   max: 1,   step: 0.01, label: 'Color Green' },
+      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' }
+    };
   } else {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
     return;
   }
 
-  // Sliders
+  // Sliders or checkboxes
   for (const key in paramConfig) {
     const cfg = paramConfig[key];
 
+    if (cfg.type === 'checkbox') {
+      const checked = p[key] ? 'checked' : '';
+      const html = `
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="${key}-toggle" data-param="${key}" ${checked}>
+          <label for="${key}-toggle" class="text-sm font-medium text-gray-300">${cfg.label}</label>
+        </div>`;
+      propsContent.insertAdjacentHTML('beforeend', html);
+      continue;
+    }
+
     if (key === 'cornerRadius') cfg.max = type === 'TowerBase'
       ? TowerBase.getMaxCornerRadius(p)
-      : DoubleDoor.getMaxCornerRadius(p);
+      : type === 'DoubleDoor'
+      ? DoubleDoor.getMaxCornerRadius(p)
+      : type === 'Window'
+      ? Window.getMaxCornerRadius(p)
+      : cfg.max;
 
     if (key === 'edgeRoundness') cfg.max = type === 'TowerBase'
       ? TowerBase.getMaxEdgeRoundness(p)
-      : DoubleDoor.getMaxEdgeRoundness(p);
+      : type === 'DoubleDoor'
+      ? DoubleDoor.getMaxEdgeRoundness(p)
+      : type === 'Window'
+      ? Window.getMaxEdgeRoundness(p)
+      : cfg.max;
 
     if (key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
 
@@ -587,7 +678,11 @@ function updatePropsPanel(object) {
         if (crSlider) {
           const maxCR = (object.userData.type === 'TowerBase')
             ? TowerBase.getMaxCornerRadius(next)
-            : DoubleDoor.getMaxCornerRadius(next);
+            : (object.userData.type === 'DoubleDoor')
+            ? DoubleDoor.getMaxCornerRadius(next)
+            : (object.userData.type === 'Window')
+            ? Window.getMaxCornerRadius(next)
+            : maxCR;
           crSlider.max = maxCR;
           if (next.cornerRadius > maxCR) {
             next.cornerRadius = maxCR;
@@ -601,7 +696,11 @@ function updatePropsPanel(object) {
         if (erSlider) {
           const maxER = (object.userData.type === 'TowerBase')
             ? TowerBase.getMaxEdgeRoundness(next)
-            : DoubleDoor.getMaxEdgeRoundness(next);
+            : (object.userData.type === 'DoubleDoor')
+            ? DoubleDoor.getMaxEdgeRoundness(next)
+            : (object.userData.type === 'Window')
+            ? Window.getMaxEdgeRoundness(next)
+            : maxER;
           erSlider.max = maxER;
           if (next.edgeRoundness > maxER) {
             next.edgeRoundness = maxER;
@@ -627,6 +726,16 @@ function updatePropsPanel(object) {
       const lbl = document.getElementById(`${key}-value`);
       if (lbl) lbl.textContent = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
 
+      object.updateParams(next);
+    });
+  });
+
+  // Checkbox events for toggles
+  propsContent.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const key = checkbox.dataset.param;
+      const val = checkbox.checked;
+      let next = { ...object.userData.params, [key]: val };
       object.updateParams(next);
     });
   });
