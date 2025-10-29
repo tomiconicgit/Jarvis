@@ -17,10 +17,20 @@ let allModels = []; // Selectable root objects
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
 let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, toolsBtn;
+// New: Scene objects UI
+let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Touch/Tap Controls
 let lastTapTime = 0;
 const DOUBLE_TAP_DELAY = 300;
+
+// Name counters for default labels
+const nameCounts = {};
+function assignDefaultName(obj) {
+  const base = obj.userData?.type || 'Object';
+  nameCounts[base] = (nameCounts[base] || 0) + 1;
+  obj.userData.label = `${base} #${nameCounts[base]}`;
+}
 
 // -----------------------------
 // Init
@@ -39,6 +49,12 @@ function init() {
   addTowerDoorBtn = document.getElementById('add-tower-door-btn');
   addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
   addDoubleDoorBtn= document.getElementById('add-double-door-btn');
+
+  // New: scene objects UI
+  sceneBtn        = document.getElementById('scene-btn');
+  scenePanel      = document.getElementById('scene-panel');
+  closeScenePanel = document.getElementById('close-scene-panel');
+  sceneList       = document.getElementById('scene-list');
 
   // Scene
   scene = new THREE.Scene();
@@ -95,13 +111,11 @@ function init() {
   transformControls.addEventListener('dragging-changed', (e) => {
     orbitControls.enabled = !e.value;
   });
-  // When user finishes a transform, refresh the props readout
   transformControls.addEventListener('mouseUp', () => {
     if (currentSelection) updatePropsPanel(currentSelection);
   });
   // Ensure the gizmo is in the scene
   scene.add(transformControls);
-  // If your TransformControls build exposes a helper, keep it; guard to avoid errors
   if (typeof transformControls.getHelper === 'function') {
     scene.add(transformControls.getHelper());
   }
@@ -211,10 +225,11 @@ function selectObject(o) {
   if (!o) return;
   if (currentSelection === o) return;
   currentSelection = o;
-  transformControls.attach(o); // <- gizmo shows (we added it to scene)
+  transformControls.attach(o);
   updatePropsPanel(o);
   showPanel(propsPanel);
   hidePanel(addPanel);
+  hidePanel(scenePanel);
 }
 
 function deselectAll() {
@@ -229,6 +244,7 @@ function deselectAll() {
 function initUI() {
   addBtn.addEventListener('click', () => {
     showPanel(addPanel);
+    hidePanel(scenePanel);
     deselectAll();
   });
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
@@ -243,6 +259,15 @@ function initUI() {
     showTempMessage(`Mode: ${next[0].toUpperCase()}${next.slice(1)}`);
   });
 
+  // NEW: Scene button
+  sceneBtn.addEventListener('click', () => {
+    refreshSceneList();
+    showPanel(scenePanel);
+    hidePanel(addPanel);
+    hidePanel(propsPanel);
+  });
+  closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
+
   // Add Tower (door)
   addTowerDoorBtn.addEventListener('click', () => {
     const params = {
@@ -256,9 +281,11 @@ function initUI() {
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
+    assignDefaultName(tower);
 
     scene.add(tower);
     allModels.push(tower);
+    refreshSceneList();
     selectObject(tower);
     hidePanel(addPanel);
   });
@@ -276,14 +303,16 @@ function initUI() {
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
+    assignDefaultName(tower);
 
     scene.add(tower);
     allModels.push(tower);
+    refreshSceneList();
     selectObject(tower);
     hidePanel(addPanel);
   });
 
-  // Add Double Door (now visible + transformable)
+  // Add Double Door
   addDoubleDoorBtn.addEventListener('click', () => {
     const params = {
       totalWidth: 8,
@@ -302,15 +331,38 @@ function initUI() {
     };
     const doors = new DoubleDoor(params);
     doors.position.y = params.height / 2;
+    assignDefaultName(doors);
 
     scene.add(doors);
     allModels.push(doors);
+    refreshSceneList();
     selectObject(doors);
     hidePanel(addPanel);
   });
 }
 
+// Build the list UI each time it opens / changes
+function refreshSceneList() {
+  sceneList.innerHTML = '';
+  if (!allModels.length) {
+    sceneList.innerHTML = '<p class="text-gray-400">No objects in scene.</p>';
+    return;
+  }
+  allModels.forEach((obj, idx) => {
+    const name = obj.userData?.label || obj.userData?.type || `Object ${idx + 1}`;
+    const btn = document.createElement('button');
+    btn.className = 'w-full text-left bg-gray-700 hover:bg-gray-600 active:scale-[0.99] transition-transform px-3 py-2 rounded-md';
+    btn.textContent = name;
+    btn.addEventListener('click', () => {
+      selectObject(obj);
+      hidePanel(scenePanel);
+    });
+    sceneList.appendChild(btn);
+  });
+}
+
 function showPanel(p) {
+  if (!p) return;
   p.style.visibility = 'visible';
   p.style.opacity = '1';
   p.style.transform = 'translateY(0)';
@@ -323,6 +375,7 @@ function showPanel(p) {
 }
 
 function hidePanel(p) {
+  if (!p) return;
   p.style.opacity = '0';
   p.style.transform = 'translateY(100%)';
   setTimeout(() => (p.style.visibility = 'hidden'), 300);
