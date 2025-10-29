@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
   >
   <title>Mobile 3D Tower Modeler</title>
 
@@ -53,7 +53,7 @@
       cursor: pointer;
     }
 
-    /* Message toast */
+    /* Toast */
     #message-box {
       position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%) scale(0.9);
@@ -66,8 +66,12 @@
     }
     #message-box.show { transform: translate(-50%, -50%) scale(1); opacity: 1; visibility: visible; }
 
-    /* Bottom bar above panels */
-    #bottom-bar { z-index: 20; }
+    /* Top bar above panels, safe area aware */
+    #top-bar {
+      z-index: 20;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      left: calc(env(safe-area-inset-left, 0px) + 12px);
+    }
   </style>
 
   <!-- Import map -->
@@ -93,21 +97,20 @@
   <!-- Toast -->
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
-  <!-- Bottom UI Bar -->
-  <div id="bottom-bar" class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
-    <!-- Add Object -->
-    <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
-      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12"/></svg>
+  <!-- TOP-LEFT TEXT BUTTON BAR -->
+  <div
+    id="top-bar"
+    class="ui-panel fixed p-2 rounded-lg flex items-center space-x-2"
+    style="right:auto;"
+  >
+    <button id="add-btn" class="px-3 py-2 bg-blue-600 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
+      Add
     </button>
-    <!-- Transform Tools -->
-    <button id="tools-btn" class="w-14 h-14 bg-gray-700 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
-      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    <button id="tools-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
+      Gizmo: <span id="gizmo-text">Translate</span>
     </button>
-    <!-- NEW: Scene Objects (list) -->
-    <button id="scene-btn" class="w-14 h-14 bg-gray-700 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
-      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
+    <button id="scene-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
+      Scene
     </button>
   </div>
 
@@ -117,24 +120,15 @@
     <div class="grid grid-cols-3 gap-4">
       <!-- Tower Base (Door) -->
       <button id="add-tower-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
-        <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10l8 4 8-4V7L12 3 4 7zm0 0l8 4 8-4m-8 4v10m6-10.5v4h-4v-4h4z"></path>
-        </svg>
-        <span class="text-xs font-medium text-center">Tower Base (Door)</span>
+        <span class="text-sm font-medium text-center">Tower Base (Door)</span>
       </button>
       <!-- Tower Base (Solid) -->
       <button id="add-tower-solid-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
-        <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7v10l8 4M4 7l8 4"></path>
-        </svg>
-        <span class="text-xs font-medium text-center">Tower Base (Solid)</span>
+        <span class="text-sm font-medium text-center">Tower Base (Solid)</span>
       </button>
       <!-- Double Door -->
       <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
-        <svg class="w-12 h-12 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h2m8-16h2a2 2 0 012 2v12a2 2 0 01-2 2h-2M4 10h4m8 0h4M4 14h4m8 0h4M10 4v16m4-16v16"></path>
-        </svg>
-        <span class="text-xs font-medium text-center">Double Door</span>
+        <span class="text-sm font-medium text-center">Double Door</span>
       </button>
     </div>
     <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
@@ -149,7 +143,7 @@
     <div id="props-content" class="space-y-4 overflow-y-auto max-h-[calc(45vh-4rem)] pr-2"></div>
   </div>
 
-  <!-- NEW: Scene Objects Panel -->
+  <!-- Scene Objects Panel -->
   <div id="scene-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-3">Scene Objects</h3>
     <div id="scene-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
