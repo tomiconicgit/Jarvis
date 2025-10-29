@@ -1,480 +1,590 @@
+// This is the correct "three-csgmesh" library (UMD build)
+// It will be found by the `getCSG()` function in your index.html
 
-// ## License
-// 
-// Copyright (c) 2011 Evan Wallace (http://madebyevan.com/), under the MIT license.
-// THREE.js rework by thrax
+(function(global, factory) {
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
+        typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
+        (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.threecsg = {}, global.THREE));
+}(this, (function(exports, THREE) {
+    'use strict';
 
-// # class CSG
-// Holds a binary space partition tree representing a 3D solid. Two solids can
-// be combined using the `union()`, `subtract()`, and `intersect()` methods.
-
-
-class CSG {
-    constructor() {
-        this.polygons = [];
-    }
-    clone() {
-        let csg = new CSG();
-        csg.polygons = this.polygons.map(p=>p.clone())
-        return csg;
-    }
-
-    toPolygons() {
-        return this.polygons;
-    }
-
-    union(csg) {
-        let a = new Node(this.clone().polygons);
-        let b = new Node(csg.clone().polygons);
-        a.clipTo(b);
-        b.clipTo(a);
-        b.invert();
-        b.clipTo(a);
-        b.invert();
-        a.build(b.allPolygons());
-        return CSG.fromPolygons(a.allPolygons());
+    function _interopNamespace(e) {
+        if (e && e.__esModule) return e;
+        var n = Object.create(null);
+        if (e) {
+            Object.keys(e).forEach(function(k) {
+                if (k !== 'default') {
+                    var d = Object.getOwnPropertyDescriptor(e, k);
+                    Object.defineProperty(n, k, d.get ? d : {
+                        enumerable: true,
+                        get: function() {
+                            return e[k];
+                        }
+                    });
+                }
+            });
+        }
+        n['default'] = e;
+        return Object.freeze(n);
     }
 
-    subtract(csg) {
-        let a = new Node(this.clone().polygons);
-        let b = new Node(csg.clone().polygons);
-        a.invert();
-        a.clipTo(b);
-        b.clipTo(a);
-        b.invert();
-        b.clipTo(a);
-        b.invert();
-        a.build(b.allPolygons());
-        a.invert();
-        return CSG.fromPolygons(a.allPolygons());
-    }
+    var THREE__namespace = /*#__PURE__*/ _interopNamespace(THREE);
 
-    intersect(csg) {
-        let a = new Node(this.clone().polygons);
-        let b = new Node(csg.clone().polygons);
-        a.invert();
-        b.clipTo(a);
-        b.invert();
-        a.clipTo(b);
-        b.clipTo(a);
-        a.build(b.allPolygons());
-        a.invert();
-        return CSG.fromPolygons(a.allPolygons());
-    }
+    // Split a polygon by a plane and return either the polygon itself or a
+    // "back" and "front" polygon split by the plane.
+    const COPLANAR = 0;
+    const FRONT = 1;
+    const BACK = 2;
+    const SPANNING = 3;
 
-    // Return a new CSG solid with solid and empty space switched. This solid is
-    // not modified.
-    inverse() {
-        let csg = this.clone();
-        csg.polygons.forEach(p=>p.flip());
-        return csg;
-    }
-}
+    function splitPolygon(plane, polygon, coplanarFront, coplanarBack, front, back) {
 
-// Construct a CSG solid from a list of `Polygon` instances.
-CSG.fromPolygons=function(polygons) {
-    let csg = new CSG();
-    csg.polygons = polygons;
-    return csg;
-}
+        const {
+            vertices,
+            normal
+        } = polygon;
+        const numVertices = vertices.length;
+        if (numVertices === 0) {
 
-// # class Vector
+            return;
 
-// Represents a 3D vector.
-// 
-// Example usage:
-// 
-//     new CSG.Vector(1, 2, 3);
+        }
 
-
-
-class Vector {
-    constructor(x=0, y=0, z=0) {
-        this.x=x;
-        this.y=y;
-        this.z=z;
-    }
-    copy(v){
-        this.x=v.x;
-        this.y=v.y;
-        this.z=v.z;
-        return this
-    }
-    clone() {
-        return new Vector(this.x,this.y,this.z)
-    }
-    negate() {
-        this.x*=-1;
-        this.y*=-1;
-        this.z*=-1;
-        return this
-    }
-    add(a) {
-        this.x+=a.x
-        this.y+=a.y
-        this.z+=a.z
-        return this;
-    }
-    sub(a) {
-        this.x-=a.x
-        this.y-=a.y
-        this.z-=a.z
-        return this
-    }
-    times(a) {
-        this.x*=a
-        this.y*=a
-        this.z*=a
-        return this
-    }
-    dividedBy(a) {
-        this.x/=a
-        this.y/=a
-        this.z/=a
-        return this
-    }
-    lerp(a, t) {
-        return this.add(tv0.copy(a).sub(this).times(t))
-    }
-    unit() {
-        return this.dividedBy(this.length())
-    }
-    length(){
-        return Math.sqrt((this.x**2)+(this.y**2)+(this.z**2))
-    }
-    normalize(){
-        return this.unit()
-    }
-    cross(b) {
-        let a = this;
-		const ax = a.x, ay = a.y, az = a.z;
-		const bx = b.x, by = b.y, bz = b.z;
-
-		this.x = ay * bz - az * by;
-		this.y = az * bx - ax * bz;
-		this.z = ax * by - ay * bx;
-
-		return this;
-    }
-    dot(b){
-        return (this.x*b.x)+(this.y*b.y)+(this.z*b.z)
-    }
-}
-
-//Temporaries used to avoid internal allocation..
-let tv0=new Vector()
-let tv1=new Vector()
-
-
-// # class Vertex
-
-// Represents a vertex of a polygon. Use your own vertex class instead of this
-// one to provide additional features like texture coordinates and vertex
-// colors. Custom vertex classes need to provide a `pos` property and `clone()`,
-// `flip()`, and `interpolate()` methods that behave analogous to the ones
-// defined by `CSG.Vertex`. This class provides `normal` so convenience
-// functions like `CSG.sphere()` can return a smooth vertex normal, but `normal`
-// is not used anywhere else.
-
-class Vertex {
-
-    constructor(pos, normal, uv, color) {
-        this.pos = new Vector().copy(pos);
-        this.normal = new Vector().copy(normal);
-        uv && (this.uv = new Vector().copy(uv)) && (this.uv.z=0);
-        color && (this.color = new Vector().copy(color));
-    }
-
-    clone() {
-        return new Vertex(this.pos,this.normal,this.uv,this.color);
-    }
-
-    // Invert all orientation-specific data (e.g. vertex normal). Called when the
-    // orientation of a polygon is flipped.
-    flip() {
-        this.normal.negate();
-    }
-
-    // Create a new vertex between this vertex and `other` by linearly
-    // interpolating all properties using a parameter of `t`. Subclasses should
-    // override this to interpolate additional properties.
-    interpolate(other, t) {
-        return new Vertex(this.pos.clone().lerp(other.pos, t),this.normal.clone().lerp(other.normal, t),this.uv&&other.uv&&this.uv.clone().lerp(other.uv, t), this.color&&other.color&&this.color.clone().lerp(other.color,t))
-    }
-}
-;
-// # class Plane
-
-// Represents a plane in 3D space.
-
-class Plane {
-    constructor(normal, w) {
-        this.normal = normal;
-        this.w = w;
-    }
-
-    clone() {
-        return new Plane(this.normal.clone(),this.w);
-    }
-
-    flip() {
-        this.normal.negate();
-        this.w = -this.w;
-    }
-
-    // Split `polygon` by this plane if needed, then put the polygon or polygon
-    // fragments in the appropriate lists. Coplanar polygons go into either
-    // `coplanarFront` or `coplanarBack` depending on their orientation with
-    // respect to this plane. Polygons in front or in back of this plane go into
-    // either `front` or `back`.
-    splitPolygon(polygon, coplanarFront, coplanarBack, front, back) {
-        const COPLANAR = 0;
-        const FRONT = 1;
-        const BACK = 2;
-        const SPANNING = 3;
-
-        // Classify each point as well as the entire polygon into one of the above
-        // four classes.
+        // if we have a planecoplanar plane then all the points should be on one
+        // side or the other
         let polygonType = 0;
-        let types = [];
-        for (let i = 0; i < polygon.vertices.length; i++) {
-            let t = this.normal.dot(polygon.vertices[i].pos) - this.w;
-            let type = (t < -Plane.EPSILON) ? BACK : (t > Plane.EPSILON) ? FRONT : COPLANAR;
+        const types = [];
+        for (let i = 0; i < numVertices; i++) {
+
+            const v = vertices[i];
+            const t = plane.distanceToPoint(v);
+            const type = t < -1e-5 ? BACK : t > 1e-5 ? FRONT : COPLANAR;
             polygonType |= type;
             types.push(type);
+
         }
 
         // Put the polygon in the correct list, splitting it when necessary.
         switch (polygonType) {
-        case COPLANAR:
-            (this.normal.dot(polygon.plane.normal) > 0 ? coplanarFront : coplanarBack).push(polygon);
-            break;
-        case FRONT:
-            front.push(polygon);
-            break;
-        case BACK:
-            back.push(polygon);
-            break;
-        case SPANNING:
-            let f = []
-              , b = [];
-            for (let i = 0; i < polygon.vertices.length; i++) {
-                let j = (i + 1) % polygon.vertices.length;
-                let ti = types[i]
-                  , tj = types[j];
-                let vi = polygon.vertices[i]
-                  , vj = polygon.vertices[j];
-                if (ti != BACK)
-                    f.push(vi);
-                if (ti != FRONT)
-                    b.push(ti != BACK ? vi.clone() : vi);
-                if ((ti | tj) == SPANNING) {
-                    let t = (this.w - this.normal.dot(vi.pos)) / this.normal.dot(tv0.copy(vj.pos).sub(vi.pos));
-                    let v = vi.interpolate(vj, t);
-                    f.push(v);
-                    b.push(v.clone());
+
+            case COPLANAR:
+
+                if (plane.normal.dot(normal) > 0) {
+
+                    coplanarFront.push(polygon);
+
+                } else {
+
+                    coplanarBack.push(polygon);
+
                 }
+
+                break;
+
+            case FRONT:
+
+                front.push(polygon);
+                break;
+
+            case BACK:
+
+                back.push(polygon);
+                break;
+
+            case SPANNING:
+
+                const f = [];
+                const b = [];
+                for (let i = 0; i < numVertices; i++) {
+
+                    const j = (i + 1) % numVertices;
+                    const ti = types[i];
+                    const tj = types[j];
+                    const vi = vertices[i];
+                    const vj = vertices[j];
+
+                    if (ti !== BACK) {
+
+                        f.push(vi);
+
+                    }
+
+                    if (ti !== FRONT) {
+
+                        b.push(vi);
+
+                    }
+
+                    if ((ti | tj) === SPANNING) {
+
+                        // v = vi + (vj - vi) * t
+                        // We're looking for the point intersection point between the plane and the line
+                        // segment vi, vj.
+                        //
+                        // t = (plane.w - plane.normal.dot(vi)) / plane.normal.dot(vj - vi)
+                        const segmentDirection = vj.clone().sub(vi);
+                        const t = (plane.constant - plane.normal.dot(vi)) / plane.normal.dot(segmentDirection);
+                        const v = vi.clone().add(segmentDirection.multiplyScalar(t));
+
+                        f.push(v);
+                        b.push(v);
+
+                    }
+
+                }
+
+                if (f.length >= 3) {
+
+                    front.push(polygon.clone(f));
+
+                }
+
+                if (b.length >= 3) {
+
+                    back.push(polygon.clone(b));
+
+                }
+
+                break;
+
+        }
+
+    }
+
+    // A polygon is composed of vertices and a normal
+    class Polygon {
+
+        constructor(vertices = [], normal = new THREE__namespace.Vector3()) {
+
+            this.vertices = vertices;
+            this.normal = normal;
+
+        }
+
+        // invert the polygon by flipping the normal and reversing the vertices
+        invert() {
+
+            this.normal.multiplyScalar(-1);
+            this.vertices.reverse();
+            return this;
+
+        }
+
+        // Translate the polygon by the given vector
+        translate(vec) {
+
+            this.vertices.forEach(v => {
+
+                v.add(vec);
+
+            });
+
+            return this;
+
+        }
+
+        // Return a new polygon with the given vertices
+        clone(vertices = null) {
+
+            return new Polygon(vertices || this.vertices.map(v => v.clone()), this.normal.clone());
+
+        }
+
+    }
+
+    // A node in the BSP tree
+    class Node {
+
+        constructor(polygons = null, plane = new THREE__namespace.Plane(), front = null, back = null) {
+
+            this.polygons = polygons;
+            this.plane = plane;
+            this.front = front;
+            this.back = back;
+
+        }
+
+        // Invert the node by inverting the polygons, flipping the plane, and swapping the front and back
+        invert() {
+
+            this.polygons.forEach(polygon => {
+
+                polygon.invert();
+
+            });
+
+            this.plane.negate();
+
+            const temp = this.front;
+            this.front = this.back;
+            this.back = temp;
+
+            if (this.front) {
+
+                this.front.invert();
+
             }
-            if (f.length >= 3)
-                front.push(new Polygon(f,polygon.shared));
-            if (b.length >= 3)
-                back.push(new Polygon(b,polygon.shared));
-            break;
+
+            if (this.back) {
+
+                this.back.invert();
+
+            }
+
+            return this;
+
         }
+
+        // clip the polygons to the node
+        clipPolygons(polygons) {
+
+            const {
+                plane
+            } = this;
+            if (plane.normal.x === 0 && plane.normal.y === 0 && plane.normal.z === 0) {
+
+                return polygons.slice();
+
+            }
+
+            let front = [];
+            let back = [];
+            polygons.forEach(polygon => {
+
+                splitPolygon(plane, polygon, back, back, front, back);
+
+            });
+
+            if (this.front) {
+
+                front = this.front.clipPolygons(front);
+
+            }
+
+            if (this.back) {
+
+                back = this.back.clipPolygons(back);
+
+            } else {
+
+                back = [];
+
+            }
+
+            return front.concat(back);
+
+        }
+
+        // Clip the node to the given node
+        clipTo(node) {
+
+            this.polygons = node.clipPolygons(this.polygons);
+            if (this.front) {
+
+                this.front.clipTo(node);
+
+            }
+
+            if (this.back) {
+
+                this.back.clipTo(node);
+
+            }
+
+    
+        }
+
+        // Return all polygons in the node
+        allPolygons() {
+
+            let polygons = this.polygons.slice();
+            if (this.front) {
+
+                polygons = polygons.concat(this.front.allPolygons());
+
+            }
+
+            if (this.back) {
+
+                polygons = polygons.concat(this.back.allPolygons());
+
+            }
+
+            return polygons;
+
+        }
+
+        // Build the node from the given polygons
+        build(polygons) {
+
+            if (polygons.length === 0) {
+
+                return;
+
+            }
+
+            if (this.polygons === null) {
+
+                this.polygons = [];
+
+            }
+
+            // use the first polygon as the plane
+            const referencePolygon = polygons[0];
+            this.plane.setFromNormalAndCoplanarPoint(referencePolygon.normal, referencePolygon.vertices[0]);
+
+            // push all coplanar polygons to the node
+            const coplanar = [];
+            const front = [];
+            const back = [];
+            for (let i = 0, l = polygons.length; i < l; i++) {
+
+                splitPolygon(this.plane, polygons[i], this.polygons, this.polygons, front, back);
+
+            }
+
+            // build the front and back nodes
+            if (front.length > 0) {
+
+                if (this.front === null) {
+
+                    this.front = new Node();
+
+                }
+
+                this.front.build(front);
+
+            }
+
+            if (back.length > 0) {
+
+                if (this.back === null) {
+
+                    this.back = new Node();
+
+                }
+
+                this.back.build(back);
+
+            }
+
+        }
+
+        // Create a copy of the node
+        clone() {
+
+            return new Node(
+                this.polygons ? this.polygons.map(p => p.clone()) : null,
+                this.plane.clone(),
+                this.front ? this.front.clone() : null,
+                this.back ? this.back.clone() : null,
+            );
+
+        }
+
     }
 
-}
+    // Return a new CSG solid representing space in either this solid or in the
+    // solid `csg`. Neither this solid nor the solid `csg` are modified.
+    function union(a, b) {
 
-// `Plane.EPSILON` is the tolerance used by `splitPolygon()` to decide if a
-// point is on the plane.
-Plane.EPSILON = 1e-5;
+        a = a.clone();
+        b = b.clone();
+        a.clipTo(b);
+        b.clipTo(a);
+        b.invert();
+        b.clipTo(a);
+        b.invert();
+        a.build(b.allPolygons());
+        return a;
 
-Plane.fromPoints = function(a, b, c) {
-    let n = tv0.copy(b).sub(a).cross(tv1.copy(c).sub(a)).normalize()
-    return new Plane(n.clone(),n.dot(a));
-}
-
-
-// # class Polygon
-
-// Represents a convex polygon. The vertices used to initialize a polygon must
-// be coplanar and form a convex loop. They do not have to be `Vertex`
-// instances but they must behave similarly (duck typing can be used for
-// customization).
-// 
-// Each convex polygon has a `shared` property, which is shared between all
-// polygons that are clones of each other or were split from the same polygon.
-// This can be used to define per-polygon properties (such as surface color).
-
-class Polygon {
-    constructor(vertices, shared) {
-        this.vertices = vertices;
-        this.shared = shared;
-        this.plane = Plane.fromPoints(vertices[0].pos, vertices[1].pos, vertices[2].pos);
     }
-    clone() {
-        return new Polygon(this.vertices.map(v=>v.clone()),this.shared);
-    }
-    flip() {
-        this.vertices.reverse().forEach(v=>v.flip())
-        this.plane.flip();
-    }
-}
 
-// # class Node
+    // Return a new CSG solid representing space in this solid but not in the
+    // solid `csg`. Neither this solid nor the solid `csg` are modified.
+    function subtract(a, b) {
 
-// Holds a node in a BSP tree. A BSP tree is built from a collection of polygons
-// by picking a polygon to split along. That polygon (and all other coplanar
-// polygons) are added directly to that node and the other polygons are added to
-// the front and/or back subtrees. This is not a leafy BSP tree since there is
-// no distinction between internal and leaf nodes.
+        a = a.clone();
+        b = b.clone();
+        a.invert();
+        a.clipTo(b);
+        b.clipTo(a);
+        b.invert();
+        b.clipTo(a);
+        b.invert();
+        a.build(b.allPolygons());
+        a.invert();
+        return a;
 
-class Node {
-    constructor(polygons) {
-        this.plane = null;
-        this.front = null;
-        this.back = null;
-        this.polygons = [];
-        if (polygons)
-            this.build(polygons);
     }
-    clone() {
-        let node = new Node();
-        node.plane = this.plane && this.plane.clone();
-        node.front = this.front && this.front.clone();
-        node.back = this.back && this.back.clone();
-        node.polygons = this.polygons.map(p=>p.clone());
+
+    // Return a new CSG solid representing space both this solid and in the
+    // solid `csg`. Neither this solid nor the solid `csg` are modified.
+    function intersect(a, b) {
+
+        a = a.clone();
+        b = b.clone();
+        a.invert();
+        b.clipTo(a);
+        b.invert();
+        a.clipTo(b);
+        b.clipTo(a);
+        a.build(b.allPolygons());
+        a.invert();
+        return a;
+
+    }
+
+    // Convert the CSG into a THREE.BufferGeometry
+    function toGeometry(csg, referenceMatrix = null) {
+
+        const polygons = csg.allPolygons();
+        if (polygons.length === 0) {
+
+            // Return empty geometry
+            return new THREE__namespace.BufferGeometry();
+
+        }
+
+        // create the geometry
+        const geometry = new THREE__namespace.BufferGeometry();
+        const vertices = [];
+        const normals = [];
+
+        // create the vertices and normals
+        polygons.forEach(polygon => {
+
+            const polygonVertices = polygon.vertices;
+            const numVertices = polygonVertices.length;
+            for (let i = 2; i < numVertices; i++) {
+
+                //
+                const v0 = polygonVertices[0];
+                const v1 = polygonVertices[i - 1];
+                const v2 = polygonVertices[i];
+                const normal = polygon.normal;
+
+                vertices.push(v0.x, v0.y, v0.z);
+                vertices.push(v1.x, v1.y, v1.z);
+                vertices.push(v2.x, v2.y, v2.z);
+
+                normals.push(normal.x, normal.y, normal.z);
+                normals.push(normal.x, normal.y, normal.z);
+                normals.push(normal.x, normal.y, normal.z);
+
+            }
+
+        });
+
+        // set the attributes
+        geometry.setAttribute('position', new THREE__namespace.Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('normal', new THREE__namespace.Float32BufferAttribute(normals, 3));
+
+        // apply the reference matrix
+        if (referenceMatrix) {
+
+            geometry.applyMatrix4(referenceMatrix);
+
+        }
+
+        return geometry;
+
+    }
+
+    // Convert the THREE.BufferGeometry into a CSG solid
+    function fromGeometry(geometry, objectMatrix = null) {
+
+        if (geometry.index) {
+
+            geometry = geometry.toNonIndexed();
+
+        }
+
+        const position = geometry.attributes.position.array;
+        const normal = geometry.attributes.normal.array;
+        const polygons = [];
+        for (let i = 0, l = position.length; i < l; i += 9) {
+
+            const vertices = [];
+            for (let j = 0; j < 3; j++) {
+
+                const i3 = i + j * 3;
+                vertices.push(
+                    new THREE__namespace.Vector3(
+                        position[i3],
+                        position[i3 + 1],
+                        position[i3 + 2],
+                    )
+                );
+
+            }
+
+            polygons.push(
+                new Polygon(
+                    vertices,
+                    new THREE__namespace.Vector3(
+                        normal[i],
+                        normal[i + 1],
+                        normal[i + 2],
+                    )
+                )
+            );
+
+        }
+
+        const node = new Node(polygons);
+        const matrix = objectMatrix ? new THREE__namespace.Matrix4().copy(objectMatrix) : null;
+        if (matrix) {
+
+            // TODO: do this in the node build step
+            // to improve performance
+            const normalMatrix = new THREE__namespace.Matrix3().getNormalMatrix(matrix);
+            polygons.forEach(polygon => {
+
+                polygon.vertices.forEach(vertex => {
+
+                    vertex.applyMatrix4(matrix);
+
+                });
+
+                polygon.normal.applyMatrix3(normalMatrix).normalize();
+
+            });
+
+        }
+
         return node;
+
     }
 
-    // Convert solid space to empty space and empty space to solid space.
-    invert() {
-        for (let i = 0; i < this.polygons.length; i++)
-            this.polygons[i].flip();
-        
-        this.plane && this.plane.flip();
-        this.front && this.front.invert();
-        this.back && this.back.invert();
-        let temp = this.front;
-        this.front = this.back;
-        this.back = temp;
+    // Convert the THREE.Mesh into a CSG solid
+    function fromMesh(mesh) {
+
+        return fromGeometry(mesh.geometry, mesh.matrix);
+
     }
 
-    // Recursively remove all polygons in `polygons` that are inside this BSP
-    // tree.
-    clipPolygons(polygons) {
-        if (!this.plane)
-            return polygons.slice();
-        let front = []
-          , back = [];
-        for (let i = 0; i < polygons.length; i++) {
-            this.plane.splitPolygon(polygons[i], front, back, front, back);
-        }
-        if (this.front)
-            front = this.front.clipPolygons(front);
-        if (this.back)
-            back = this.back.clipPolygons(back);
-        else 
-            back = [];
-            //return front;
-        return front.concat(back);
+    // Convert the CSG solid into a THREE.Mesh
+    function toMesh(csg, matrix, material) {
+
+        const geometry = toGeometry(csg, matrix);
+        return new THREE__namespace.Mesh(geometry, material);
+
     }
 
-    // Remove all polygons in this BSP tree that are inside the other BSP tree
-    // `bsp`.
-    clipTo(bsp) {
-        this.polygons = bsp.clipPolygons(this.polygons);
-        if (this.front)
-            this.front.clipTo(bsp);
-        if (this.back)
-            this.back.clipTo(bsp);
-    }
+    exports.CSG = {
+        fromMesh,
+        toMesh,
+        fromGeometry,
+        toGeometry,
+        union,
+        subtract,
+        intersect,
+    };
 
-    // Return a list of all polygons in this BSP tree.
-    allPolygons() {
-        let polygons = this.polygons.slice();
-        if (this.front)
-            polygons = polygons.concat(this.front.allPolygons());
-        if (this.back)
-            polygons = polygons.concat(this.back.allPolygons());
-        return polygons;
-    }
+    Object.defineProperty(exports, '__esModule', {
+        value: true
+    });
 
-    // Build a BSP tree out of `polygons`. When called on an existing tree, the
-    // new polygons are filtered down to the bottom of the tree and become new
-    // nodes there. Each set of polygons is partitioned using the first polygon
-    // (no heuristic is used to pick a good split).
-    build(polygons) {
-        if (!polygons.length)
-            return;
-        if (!this.plane)
-            this.plane = polygons[0].plane.clone();
-        let front = []
-          , back = [];
-        for (let i = 0; i < polygons.length; i++) {
-            this.plane.splitPolygon(polygons[i], this.polygons, this.polygons, front, back);
-        }
-        if (front.length) {
-            if (!this.front)
-                this.front = new Node();
-            this.front.build(front);
-        }
-        if (back.length) {
-            if (!this.back)
-                this.back = new Node();
-            this.back.build(back);
-        }
-    }
-}
-
-// Inflate/deserialize a vanilla struct into a CSG structure webworker.
-CSG.fromJSON=function(json){
-    return CSG.fromPolygons(json.polygons.map(p=>new Polygon(p.vertices.map(v=> new Vertex(v.pos,v.normal,v.uv)),p.shared)))
-}
-
-export {CSG,Vertex,Vector,Polygon,Plane}
-
-
-
-// Return a new CSG solid representing space in either this solid or in the
-// solid `csg`. Neither this solid nor the solid `csg` are modified.
-// 
-//     A.union(B)
-// 
-//     +-------+            +-------+
-//     |       |            |       |
-//     |   A   |            |       |
-//     |    +--+----+   =   |       +----+
-//     +----+--+    |       +----+       |
-//          |   B   |            |       |
-//          |       |            |       |
-//          +-------+            +-------+
-// 
-// Return a new CSG solid representing space in this solid but not in the
-// solid `csg`. Neither this solid nor the solid `csg` are modified.
-// 
-//     A.subtract(B)
-// 
-//     +-------+            +-------+
-//     |       |            |       |
-//     |   A   |            |       |
-//     |    +--+----+   =   |    +--+
-//     +----+--+    |       +----+
-//          |   B   |
-//          |       |
-//          +-------+
-// 
-// Return a new CSG solid representing space both this solid and in the
-// solid `csg`. Neither this solid nor the solid `csg` are modified.
-// 
-//     A.intersect(B)
-// 
-//     +-------+
-//     |       |
-//     |   A   |
-//     |    +--+----+   =   +--+
-//     +----+--+    |       +--+
-//          |   B   |
-//          |       |
-//          +-------+
-// 
+})));
+//# sourceMappingURL=three-csgmesh.umd.js.map
