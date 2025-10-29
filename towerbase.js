@@ -4,9 +4,6 @@ import * as THREE from 'three';
 // ---------- GEOMETRY HELPERS (Private to this module) ------------
 // -----------------------------------------------------------------
 
-/**
- * Creates a 2D path for a rounded rectangle.
- */
 function roundedRectPath(w, d, r) {
   const hw = w / 2, hd = d / 2, rr = Math.max(0, Math.min(r, hw, hd));
   const p = new THREE.Path();
@@ -23,40 +20,30 @@ function roundedRectPath(w, d, r) {
   return p;
 }
 
-/**
- * Clamps edge roundness based on wall thickness and footprint.
- */
 function clampEdgeRoundnessInPlane(p) {
   const maxByWall = Math.max(0.01, p.wallThickness / 2 - 0.01);
   const maxByFoot = Math.max(0.01, Math.min(p.width, p.depth) * 0.25);
   return Math.min(p.edgeRoundness || 0, maxByWall, maxByFoot);
 }
 
-/**
- * Clamps edge roundness based on height.
- */
 function clampEdgeRoundnessThickness(p) {
   const maxByH = Math.max(0.01, p.height / 4);
   const maxByT = Math.max(0.01, p.wallThickness / 1.5);
   return Math.min(p.edgeRoundness || 0, maxByH, maxByT);
 }
 
-/**
- * Calculates the maximum safe width for a door.
- */
-function maxDoorWidth(p) {
+// Note: This is now a private helper.
+// The public-facing version is `TowerBase.getMaxDoorWidth(p)`
+function _maxDoorWidth(p) {
   const eps = 0.05;
   const flat = Math.max(0, p.width - 2 * p.cornerRadius);
   return Math.max(eps, flat - eps);
 }
 
-/**
- * The main geometry generation function.
- * Creates an extruded shape with an optional door gap.
- */
 function unifiedShellGeometry(p, forceNoBevel = false) {
   const eps = 0.01;
-  const maxCorner = Math.max(0, Math.min(p.width, p.depth) / 2 - p.wallThickness - eps);
+  // Use the static method for consistency
+  const maxCorner = TowerBase.getMaxCornerRadius(p);
   const cornerRadius = Math.min(Math.max(0, p.cornerRadius || 0), maxCorner);
 
   const innerW = Math.max(eps, p.width - 2 * p.wallThickness);
@@ -67,23 +54,20 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
   const shape = new THREE.Shape();
 
   if (!hasDoor) {
-    // Solid, closed wall
     shape.add(roundedRectPath(p.width, p.depth, cornerRadius));
     const inner = roundedRectPath(innerW, innerD, innerR);
     shape.holes.push(inner);
   } else {
-    // Wall with a door gap
     const hw = p.width / 2;
     const hd = p.depth / 2;
     const rr = cornerRadius;
     const ihw = innerW / 2;
     const ihd = innerD / 2;
     const ir = innerR;
-    const doorW = Math.min(p.doorWidth, maxDoorWidth(p));
+    const doorW = Math.min(p.doorWidth, _maxDoorWidth(p)); // Use private helper
     const doorLeftX = -doorW / 2;
     const doorRightX = doorW / 2;
 
-    // Outer path (CCW from door left, around the back, to door right)
     shape.moveTo(doorLeftX, hd);
     shape.lineTo(-hw + rr, hd);
     shape.absarc(-hw + rr, hd - rr, rr, Math.PI / 2, Math.PI, false);
@@ -94,11 +78,7 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
     shape.lineTo(hw, hd - rr);
     shape.absarc(hw - rr, hd - rr, rr, 0, Math.PI / 2, false);
     shape.lineTo(doorRightX, hd);
-
-    // Connect to inner path
     shape.lineTo(doorRightX, ihd);
-
-    // Inner path (CW from inner right, around the back, to inner left)
     shape.lineTo(ihw - ir, ihd);
     shape.absarc(ihw - ir, ihd - ir, ir, Math.PI / 2, 0, true);
     shape.lineTo(ihw, -ihd + ir);
@@ -108,8 +88,6 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
     shape.lineTo(-ihw, ihd - ir);
     shape.absarc(-ihw + ir, ihd - ir, ir, Math.PI, Math.PI / 2, true);
     shape.lineTo(doorLeftX, ihd);
-
-    // Close shape
     shape.lineTo(doorLeftX, hd);
   }
 
@@ -136,30 +114,33 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
 // ---------- EXPORTED TOWER BASE CLASS ----------------------------
 // -----------------------------------------------------------------
 
-/**
- * A procedural tower base mesh.
- * This is a THREE.Group that contains a single THREE.Mesh.
- */
 export default class TowerBase extends THREE.Group {
-  /**
-   * @param {object} params - Configuration object for the tower.
-   * @param {number} [params.width=12] - Outer width.
-   * @param {number} [params.depth=12] - Outer depth.
-   * @param {number} [params.height=6] - Total height.
-   * @param {number} [params.wallThickness=1] - Wall thickness.
-   * @param {number} [params.cornerRadius=1.2] - Footprint corner radius.
-   * @param {number} [params.cornerSmoothness=16] - Segments for footprint corners.
-   * @param {number} [params.edgeRoundness=0.3] - Bevel size for top/bottom edges.
-   * @param {number} [params.edgeSmoothness=4] - Segments for bevel.
-   * @param {number} [params.doorWidth=4] - Width of the door gap. Set to 0 for a solid wall.
-   * @param {THREE.Material} [params.material] - An optional material to use.
-   */
+  
+  // --- Static methods for UI ---
+  /** Calculates max corner radius for sliders */
+  static getMaxCornerRadius(p) {
+    const eps = 0.01;
+    return Math.max(0, Math.min(p.width, p.depth) / 2 - p.wallThickness - eps);
+  }
+  
+  /** Calculates max edge roundness for sliders */
+  static getMaxEdgeRoundness(p) {
+    return Math.max(0.05, Math.min(p.wallThickness / 2 - 0.01, p.height / 4));
+  }
+  
+  /** Calculates max door width for sliders */
+  static getMaxDoorWidth(p) {
+    const eps = 0.05;
+    const flat = Math.max(0, p.width - 2 * p.cornerRadius);
+    // Return 0 if the corner radius is too large, otherwise the max flat width
+    return (p.width - 2 * p.cornerRadius) < eps ? 0 : Math.max(eps, flat - eps);
+  }
+
   constructor(params = {}) {
     super();
     this.userData.isModel = true;
     this.userData.type = 'TowerBase';
 
-    // Define default parameters
     const defaultParams = {
       width: 12,
       depth: 12,
@@ -172,66 +153,48 @@ export default class TowerBase extends THREE.Group {
       doorWidth: 4
     };
 
-    // Create a default material if one isn't provided
     this.material = params.material || new THREE.MeshStandardMaterial({
       color: 0xcccccc,
       roughness: 0.7,
       metalness: 0.1
     });
 
-    // Store parameters, merging defaults with provided ones
     this.userData.params = { ...defaultParams, ...params };
-    
-    // Don't store the material in the geometry params
     delete this.userData.params.material; 
 
-    // Build the mesh
     this.build();
   }
 
-  /**
-   * Rebuilds the mesh geometry.
-   * @private
-   */
   build() {
-    // Dispose of old geometry first
     for (const c of this.children) {
       c.geometry && c.geometry.dispose();
     }
     this.clear();
-
     const p = this.userData.params;
-
-    // Create the geometry
     let shellGeo = unifiedShellGeometry(p, false);
     const resultMesh = new THREE.Mesh(shellGeo, this.material);
-
     resultMesh.castShadow = true;
     resultMesh.receiveShadow = true;
     this.add(resultMesh);
   }
 
-  /**
-   * Update the parameters and rebuild the mesh.
-   * @param {object} next - New parameters to apply.
-   */
   updateParams(next) {
     next = { ...this.userData.params, ...next };
 
     // Apply constraints
-    const crMax = Math.max(0, Math.min(next.width, next.depth) / 2 - next.wallThickness - 0.01);
+    const crMax = TowerBase.getMaxCornerRadius(next);
     if (next.cornerRadius > crMax) next.cornerRadius = crMax;
 
-    const dwMax = maxDoorWidth(next);
-    if (next.doorWidth > dwMax) next.doorWidth = dwMax;
+    // Only check door width if it's supposed to have one
+    if (next.doorWidth > 0) {
+      const dwMax = TowerBase.getMaxDoorWidth(next);
+      if (next.doorWidth > dwMax) next.doorWidth = dwMax;
+    }
 
     this.userData.params = next;
     this.build();
   }
   
-  /**
-   * Disposes of the geometry to free up GPU memory.
-   */
   dispose() {
     for (const c of this.children) {
       if (c.geometry) {
@@ -239,7 +202,7 @@ export default class TowerBase extends THREE.Group {
       }
     }
     this.clear();
-    // Note: We don't dispose the material, as it might be shared.
   }
 }
+
 
