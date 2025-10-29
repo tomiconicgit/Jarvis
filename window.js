@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { BendModifier } from 'three/addons/modifiers/BendModifier.js';
 
 // ---------- Geometry helpers ----------
 function roundedRectPath(w, h, r) {
@@ -146,17 +145,6 @@ export default class Window extends THREE.Group {
     glass.position.set(0, 0, 0); // centered
     this.add(glass);
 
-    // Apply curve if any
-    if (p.curveRadius > 0) {
-      const modifier = new BendModifier();
-      modifier.set(frame.geometry, new THREE.Vector3(0, 1, 0), p.curveRadius);
-      frame.geometry = modifier.modify();
-
-      const glassModifier = new BendModifier();
-      glassModifier.set(glass.geometry, new THREE.Vector3(0, 1, 0), p.curveRadius);
-      glass.geometry = glassModifier.modify();
-    }
-
     // Bolts if toggled
     if (p.hasBolts) {
       const boltGeo = new THREE.CylinderGeometry(0.2, 0.2, p.depth + 0.2, 16);
@@ -182,7 +170,7 @@ export default class Window extends THREE.Group {
         const bar = new THREE.Mesh(barGeo, this.barMaterial);
         bar.position.set(0, -glassH/2 + (i * glassH / (numBars + 1)), 0.1); // slightly in front
         this.add(bar);
-      }
+      });
     }
   }
 
