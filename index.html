@@ -24,6 +24,10 @@
   <div id="loading-screen"><div>Loading 3D Environment...</div></div>
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
+  <div id="process-loading-screen" style="display:none; position:fixed; inset:0; background:rgba(20,20,20,.7); color:#fff; display:flex; justify-content:center; align-items:center; font-size:1.5rem; z-index:2000; transition:opacity .3s ease; backdrop-filter:blur(5px);">
+    <div>Processing Cut...</div>
+  </div>
+
   <div class="ui-panel bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-4 p-3 rounded-full">
     <button id="add-btn" class="w-14 h-14 bg-blue-600 rounded-full flex justify-center items-center shadow-lg active:scale-90 transition-transform">
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 12h12"/></svg>
@@ -95,10 +99,13 @@
     let propsPanel, closePropsPanel, propsContent, addTowerBtn;
     let lastTapTime = 0; const DOUBLE_TAP_DELAY = 300;
 
-    // NEW Cutout UI Globals
+    // Cutout UI Globals
     let cutBtn, cutoutPanel, closeCutoutPanel, performCutBtn;
     let isCutoutMode = false;
-    let cutterPreview; // This will be our red wireframe box
+    let cutterPreview;
+
+    // NEW: Processing modal global
+    let processLoadingScreen;
 
     // ---------- Init ----------
     function init(){
@@ -113,11 +120,14 @@
       propsContent = document.getElementById('props-content');
       addTowerBtn = document.getElementById('add-tower-btn');
 
-      // Get NEW Cutout UI elements
+      // Get Cutout UI elements
       cutBtn = document.getElementById('cut-btn');
       cutoutPanel = document.getElementById('cutout-panel');
       closeCutoutPanel = document.getElementById('close-cutout-panel');
       performCutBtn = document.getElementById('perform-cut-btn');
+
+      // NEW: Get Processing modal
+      processLoadingScreen = document.getElementById('process-loading-screen');
 
       // --- Scene Setup ---
       scene = new THREE.Scene();
@@ -151,13 +161,9 @@
       transformControls.addEventListener('dragging-changed', e => { orbitControls.enabled = !e.value; });
       scene.add(transformControls);
 
-      // --- NEW Cutter Preview Mesh ---
+      // --- Cutter Preview Mesh ---
       const cutterMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.7 });
-      
-      // FIX 1: Removed .toNonIndexed()
-      // THREE.Geometry (from r124) does not have this method.
       const cutterGeo = new THREE.BoxGeometry(3, 2, 1.5); // Default values from sliders
-      
       cutterPreview = new THREE.Mesh(cutterGeo, cutterMat);
       cutterPreview.visible = false;
       scene.add(cutterPreview);
@@ -199,16 +205,12 @@
     }
     function getTouchNDC(t){return {x:(t.clientX/window.innerWidth)*2-1, y:-(t.clientY/window.innerHeight)*2+1};}
 
-    // MODIFIED Single Tap: Now checks for Cutout Mode
     function handleSingleTap(t){
       const ndc = getTouchNDC(t);
       raycaster.setFromCamera(ndc, camera);
-
-      // Route tap to correct handler
       if (isCutoutMode) {
         handleCutoutTap(raycaster);
       } else {
-        // This is the original selection logic
         const hits = raycaster.intersectObjects(allModels, true);
         if(hits.length){
           let obj=hits[0].object; 
@@ -220,39 +222,21 @@
       }
     }
     
-    // NEW Tap Handler for Cutout Mode
     function handleCutoutTap(raycaster) {
       const hits = raycaster.intersectObjects(allModels, true);
-      
       if (hits.length) {
         const hit = hits[0];
-        
-        // Find the root model (the Group) that was hit
         let targetObject = hit.object;
         while(targetObject.parent && targetObject.parent.userData.isModel) {
           targetObject = targetObject.parent;
         }
-        
-        // Select the object we're about to cut
         selectObject(targetObject);
-
-        // Position and align the cutter preview
-        // 1. Position at the hit point
         cutterPreview.position.copy(hit.point);
-        
-        // 2. Align the cutter's Z-axis (depth) with the face normal
-        // We create a lookAt target slightly away from the surface
         const lookAtTarget = new THREE.Vector3().addVectors(hit.point, hit.face.normal);
         cutterPreview.lookAt(lookAtTarget);
-
-        // 3. Make sure it's the correct size
         updateCutterPreviewGeometry();
-        
-        // 4. Show it
         cutterPreview.visible = true;
-
       } else {
-        // Tapped empty space
         cutterPreview.visible = false;
         deselectAll();
       }
@@ -268,13 +252,11 @@
       }
     }
 
-    // MODIFIED: Deselecting also hides the cutout panel if not in cutout mode
     function selectObject(o){ 
       if(currentSelection===o) return; 
       currentSelection=o; 
       transformControls.attach(o); 
       updatePropsPanel(o); 
-      // Only show props panel if NOT in cutout mode
       if (!isCutoutMode) {
         showPanel(propsPanel); 
       }
@@ -298,14 +280,13 @@
         showTempMessage(`Mode: ${transformControls.getMode()[0].toUpperCase()+transformControls.getMode().slice(1)}`);
       });
 
-      // --- NEW Cutout UI Listeners ---
+      // --- Cutout UI Listeners ---
       cutBtn.addEventListener('click', toggleCutoutMode);
       closeCutoutPanel.addEventListener('click', deactivateCutoutMode);
       performCutBtn.addEventListener('click', performCut);
-      initCutoutPanelSliders(); // Set up sliders
+      initCutoutPanelSliders();
 
-      // --- MODIFIED Tower Button ---
-      // Removed door parameters
+      // --- Add Tower Button ---
       addTowerBtn.addEventListener('click', ()=>{
         const params = {
           width: 12,
@@ -322,11 +303,11 @@
         scene.add(tower); allModels.push(tower); 
         selectObject(tower); 
         hidePanel(addPanel);
-        deactivateCutoutMode(); // Make sure we're not in cutout mode
+        deactivateCutoutMode();
       });
     }
 
-    // --- NEW Cutout Mode Functions ---
+    // --- Cutout Mode Functions ---
     function toggleCutoutMode() {
       if (isCutoutMode) {
         deactivateCutoutMode();
@@ -338,12 +319,12 @@
     function activateCutoutMode() {
       isCutoutMode = true;
       showPanel(cutoutPanel);
-      hidePanel(propsPanel); // Hide props
+      hidePanel(propsPanel);
       cutBtn.classList.add('bg-blue-600');
       cutBtn.classList.remove('bg-gray-700');
       deselectAll();
-      transformControls.detach(); // Hide transform controls
-      orbitControls.enablePan = false; // Prevent panning while in this mode
+      transformControls.detach();
+      orbitControls.enablePan = false;
       showTempMessage("Cutout Mode Activated");
     }
 
@@ -352,9 +333,8 @@
       hidePanel(cutoutPanel);
       cutBtn.classList.remove('bg-blue-600');
       cutBtn.classList.add('bg-gray-700');
-      cutterPreview.visible = false; // Hide cutter
+      cutterPreview.visible = false;
       orbitControls.enablePan = true;
-      // Don't show message on deactivation, it's annoying
     }
 
     function initCutoutPanelSliders() {
@@ -369,7 +349,7 @@
         const label = document.getElementById(s.label);
         slider.addEventListener('input', () => {
           label.textContent = parseFloat(slider.value).toFixed(2);
-          updateCutterPreviewGeometry(); // Update the red box
+          updateCutterPreviewGeometry();
         });
       });
     }
@@ -383,13 +363,20 @@
 
     function updateCutterPreviewGeometry() {
       const params = getCutterParams();
-      // Dispose of old geometry to prevent memory leaks
       cutterPreview.geometry.dispose();
-      
-      // FIX 2: Removed .toNonIndexed()
       cutterPreview.geometry = new THREE.BoxGeometry(params.w, params.h, params.d);
     }
 
+    // NEW: Helper functions for the processing modal
+    function showProcessLoading(text) {
+      processLoadingScreen.firstElementChild.textContent = text || 'Processing...';
+      processLoadingScreen.style.display = 'flex';
+    }
+    function hideProcessLoading() {
+      processLoadingScreen.style.display = 'none';
+    }
+
+    // MODIFIED: This function is now asynchronous to prevent crashes
     function performCut() {
       if (!currentSelection) {
         showTempMessage("Select an object to cut first.");
@@ -407,61 +394,66 @@
         return;
       }
 
-      // --- This is the destructive part ---
-      try {
-        const targetObject = currentSelection;
-        // Assume the mesh is the first child (which it is for our TowerBase)
-        const targetMesh = targetObject.children[0];
-        
-        // CSG library needs meshes with world transforms applied
-        targetMesh.updateMatrixWorld(true);
-        cutterPreview.updateMatrixWorld(true);
+      // --- NEW: Asynchronous cutting process ---
 
-        const a = CSG.fromMesh(targetMesh); // The object
-        const b = CSG.fromMesh(cutterPreview); // The cutter
-        
-        const sub = CSG.subtract(a, b);
-        
-        const newMesh = CSG.toMesh(sub, targetObject.matrix, targetMesh.material);
-        newMesh.castShadow = true;
-        newMesh.receiveShadow = true;
+      // 1. Show the loading modal *first*
+      showProcessLoading('Processing Cut...');
 
-        // Create a new Group to replace the old one
-        const newModel = new THREE.Group();
-        newModel.add(newMesh);
-        
-        // Copy transform from the old object
-        newModel.position.copy(targetObject.position);
-        newModel.rotation.copy(targetObject.rotation);
-        newModel.scale.copy(targetObject.scale);
-        
-        // Mark it as a selectable model
-        newModel.userData.isModel = true;
-        newModel.userData.type = 'CustomMesh'; // It's no longer a 'TowerBase'
+      // 2. Use setTimeout to unblock the main thread.
+      // This lets the browser render the modal *before* starting the heavy work.
+      setTimeout(() => {
+        // 3. Run all the heavy CSG code inside the timeout
+        try {
+          const targetObject = currentSelection;
+          const targetMesh = targetObject.children[0];
+          
+          targetMesh.updateMatrixWorld(true);
+          cutterPreview.updateMatrixWorld(true);
 
-        // Remove old object from scene and array
-        scene.remove(targetObject);
-        allModels.splice(allModels.indexOf(targetObject), 1);
-        
-        // Add new object
-        scene.add(newModel);
-        allModels.push(newModel);
-        
-        // Clean up
-        deactivateCutoutMode();
-        selectObject(newModel); // Select the new mesh
-        showTempMessage("Cut successful! Object is now a static mesh.");
+          const a = CSG.fromMesh(targetMesh);
+          const b = CSG.fromMesh(cutterPreview);
+          
+          const sub = CSG.subtract(a, b);
+          
+          const newMesh = CSG.toMesh(sub, targetObject.matrix, targetMesh.material);
+          newMesh.castShadow = true;
+          newMesh.receiveShadow = true;
 
-      } catch (err) {
-        console.warn('CSG failed, operation aborted:', err);
-        showTempMessage("Cut operation failed.");
-      }
+          const newModel = new THREE.Group();
+          newModel.add(newMesh);
+          
+          newModel.position.copy(targetObject.position);
+          newModel.rotation.copy(targetObject.rotation);
+          newModel.scale.copy(targetObject.scale);
+          
+          newModel.userData.isModel = true;
+          newModel.userData.type = 'CustomMesh';
+
+          scene.remove(targetObject);
+          allModels.splice(allModels.indexOf(targetObject), 1);
+          
+          scene.add(newModel);
+          allModels.push(newModel);
+          
+          deactivateCutoutMode();
+          selectObject(newModel);
+          
+          // 4. Hide the modal and show success
+          hideProcessLoading();
+          showTempMessage("Cut successful! Object is now a static mesh.");
+
+        } catch (err) {
+          // 5. Hide the modal on failure too
+          console.warn('CSG failed, operation aborted:', err);
+          hideProcessLoading();
+          showTempMessage("Cut operation failed.");
+        }
+      }, 0); // The '0'ms timeout is the key to making this non-blocking
     }
-
     // --- End Cutout Mode Functions ---
 
     function showPanel(p){ p.style.visibility='visible'; p.style.opacity='1'; p.style.transform=p.id.includes('props')?'translateX(0)':'translateY(0)'; }
-    function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(100%)'; setTimeout(()=>p.style.visibility='hidden',300); }
+    function hidePanel(p){ p.style.opacity='0'; p.style.transform=p.id.includes('props')?'translateX(100%)':'translateY(1Code.js'; setTimeout(()=>p.style.visibility='hidden',300); }
     function showTempMessage(text){ const box=document.getElementById('message-box'); document.getElementById('message-text').textContent=text; box.classList.add('show'); setTimeout(()=>box.classList.remove('show'),1500); }
 
     // ---------- Geometry helpers ----------
@@ -543,26 +535,20 @@
         this.build();
       }
 
-      // MODIFIED: Simplified build, no door logic
       build(){
         for(const c of this.children){ c.geometry && c.geometry.dispose(); }
         this.clear();
 
         const p = this.userData.params;
 
-        // Build the shell
         let shellGeo = unifiedShellGeometry(p, /*forceNoBevel*/ false);
         let resultMesh = new THREE.Mesh(shellGeo, this.material);
-
-        // FIX 3: Removed .toNonIndexed()
-        // This is not needed as the CSG lib will handle the Geometry
         
         resultMesh.castShadow = true; 
         resultMesh.receiveShadow = true;
         this.add(resultMesh);
       }
 
-      // MODIFIED: Removed door max checks
       updateParams(next){
         next = {...next};
         const crMax = Math.max(0, Math.min(next.width, next.depth)/2 - next.wallThickness - 0.01);
@@ -581,11 +567,9 @@
       const eps=0.01; return Math.max(0, Math.min(p.width, p.depth)/2 - p.wallThickness - eps);
     }
 
-    // MODIFIED: Simplified props panel
     function updatePropsPanel(object){
       propsContent.innerHTML = '';
       
-      // If it's not a parametric object, show a message
       if(!object || !object.userData.params){
         propsContent.innerHTML = '<p class="text-gray-400">This is a static mesh. Its properties cannot be edited.</p>'; 
         return;
@@ -593,7 +577,6 @@
 
       const p = object.userData.params;
       
-      // REMOVED doorWidth and doorHeight from config
       const paramConfig = {
         height:          { min:1,   max:40, step:0.1, label:'Height' },
         width:           { min:4,   max:60, step:0.1, label:'Width' },
