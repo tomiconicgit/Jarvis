@@ -9,10 +9,9 @@ import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
 
 // --- Global Variables ---
-// 3D Scene
 let scene, camera, renderer, orbitControls, transformControls;
 let raycaster, touchStartPos, currentSelection;
-let allModels = []; // Array to hold all selectable models
+let allModels = []; // Selectable root objects
 
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
@@ -23,45 +22,51 @@ let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, toolsBtn;
 let lastTapTime = 0;
 const DOUBLE_TAP_DELAY = 300;
 
-/**
- * Initializes the entire application.
- */
+// -----------------------------
+// Init
+// -----------------------------
 function init() {
-  // --- Get UI Elements ---
-  loadingScreen = document.getElementById('loading-screen');
+  // UI handles
+  loadingScreen   = document.getElementById('loading-screen');
   canvasContainer = document.getElementById('canvas-container');
-  addBtn = document.getElementById('add-btn');
-  toolsBtn = document.getElementById('tools-btn');
-  addPanel = document.getElementById('add-panel');
-  closeAddPanel = document.getElementById('close-add-panel');
-  propsPanel = document.getElementById('props-panel');
+  addBtn          = document.getElementById('add-btn');
+  toolsBtn        = document.getElementById('tools-btn');
+  addPanel        = document.getElementById('add-panel');
+  closeAddPanel   = document.getElementById('close-add-panel');
+  propsPanel      = document.getElementById('props-panel');
   closePropsPanel = document.getElementById('close-props-panel');
-  propsContent = document.getElementById('props-content');
+  propsContent    = document.getElementById('props-content');
   addTowerDoorBtn = document.getElementById('add-tower-door-btn');
-  addTowerSolidBtn = document.getElementById('add-tower-solid-btn');
-  addDoubleDoorBtn = document.getElementById('add-double-door-btn');
+  addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
+  addDoubleDoorBtn= document.getElementById('add-double-door-btn');
 
-  // --- Scene Setup ---
+  // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a2a2a);
   scene.fog = new THREE.Fog(0x2a2a2a, 50, 200);
 
-  // --- Renderer ---
+  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
-  // --- Add Environment for Glass Reflections ---
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer)).texture;
+  // Environment (for glass/reflections)
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environment = envTex;
 
-  // --- Camera ---
-  camera = new THREE.PerspectiveCamera(50, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+  // Camera
+  camera = new THREE.PerspectiveCamera(
+    50,
+    canvasContainer.clientWidth / canvasContainer.clientHeight,
+    0.1,
+    1000
+  );
   camera.position.set(15, 20, 25);
 
-  // --- Lights ---
+  // Lights
   scene.add(new THREE.AmbientLight(0x808080));
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
   dirLight.position.set(10, 20, 5);
@@ -69,7 +74,7 @@ function init() {
   dirLight.shadow.mapSize.set(1024, 1024);
   scene.add(dirLight);
 
-  // --- Ground ---
+  // Ground
   scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444));
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100),
@@ -79,63 +84,65 @@ function init() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // --- Controls ---
+  // Controls
   orbitControls = new OrbitControls(camera, renderer.domElement);
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.1;
   orbitControls.enablePan = true;
 
   transformControls = new TransformControls(camera, renderer.domElement);
-  transformControls.setMode("translate");
-  transformControls.addEventListener('dragging-changed', e => {
+  transformControls.setMode('translate');
+  transformControls.addEventListener('dragging-changed', (e) => {
     orbitControls.enabled = !e.value;
   });
-  // Update props panel when transform is done
+  // When user finishes a transform, refresh the props readout
   transformControls.addEventListener('mouseUp', () => {
-    if (currentSelection) {
-      updatePropsPanel(currentSelection);
-    }
+    if (currentSelection) updatePropsPanel(currentSelection);
   });
-  scene.add(transformControls.getHelper());
+  // Ensure the gizmo is in the scene
+  scene.add(transformControls);
+  // If your TransformControls build exposes a helper, keep it; guard to avoid errors
+  if (typeof transformControls.getHelper === 'function') {
+    scene.add(transformControls.getHelper());
+  }
 
-  // --- Raycasting & Touch ---
+  // Raycast / touch
   raycaster = new THREE.Raycaster();
   touchStartPos = new THREE.Vector2();
 
-  // --- Event Listeners ---
+  // Events
   window.addEventListener('resize', resizeRenderer);
   canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
   canvasContainer.addEventListener('touchend', onTouchEnd);
 
-  // --- Initialize UI Listeners ---
+  // UI listeners
   initUI();
 
-  // --- Hide Loading Screen ---
+  // Hide loading
   loadingScreen.style.opacity = '0';
-  setTimeout(() => loadingScreen.style.display = 'none', 500);
+  setTimeout(() => (loadingScreen.style.display = 'none'), 500);
 
-  // --- Start Render Loop ---
+  // Loop
   animate();
 }
 
-/**
- * The main render loop.
- */
+// -----------------------------
+// Loop
+// -----------------------------
 function animate() {
   requestAnimationFrame(animate);
   orbitControls.update();
   renderer.render(scene, camera);
 }
 
-// ----------------------------------------------------
-// --- EVENT HANDLERS (Resize, Touch) ---
-// ----------------------------------------------------
-
+// -----------------------------
+// Events
+// -----------------------------
 function resizeRenderer() {
-  const container = canvasContainer;
-  camera.aspect = container.clientWidth / container.clientHeight;
+  const c = canvasContainer;
+  camera.aspect = c.clientWidth / c.clientHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setSize(c.clientWidth, c.clientHeight);
 }
 
 function onTouchStart(e) {
@@ -150,8 +157,7 @@ function onTouchEnd(e) {
   if (e.changedTouches.length === 1) {
     const t = e.changedTouches[0];
     const endPos = new THREE.Vector2(t.clientX, t.clientY);
-    
-    // Check if it was a tap (not a drag)
+
     if (touchStartPos.distanceTo(endPos) < 10) {
       const now = Date.now();
       if (now - lastTapTime < DOUBLE_TAP_DELAY) {
@@ -171,10 +177,9 @@ function getTouchNDC(t) {
   };
 }
 
-// ----------------------------------------------------
-// --- SELECTION & INTERACTION LOGIC ---
-// ----------------------------------------------------
-
+// -----------------------------
+// Selection
+// -----------------------------
 function handleSingleTap(t) {
   const ndc = getTouchNDC(t);
   raycaster.setFromCamera(ndc, camera);
@@ -182,11 +187,9 @@ function handleSingleTap(t) {
 
   if (hits.length) {
     let obj = hits[0].object;
-    // Traverse up to find the main model group
-    while (obj.parent && obj.parent.userData.isModel) {
-      obj = obj.parent;
-    }
-    selectObject(obj);
+    // Walk up to the root model (userData.isModel)
+    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
+    selectObject(obj || hits[0].object);
   } else {
     deselectAll();
   }
@@ -196,57 +199,51 @@ function handleDoubleTap(t) {
   const ndc = getTouchNDC(t);
   raycaster.setFromCamera(ndc, camera);
   const hits = raycaster.intersectObjects(allModels, true);
-  
+
   if (hits.length) {
     const box = new THREE.Box3().setFromObject(hits[0].object);
     orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-    showTempMessage("Camera Focused");
+    showTempMessage('Camera Focused');
   }
 }
 
 function selectObject(o) {
+  if (!o) return;
   if (currentSelection === o) return;
   currentSelection = o;
-  transformControls.attach(o);
-  updatePropsPanel(o); // Re-build the properties panel
+  transformControls.attach(o); // <- gizmo shows (we added it to scene)
+  updatePropsPanel(o);
   showPanel(propsPanel);
   hidePanel(addPanel);
 }
 
 function deselectAll() {
-  if (currentSelection) {
-    transformControls.detach();
-  }
+  if (currentSelection) transformControls.detach();
   currentSelection = null;
   hidePanel(propsPanel);
 }
 
-// ----------------------------------------------------
-// --- UI & PANEL MANAGEMENT ---
-// ----------------------------------------------------
-
+// -----------------------------
+// UI
+// -----------------------------
 function initUI() {
-  // Main controls
-  addBtn.addEventListener('click', () => { 
-    showPanel(addPanel); 
-    deselectAll(); // Close props panel if it's open
+  addBtn.addEventListener('click', () => {
+    showPanel(addPanel);
+    deselectAll();
   });
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
-  
-  // Tools button
+
+  // Cycle transform mode
   toolsBtn.addEventListener('click', () => {
-    if (!currentSelection) {
-      return showTempMessage("Select an object first");
-    }
+    if (!currentSelection) return showTempMessage('Select an object first');
     const m = transformControls.getMode();
-    transformControls.setMode(m === "translate" ? "rotate" : m === "rotate" ? "scale" : "translate");
-    showTempMessage(`Mode: ${transformControls.getMode()[0].toUpperCase() + transformControls.getMode().slice(1)}`);
+    const next = m === 'translate' ? 'rotate' : m === 'rotate' ? 'scale' : 'translate';
+    transformControls.setMode(next);
+    showTempMessage(`Mode: ${next[0].toUpperCase()}${next.slice(1)}`);
   });
 
-  // --- Add Asset Buttons ---
-  
-  // Add Tower Base with door
+  // Add Tower (door)
   addTowerDoorBtn.addEventListener('click', () => {
     const params = {
       width: 12,
@@ -259,14 +256,14 @@ function initUI() {
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
-    
+
     scene.add(tower);
     allModels.push(tower);
     selectObject(tower);
     hidePanel(addPanel);
   });
-  
-  // Add Tower Base (Solid)
+
+  // Add Tower (solid)
   addTowerSolidBtn.addEventListener('click', () => {
     const params = {
       width: 10,
@@ -279,14 +276,14 @@ function initUI() {
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
-    
+
     scene.add(tower);
     allModels.push(tower);
     selectObject(tower);
     hidePanel(addPanel);
   });
 
-  // Add Double Door
+  // Add Double Door (now visible + transformable)
   addDoubleDoorBtn.addEventListener('click', () => {
     const params = {
       totalWidth: 8,
@@ -305,7 +302,7 @@ function initUI() {
     };
     const doors = new DoubleDoor(params);
     doors.position.y = params.height / 2;
-    
+
     scene.add(doors);
     allModels.push(doors);
     selectObject(doors);
@@ -328,7 +325,7 @@ function showPanel(p) {
 function hidePanel(p) {
   p.style.opacity = '0';
   p.style.transform = 'translateY(100%)';
-  setTimeout(() => p.style.visibility = 'hidden', 300);
+  setTimeout(() => (p.style.visibility = 'hidden'), 300);
 }
 
 function showTempMessage(text) {
@@ -338,71 +335,73 @@ function showTempMessage(text) {
   setTimeout(() => box.classList.remove('show'), 1500);
 }
 
-// ----------------------------------------------------
-// --- DYNAMIC PROPERTIES PANEL ---
-// ----------------------------------------------------
-
-/**
- * Builds the sliders in the properties panel for the selected object.
- */
+// -----------------------------
+// Dynamic Properties Panel
+// -----------------------------
 function updatePropsPanel(object) {
-  propsContent.innerHTML = ''; // Clear old sliders
-  
-  if (!object || !object.userData.params) {
+  propsContent.innerHTML = '';
+
+  if (!object || !object.userData?.params) {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
     return;
   }
-  
+
   const type = object.userData.type;
   const p = object.userData.params;
-  
+
   let paramConfig = {};
   if (type === 'TowerBase') {
     paramConfig = {
-      height:          { min: 1,   max: 40, step: 0.1, label: 'Height' },
-      width:           { min: 4,   max: 60, step: 0.1, label: 'Width' },
-      depth:           { min: 4,   max: 60, step: 0.1, label: 'Depth' },
-      wallThickness:   { min: 0.1, max: 5,  step: 0.1, label: 'Wall Thickness' },
-      cornerRadius:    { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-      cornerSmoothness:{ min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-      edgeRoundness:   { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-      edgeSmoothness:  { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-      // Only show Door Width slider if the model is supposed to have a door
+      height:           { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      width:            { min: 4,   max: 60, step: 0.1, label: 'Width' },
+      depth:            { min: 4,   max: 60, step: 0.1, label: 'Depth' },
+      wallThickness:    { min: 0.1, max: 5,  step: 0.1, label: 'Wall Thickness' },
+      cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
       ...(p.doorWidth > 0 && {
-        doorWidth:     { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+        doorWidth:      { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
       })
     };
   } else if (type === 'DoubleDoor') {
     paramConfig = {
-      height:          { min: 1,   max: 40, step: 0.1, label: 'Height' },
-      totalWidth:      { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
-      depth:           { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
-      frameThickness:  { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
-      cornerRadius:    { min: 0,   max: DoubleDoor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-      cornerSmoothness:{ min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-      edgeRoundness:   { min: 0,   max: DoubleDoor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-      edgeSmoothness:  { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-      glassR:          { min: 0,   max: 1,  step: 0.01, label: 'Glass Red' },
-      glassG:          { min: 0,   max: 1,  step: 0.01, label: 'Glass Green' },
-      glassB:          { min: 0,   max: 1,  step: 0.01, label: 'Glass Blue' },
-      glassOpacity:    { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
-      glassRoughness:  { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+      height:           { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      totalWidth:       { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
+      depth:            { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
+      frameThickness:   { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
+      cornerRadius:     { min: 0,   max: DoubleDoor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:    { min: 0,   max: DoubleDoor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Red' },
+      glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Green' },
+      glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Blue' },
+      glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+      glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
     };
   } else {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
     return;
   }
-  
-  // Create HTML for each slider
+
+  // Sliders
   for (const key in paramConfig) {
     const cfg = paramConfig[key];
-    // Update max values based on current params
-    if (key === 'cornerRadius') cfg.max = type === 'TowerBase' ? TowerBase.getMaxCornerRadius(p) : DoubleDoor.getMaxCornerRadius(p);
-    if (key === 'edgeRoundness') cfg.max = type === 'TowerBase' ? TowerBase.getMaxEdgeRoundness(p) : DoubleDoor.getMaxEdgeRoundness(p);
+
+    if (key === 'cornerRadius') cfg.max = type === 'TowerBase'
+      ? TowerBase.getMaxCornerRadius(p)
+      : DoubleDoor.getMaxCornerRadius(p);
+
+    if (key === 'edgeRoundness') cfg.max = type === 'TowerBase'
+      ? TowerBase.getMaxEdgeRoundness(p)
+      : DoubleDoor.getMaxEdgeRoundness(p);
+
     if (key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
 
     const value = (p[key] ?? cfg.min);
     const valueFmt = (cfg.step >= 1) ? Math.round(value) : value.toFixed(2);
+
     const html = `
       <div class="space-y-1">
         <label class="text-sm font-medium text-gray-300 flex justify-between">
@@ -415,66 +414,67 @@ function updatePropsPanel(object) {
     propsContent.insertAdjacentHTML('beforeend', html);
   }
 
-  // Add event listeners to all new sliders
-  propsContent.querySelectorAll('input[type="range"]').forEach(slider => {
+  // Slider events
+  propsContent.querySelectorAll('input[type="range"]').forEach((slider) => {
     slider.addEventListener('input', () => {
       const key = slider.dataset.param;
       const cfg = paramConfig[key];
       const val = (cfg.step >= 1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
-      
-      // Get current params and apply the change
+
       let next = { ...object.userData.params, [key]: val };
 
-      // --- Dynamic Max Value Updates ---
-      // If a base parameter changes, update the max of dependent sliders
-      if (['totalWidth', 'width', 'depth', 'frameThickness', 'wallThickness', 'cornerRadius', 'height'].includes(key)) {
-        
-        // 1. Update Corner Radius Slider
+      if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height'].includes(key)) {
+        // Corner Radius
         const crSlider = document.getElementById('cornerRadius-slider');
         if (crSlider) {
-          const maxCR = type === 'TowerBase' ? TowerBase.getMaxCornerRadius(next) : DoubleDoor.getMaxCornerRadius(next);
+          const maxCR = (object.userData.type === 'TowerBase')
+            ? TowerBase.getMaxCornerRadius(next)
+            : DoubleDoor.getMaxCornerRadius(next);
           crSlider.max = maxCR;
           if (next.cornerRadius > maxCR) {
             next.cornerRadius = maxCR;
             crSlider.value = maxCR;
-            document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2);
+            const v = (paramConfig.cornerRadius.step >= 1) ? Math.round(maxCR) : maxCR.toFixed(2);
+            document.getElementById('cornerRadius-value').textContent = v;
           }
         }
-        
-        // 2. Update Edge Roundness Slider
+        // Edge Roundness
         const erSlider = document.getElementById('edgeRoundness-slider');
         if (erSlider) {
-          const maxER = type === 'TowerBase' ? TowerBase.getMaxEdgeRoundness(next) : DoubleDoor.getMaxEdgeRoundness(next);
+          const maxER = (object.userData.type === 'TowerBase')
+            ? TowerBase.getMaxEdgeRoundness(next)
+            : DoubleDoor.getMaxEdgeRoundness(next);
           erSlider.max = maxER;
           if (next.edgeRoundness > maxER) {
             next.edgeRoundness = maxER;
             erSlider.value = maxER;
-            document.getElementById('edgeRoundness-value').textContent = maxER.toFixed(2);
+            const v = (paramConfig.edgeRoundness.step >= 1) ? Math.round(maxER) : maxER.toFixed(2);
+            document.getElementById('edgeRoundness-value').textContent = v;
           }
         }
-
-        // 3. Update Door Width Slider (for TowerBase only)
+        // Door Width (Tower only)
         const dwSlider = document.getElementById('doorWidth-slider');
-        if (dwSlider && type === 'TowerBase') {
+        if (dwSlider && object.userData.type === 'TowerBase') {
           const maxDW = TowerBase.getMaxDoorWidth(next);
           dwSlider.max = maxDW;
           if (next.doorWidth > maxDW) {
             next.doorWidth = maxDW;
             dwSlider.value = maxDW;
-            document.getElementById('doorWidth-value').textContent = maxDW.toFixed(2);
+            const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : maxDW.toFixed(2);
+            document.getElementById('doorWidth-value').textContent = v;
           }
         }
       }
 
-      // Update the label for the slider being moved
       const lbl = document.getElementById(`${key}-value`);
       if (lbl) lbl.textContent = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
-      
-      // Finally, apply all changes and rebuild the mesh
+
       object.updateParams(next);
     });
   });
 }
 
-// --- Start the application ---
+// -----------------------------
+// Start
+// -----------------------------
 window.addEventListener('DOMContentLoaded', init);
