@@ -32,7 +32,7 @@
     .ui-panel {
       position: fixed; background: rgba(30,30,30,0.85);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border-radius: 12px; z-index: 10;
+      border-radius: 12px; z-index: 12;
       transition: transform 0.3s ease-out, opacity 0.3s ease-out;
       box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     }
@@ -66,19 +66,42 @@
     }
     #message-box.show { transform: translate(-50%, -50%) scale(1); opacity: 1; visibility: visible; }
 
-    /* Top bar above panels, safe area aware */
-    #top-bar {
+    /* New full-width top toolbar */
+    #app-toolbar-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
       z-index: 20;
-      top: calc(env(safe-area-inset-top, 0px) + 12px);
-      left: calc(env(safe-area-inset-left, 0px) + 12px);
+      padding-top: env(safe-area-inset-top, 0px);
+      background: rgba(20,20,20,0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #app-toolbar {
+      height: 52px; /* ~44pt min touch target on iPhone */
+    }
+    .tool-btn {
+      min-width: 64px;
+      height: 36px;
+      font-size: 14px;
     }
 
-    /* Center modal */
-    .modal {
-      position: fixed; inset: 0; display: none; place-items: center; z-index: 40;
-      background: rgba(0,0,0,0.45);
+    /* Dropdown under toolbar (safe area aware) */
+    .below-toolbar {
+      top: calc(env(safe-area-inset-top, 0px) + 52px + 8px);
+      left: 12px; right: 12px;
     }
-    .modal.show { display: grid; }
+
+    /* Existing bottom panels keep bottom anchoring */
+    #props-panel { z-index: 15; }
+
+    /* File dropdown list items */
+    .menu-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-radius: 8px; background: #2c2c2c;
+    }
+    .menu-item + .menu-item { margin-top: 8px; }
+    .menu-item:active { transform: scale(0.98); }
   </style>
 
   <!-- Import-map shim -->
@@ -109,40 +132,34 @@
   <!-- Toast -->
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
-  <!-- TOP-LEFT BAR -->
-  <div
-    id="top-bar"
-    class="ui-panel fixed p-2 rounded-lg flex items-center space-x-2"
-    style="right:auto;"
-  >
-    <button id="file-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
-      File
-    </button>
-    <button id="add-btn" class="px-3 py-2 bg-blue-600 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
-      Add
-    </button>
-    <button id="scene-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
-      Scene
-    </button>
-    <button id="parent-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
-      Parent
-    </button>
+  <!-- NEW FULL-WIDTH TOP BAR -->
+  <div id="app-toolbar-wrap">
+    <div id="app-toolbar" class="px-3 flex items-center gap-2">
+      <button id="file-btn"   class="tool-btn flex-1 bg-gray-700 rounded-md shadow active:scale-95 font-semibold">File</button>
+      <button id="add-btn"    class="tool-btn flex-1 bg-blue-600 rounded-md shadow active:scale-95 font-semibold">Add</button>
+      <button id="scene-btn"  class="tool-btn flex-1 bg-gray-700 rounded-md shadow active:scale-95 font-semibold">Scene</button>
+      <button id="parent-btn" class="tool-btn flex-1 bg-gray-700 rounded-md shadow active:scale-95 font-semibold">Parent</button>
+    </div>
   </div>
 
-  <!-- File Panel -->
-  <div id="file-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
-    <h3 class="text-lg font-bold mb-4">File</h3>
-    <div class="grid grid-cols-4 gap-3">
-      <button id="file-save"   class="bg-gray-700 p-3 rounded-lg active:scale-95">Save</button>
-      <button id="file-load"   class="bg-gray-700 p-3 rounded-lg active:scale-95">Load</button>
-      <button id="file-export" class="bg-gray-700 p-3 rounded-lg active:scale-95">Export</button>
-      <button id="file-import" class="bg-gray-700 p-3 rounded-lg active:scale-95">Import</button>
+  <!-- FILE DROPDOWN -->
+  <div id="file-panel" class="ui-panel below-toolbar p-3 transform translate-y-full opacity-0" style="visibility:hidden;">
+    <h3 class="text-lg font-bold mb-3">File</h3>
+    <div class="space-y-2">
+      <button id="file-save"   class="menu-item">Save<span class="text-xs text-gray-300">.json</span></button>
+      <button id="file-load"   class="menu-item">Load<span class="text-xs text-gray-300">from .json</span></button>
+      <button id="file-export" class="menu-item">Export<span class="text-xs text-gray-300">.glb</span></button>
+      <button id="file-import" class="menu-item">Import<span class="text-xs text-gray-300">.glb</span></button>
     </div>
     <button id="close-file-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
-  <!-- Add Object Panel -->
-  <div id="add-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
+  <!-- Hidden pickers -->
+  <input id="picker-load-json" type="file" accept="application/json" class="hidden">
+  <input id="picker-import-glb" type="file" accept=".glb,model/gltf-binary" class="hidden">
+
+  <!-- Add Object Panel (unchanged; now drops below toolbar) -->
+  <div id="add-panel" class="ui-panel below-toolbar p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-4">Add Object</h3>
     <div class="grid grid-cols-3 gap-4">
       <button id="add-tower-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
@@ -177,14 +194,14 @@
   </div>
 
   <!-- Scene Objects Panel -->
-  <div id="scene-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
+  <div id="scene-panel" class="ui-panel below-toolbar p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-3">Scene Objects</h3>
     <div id="scene-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
     <button id="close-scene-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
   <!-- Parenting Panel -->
-  <div id="parent-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
+  <div id="parent-panel" class="ui-panel below-toolbar p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-3">Parenting</h3>
     <p class="text-sm text-gray-300 mb-3">Select one Main, then one or more Children. Apply to link them.</p>
     <div id="parent-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
@@ -196,34 +213,27 @@
   </div>
 
   <!-- Export Modal -->
-  <div id="export-modal" class="modal">
-    <div class="bg-gray-800 rounded-xl p-5 w-[min(92vw,520px)] shadow-2xl">
-      <div class="flex justify-between items-center mb-3">
+  <div id="export-modal" class="fixed inset-0 bg-black/60 z-30 hidden">
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#1f1f1f] rounded-xl p-4 w-[min(520px,92vw)]">
+      <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-bold">Export GLB</h3>
-        <button id="export-close" class="w-8 h-8 bg-gray-700 rounded-full text-2xl leading-7">&times;</button>
+        <button id="export-close" class="w-8 h-8 bg-gray-700 rounded-full text-2xl leading-6">&times;</button>
       </div>
-      <div class="space-y-4">
-        <div>
-          <label class="text-sm text-gray-300">Model name</label>
-          <input id="export-name" class="w-full mt-1 px-3 py-2 rounded-md bg-gray-700 outline-none" value="Model">
-        </div>
+      <div class="space-y-3">
+        <label class="block text-sm">Model name
+          <input id="export-name" class="mt-1 w-full bg-gray-800 rounded-md p-2 outline-none" placeholder="MyModel.glb" value="Model.glb">
+        </label>
         <div class="grid grid-cols-2 gap-3 text-sm">
-          <label class="flex items-center gap-2"><input id="opt-only-visible" type="checkbox"> Only visible</label>
-          <label class="flex items-center gap-2"><input id="opt-embed-images" type="checkbox" checked> Embed images</label>
-          <label class="flex items-center gap-2"><input id="opt-include-userdata" type="checkbox" checked> Include userData</label>
-          <label class="flex items-center gap-2"><input id="opt-apply-trs" type="checkbox"> Export TRS</label>
+          <label class="flex items-center gap-2"><input id="opt-only-models" type="checkbox" checked> Only models (no grid/lights)</label>
+          <label class="flex items-center gap-2"><input id="opt-binary" type="checkbox" checked> Export binary (.glb)</label>
         </div>
-        <div class="text-xs text-gray-400">Exported file is a single <b>.glb</b> with your hierarchy preserved.</div>
-        <div class="flex justify-end gap-3">
-          <button id="export-do" class="px-4 py-2 bg-blue-600 rounded-md font-semibold active:scale-95">Export</button>
-        </div>
+      </div>
+      <div class="mt-4 flex justify-end gap-3">
+        <button id="export-cancel" class="px-3 py-2 bg-gray-600 rounded-md">Cancel</button>
+        <button id="export-go" class="px-3 py-2 bg-blue-600 rounded-md font-semibold">Export</button>
       </div>
     </div>
   </div>
-
-  <!-- Hidden file inputs -->
-  <input id="load-input" type="file" accept="application/json" style="display:none">
-  <input id="import-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="display:none">
 
   <!-- Hide loader on global script errors too -->
   <script>
