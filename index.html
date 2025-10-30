@@ -21,14 +21,12 @@
     canvas { display: block; width: 100%; height: 100%; }
     * { -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
 
-    /* Loading */
     #loading-screen {
       position: fixed; inset: 0; background: #1a1a1a; color: #fff;
       display: flex; justify-content: center; align-items: center;
       font-size: 1.5rem; z-index: 1000; transition: opacity 0.5s ease;
     }
 
-    /* Panels */
     .ui-panel {
       position: fixed; background: rgba(30,30,30,0.90);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -41,7 +39,7 @@
       bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
       transform: translateY(100%); opacity: 0; visibility: hidden;
     }
-    /* Sliders */
+
     input[type="range"] {
       -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
       background: #4a5568; border-radius: 4px; outline: none;
@@ -57,7 +55,6 @@
       cursor: pointer;
     }
 
-    /* Toast -> bottom snackbar */
     #message-box {
       position: fixed;
       left: 50%;
@@ -72,37 +69,26 @@
     }
     #message-box.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
 
-    /* Fixed full-width top toolbar */
     #app-toolbar-wrap {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 20;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
       padding-top: env(safe-area-inset-top, 0px);
       background: rgba(20,20,20,0.92);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     #app-toolbar { height: 52px; }
     .tool-btn { min-width: 64px; height: 36px; font-size: 14px; }
 
-    /* Properties bottom drawer full-width */
     #props-panel {
-      left: 0; right: 0;
-      bottom: 0;
-      border-top-left-radius: 12px;
-      border-top-right-radius: 12px;
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0;
+      left: 0; right: 0; bottom: 0;
+      border-top-left-radius: 12px; border-top-right-radius: 12px;
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
       height: 45vh; max-height: 45vh; z-index: 15;
       transform: translateY(100%); opacity: 0; visibility: hidden;
     }
   </style>
 
-  <!-- Import-map shim -->
   <script src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
-
-  <!-- Import map -->
   <script type="importmap">
   {
     "imports": {
@@ -118,16 +104,12 @@
 </head>
 <body class="bg-gray-900 text-white">
 
-  <!-- 3D Canvas -->
   <div id="canvas-container"></div>
 
-  <!-- Loading -->
   <div id="loading-screen"><div>Loading 3D Environment...</div></div>
 
-  <!-- Toast -->
   <div id="message-box"><p id="message-text">Ready</p></div>
 
-  <!-- TOP BAR -->
   <div id="app-toolbar-wrap">
     <div id="app-toolbar" class="px-3 flex items-center gap-2">
       <button id="file-btn"   class="tool-btn flex-1 bg-gray-700 rounded-md shadow active:scale-95 font-semibold">File</button>
@@ -137,7 +119,7 @@
     </div>
   </div>
 
-  <!-- FILE PANEL (bottom) -->
+  <!-- FILE -->
   <div id="file-panel" class="ui-panel bottom-sheet p-3">
     <h3 class="text-lg font-bold mb-3">File</h3>
     <div class="space-y-2">
@@ -153,7 +135,7 @@
   <input id="picker-load-json" type="file" accept="application/json" class="hidden">
   <input id="picker-import-glb" type="file" accept=".glb,model/gltf-binary" class="hidden">
 
-  <!-- ADD PANEL (bottom) -->
+  <!-- ADD -->
   <div id="add-panel" class="ui-panel bottom-sheet p-4">
     <h3 class="text-lg font-bold mb-4">Add Object</h3>
     <div class="grid grid-cols-3 gap-4">
@@ -175,18 +157,22 @@
       <button id="add-pipe-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Pipe</span>
       </button>
+      <!-- NEW -->
+      <button id="add-trussarm-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+        <span class="text-sm font-medium text-center">Truss Arm</span>
+      </button>
     </div>
     <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
-  <!-- SCENE PANEL (bottom) -->
+  <!-- SCENE -->
   <div id="scene-panel" class="ui-panel bottom-sheet p-4">
     <h3 class="text-lg font-bold mb-3">Scene Objects</h3>
     <div id="scene-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
     <button id="close-scene-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
-  <!-- PARENT PANEL (bottom) -->
+  <!-- PARENT -->
   <div id="parent-panel" class="ui-panel bottom-sheet p-4">
     <h3 class="text-lg font-bold mb-3">Parenting</h3>
     <p class="text-sm text-gray-300 mb-3">Select one Main, then one or more Children. Apply to link them.</p>
@@ -198,7 +184,7 @@
     <button id="close-parent-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
-  <!-- EXPORT PANEL (bottom) -->
+  <!-- EXPORT -->
   <div id="export-panel" class="ui-panel bottom-sheet p-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-lg font-bold">Export GLB</h3>
@@ -219,7 +205,7 @@
     </div>
   </div>
 
-  <!-- PROPERTIES (bottom drawer) -->
+  <!-- PROPERTIES -->
   <div id="props-panel" class="ui-panel p-4">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-bold">Properties</h3>
@@ -228,7 +214,6 @@
     <div id="props-content" class="space-y-4 overflow-y-auto max-h-[calc(45vh-4rem)] px-4 pb-2"></div>
   </div>
 
-  <!-- Hide loader on global script errors too -->
   <script>
     const hideLoader = () => {
       const ls = document.getElementById('loading-screen');
@@ -238,7 +223,6 @@
     window.addEventListener('unhandledrejection', hideLoader);
   </script>
 
-  <!-- App -->
   <script type="module" src="main.js"></script>
 </body>
 </html>
