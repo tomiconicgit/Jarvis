@@ -72,9 +72,16 @@
       top: calc(env(safe-area-inset-top, 0px) + 12px);
       left: calc(env(safe-area-inset-left, 0px) + 12px);
     }
+
+    /* Center modal */
+    .modal {
+      position: fixed; inset: 0; display: none; place-items: center; z-index: 40;
+      background: rgba(0,0,0,0.45);
+    }
+    .modal.show { display: grid; }
   </style>
 
-  <!-- Import-map shim (must load before the import map) -->
+  <!-- Import-map shim -->
   <script src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
 
   <!-- Import map -->
@@ -84,7 +91,9 @@
       "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
       "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js",
       "three/examples/jsm/controls/TransformControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/TransformControls.js",
-      "three/examples/jsm/environments/RoomEnvironment.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/environments/RoomEnvironment.js"
+      "three/examples/jsm/environments/RoomEnvironment.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/environments/RoomEnvironment.js",
+      "three/examples/jsm/exporters/GLTFExporter.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/exporters/GLTFExporter.js",
+      "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"
     }
   }
   </script>
@@ -100,17 +109,17 @@
   <!-- Toast -->
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
-  <!-- TOP-LEFT TEXT BUTTON BAR -->
+  <!-- TOP-LEFT BAR -->
   <div
     id="top-bar"
     class="ui-panel fixed p-2 rounded-lg flex items-center space-x-2"
     style="right:auto;"
   >
+    <button id="file-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
+      File
+    </button>
     <button id="add-btn" class="px-3 py-2 bg-blue-600 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
       Add
-    </button>
-    <button id="tools-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
-      Gizmo: <span id="gizmo-text">Translate</span>
     </button>
     <button id="scene-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
       Scene
@@ -118,6 +127,18 @@
     <button id="parent-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
       Parent
     </button>
+  </div>
+
+  <!-- File Panel -->
+  <div id="file-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
+    <h3 class="text-lg font-bold mb-4">File</h3>
+    <div class="grid grid-cols-4 gap-3">
+      <button id="file-save"   class="bg-gray-700 p-3 rounded-lg active:scale-95">Save</button>
+      <button id="file-load"   class="bg-gray-700 p-3 rounded-lg active:scale-95">Load</button>
+      <button id="file-export" class="bg-gray-700 p-3 rounded-lg active:scale-95">Export</button>
+      <button id="file-import" class="bg-gray-700 p-3 rounded-lg active:scale-95">Import</button>
+    </div>
+    <button id="close-file-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
   <!-- Add Object Panel -->
@@ -173,6 +194,36 @@
     </div>
     <button id="close-parent-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
+
+  <!-- Export Modal -->
+  <div id="export-modal" class="modal">
+    <div class="bg-gray-800 rounded-xl p-5 w-[min(92vw,520px)] shadow-2xl">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold">Export GLB</h3>
+        <button id="export-close" class="w-8 h-8 bg-gray-700 rounded-full text-2xl leading-7">&times;</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm text-gray-300">Model name</label>
+          <input id="export-name" class="w-full mt-1 px-3 py-2 rounded-md bg-gray-700 outline-none" value="Model">
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <label class="flex items-center gap-2"><input id="opt-only-visible" type="checkbox"> Only visible</label>
+          <label class="flex items-center gap-2"><input id="opt-embed-images" type="checkbox" checked> Embed images</label>
+          <label class="flex items-center gap-2"><input id="opt-include-userdata" type="checkbox" checked> Include userData</label>
+          <label class="flex items-center gap-2"><input id="opt-apply-trs" type="checkbox"> Export TRS</label>
+        </div>
+        <div class="text-xs text-gray-400">Exported file is a single <b>.glb</b> with your hierarchy preserved.</div>
+        <div class="flex justify-end gap-3">
+          <button id="export-do" class="px-4 py-2 bg-blue-600 rounded-md font-semibold active:scale-95">Export</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file inputs -->
+  <input id="load-input" type="file" accept="application/json" style="display:none">
+  <input id="import-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" style="display:none">
 
   <!-- Hide loader on global script errors too -->
   <script>
