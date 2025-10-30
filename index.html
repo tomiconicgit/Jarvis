@@ -7,7 +7,6 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
   >
   <title>Mobile 3D Tower Modeler</title>
-  <meta name="theme-color" content="#0a0a0a" />
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -67,7 +66,7 @@
     }
     #message-box.show { transform: translate(-50%, -50%) scale(1); opacity: 1; visibility: visible; }
 
-    /* Top bar (safe-area aware) */
+    /* Top bar above panels, safe area aware */
     #top-bar {
       z-index: 20;
       top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -75,8 +74,7 @@
     }
   </style>
 
-  <!-- Import maps (polyfill for wider support) -->
-  <script async src="https://unpkg.com/es-module-shims@1.9.0/dist/es-module-shims.js"></script>
+  <!-- Import map -->
   <script type="importmap">
   {
     "imports": {
@@ -99,7 +97,7 @@
   <!-- Toast -->
   <div id="message-box"><p id="message-text">This is a message!</p></div>
 
-  <!-- Top-left toolbar -->
+  <!-- TOP-LEFT TEXT BUTTON BAR -->
   <div
     id="top-bar"
     class="ui-panel fixed p-2 rounded-lg flex items-center space-x-2"
@@ -120,23 +118,26 @@
   <div id="add-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-4">Add Object</h3>
     <div class="grid grid-cols-3 gap-4">
-      <button id="add-tower-door-btn"  class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+      <button id="add-tower-door-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Tower Base (Door)</span>
       </button>
-      <button id="add-tower-solid-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+      <button id="add-tower-solid-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Tower Base (Solid)</span>
       </button>
-      <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+      <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Double Door</span>
       </button>
-      <button id="add-window-btn"      class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+      <button id="add-window-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Window</span>
       </button>
-      <button id="add-floor-btn"       class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+      <button id="add-floor-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Floor / Roof</span>
       </button>
-      <button id="add-truss-btn"       class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Truss Frame Arm</span>
+      <button id="add-trussarm-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+        <span class="text-sm font-medium text-center">Truss Arm</span>
+      </button>
+      <button id="add-pipe-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+        <span class="text-sm font-medium text-center">Pipe</span>
       </button>
     </div>
     <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
@@ -160,13 +161,5 @@
 
   <!-- App -->
   <script type="module" src="main.js"></script>
-
-  <!-- Ensure loader hides on unexpected early errors (very defensive) -->
-  <script>
-    window.addEventListener('error', () => {
-      const ls = document.getElementById('loading-screen');
-      if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
-    });
-  </script>
 </body>
 </html>
