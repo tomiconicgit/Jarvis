@@ -3,10 +3,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
-import WindowAsset from './window.js';   // avoid global Window clash
+import WindowAsset from './window.js';
 import Floor from './floor.js';
 import Pipe from './pipe.js';
 
@@ -16,14 +18,20 @@ let raycaster, touchStartPos, currentSelection;
 let allModels = [];
 
 // UI refs
-let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
+let loadingScreen, canvasContainer;
+let fileBtn, filePanel, closeFilePanel;
+let addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
 let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn;
-let toolsBtn, gizmoText;
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Parenting UI
 let parentBtn, parentPanel, closeParentPanel, parentList, parentApplyBtn, parentCancelBtn;
+
+// File menu controls
+let fileSaveBtn, fileLoadBtn, fileExportBtn, fileImportBtn;
+let loadInput, importInput;
+let exportModal, exportCloseBtn, exportDoBtn, exportNameInput, optOnlyVisible, optEmbedImages, optIncludeUserData, optApplyTRS;
 
 // Touch
 let lastTapTime = 0;
@@ -45,11 +53,15 @@ function init() {
   loadingScreen   = document.getElementById('loading-screen');
   canvasContainer = document.getElementById('canvas-container');
 
+  // Top bar
+  fileBtn         = document.getElementById('file-btn');
   addBtn          = document.getElementById('add-btn');
-  toolsBtn        = document.getElementById('tools-btn');
-  gizmoText       = document.getElementById('gizmo-text');
   sceneBtn        = document.getElementById('scene-btn');
   parentBtn       = document.getElementById('parent-btn');
+
+  // Panels
+  filePanel       = document.getElementById('file-panel');
+  closeFilePanel  = document.getElementById('close-file-panel');
 
   addPanel        = document.getElementById('add-panel');
   closeAddPanel   = document.getElementById('close-add-panel');
@@ -57,13 +69,6 @@ function init() {
   propsPanel      = document.getElementById('props-panel');
   closePropsPanel = document.getElementById('close-props-panel');
   propsContent    = document.getElementById('props-content');
-
-  addTowerDoorBtn = document.getElementById('add-tower-door-btn');
-  addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
-  addDoubleDoorBtn= document.getElementById('add-double-door-btn');
-  addWindowBtn    = document.getElementById('add-window-btn');
-  addFloorBtn     = document.getElementById('add-floor-btn');
-  addPipeBtn      = document.getElementById('add-pipe-btn');
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
@@ -74,6 +79,26 @@ function init() {
   parentList       = document.getElementById('parent-list');
   parentApplyBtn   = document.getElementById('parent-apply');
   parentCancelBtn  = document.getElementById('parent-cancel');
+
+  // File buttons
+  fileSaveBtn   = document.getElementById('file-save');
+  fileLoadBtn   = document.getElementById('file-load');
+  fileExportBtn = document.getElementById('file-export');
+  fileImportBtn = document.getElementById('file-import');
+
+  // Hidden inputs
+  loadInput   = document.getElementById('load-input');
+  importInput = document.getElementById('import-input');
+
+  // Export modal
+  exportModal        = document.getElementById('export-modal');
+  exportCloseBtn     = document.getElementById('export-close');
+  exportDoBtn        = document.getElementById('export-do');
+  exportNameInput    = document.getElementById('export-name');
+  optOnlyVisible     = document.getElementById('opt-only-visible');
+  optEmbedImages     = document.getElementById('opt-embed-images');
+  optIncludeUserData = document.getElementById('opt-include-userdata');
+  optApplyTRS        = document.getElementById('opt-apply-trs');
 
   // Scene
   scene = new THREE.Scene();
@@ -153,9 +178,6 @@ function init() {
   // Hide loading
   loadingScreen.style.opacity = '0';
   setTimeout(() => (loadingScreen.style.display = 'none'), 500);
-
-  // Initial gizmo label
-  updateGizmoButtonLabel();
 
   // Loop
   animate();
@@ -242,9 +264,7 @@ function selectObject(o) {
   transformControls.attach(o);
   updatePropsPanel(o);
   showPanel(propsPanel);
-  hidePanel(addPanel);
-  hidePanel(scenePanel);
-  hidePanel(parentPanel);
+  hidePanel(addPanel); hidePanel(scenePanel); hidePanel(parentPanel); hidePanel(filePanel);
 }
 
 function deselectAll() {
@@ -257,27 +277,53 @@ function deselectAll() {
 // UI
 // -----------------------------
 function initUI() {
-  // Toggle Add panel
+  // File panel
+  fileBtn.addEventListener('click', () => {
+    if (filePanel.style.visibility === 'visible') hidePanel(filePanel);
+    else { showPanel(filePanel); hidePanel(addPanel); hidePanel(scenePanel); hidePanel(parentPanel); hidePanel(propsPanel); }
+  });
+  document.getElementById('close-file-panel').addEventListener('click', () => hidePanel(filePanel));
+
+  // File actions
+  document.getElementById('file-save').addEventListener('click', () => { hidePanel(filePanel); saveSession(); });
+  document.getElementById('file-load').addEventListener('click', () => { loadInput.value = ''; loadInput.click(); });
+  document.getElementById('file-export').addEventListener('click', () => { hidePanel(filePanel); openExportModal(); });
+  document.getElementById('file-import').addEventListener('click', () => { importInput.value = ''; importInput.click(); });
+
+  loadInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await loadSessionFromFile(file);
+  });
+  importInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (file) await importGLBFile(file);
+  });
+
+  // Export modal events
+  exportCloseBtn.addEventListener('click', closeExportModal);
+  exportDoBtn.addEventListener('click', async () => {
+    await exportGLB({
+      name: (exportNameInput.value || 'Model').trim(),
+      onlyVisible: !!optOnlyVisible.checked,
+      embedImages: !!optEmbedImages.checked,
+      includeUserData: !!optIncludeUserData.checked,
+      applyTRS: !!optApplyTRS.checked
+    });
+    closeExportModal();
+  });
+
+  // Add panel
   addBtn.addEventListener('click', () => {
     if (addPanel.style.visibility === 'visible') hidePanel(addPanel);
-    else { showPanel(addPanel); hidePanel(scenePanel); hidePanel(propsPanel); hidePanel(parentPanel); }
+    else { showPanel(addPanel); hidePanel(scenePanel); hidePanel(propsPanel); hidePanel(parentPanel); hidePanel(filePanel); }
   });
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
 
-  // Cycle transform mode + label
-  toolsBtn.addEventListener('click', () => {
-    const m = transformControls.getMode();
-    const next = m === 'translate' ? 'rotate' : m === 'rotate' ? 'scale' : 'translate';
-    transformControls.setMode(next);
-    updateGizmoButtonLabel();
-    if (!currentSelection) showTempMessage(`Mode: ${next[0].toUpperCase()}${next.slice(1)}`);
-  });
-
   // Scene list toggle
   sceneBtn.addEventListener('click', () => {
     if (scenePanel.style.visibility === 'visible') hidePanel(scenePanel);
-    else { refreshSceneList(); showPanel(scenePanel); hidePanel(addPanel); hidePanel(propsPanel); hidePanel(parentPanel); }
+    else { refreshSceneList(); showPanel(scenePanel); hidePanel(addPanel); hidePanel(propsPanel); hidePanel(parentPanel); hidePanel(filePanel); }
   });
   closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
 
@@ -285,13 +331,20 @@ function initUI() {
   parentBtn.addEventListener('click', () => {
     refreshParentList();
     showPanel(parentPanel);
-    hidePanel(addPanel); hidePanel(propsPanel); hidePanel(scenePanel);
+    hidePanel(addPanel); hidePanel(propsPanel); hidePanel(scenePanel); hidePanel(filePanel);
   });
   closeParentPanel.addEventListener('click', () => hidePanel(parentPanel));
   parentCancelBtn.addEventListener('click', () => hidePanel(parentPanel));
   parentApplyBtn.addEventListener('click', applyParenting);
 
-  // Add Tower (door)
+  // Add object buttons
+  addTowerDoorBtn = document.getElementById('add-tower-door-btn');
+  addTowerSolidBtn= document.getElementById('add-tower-solid-btn');
+  addDoubleDoorBtn= document.getElementById('add-double-door-btn');
+  addWindowBtn    = document.getElementById('add-window-btn');
+  addFloorBtn     = document.getElementById('add-floor-btn');
+  addPipeBtn      = document.getElementById('add-pipe-btn');
+
   addTowerDoorBtn.addEventListener('click', () => {
     const params = { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidth: 4 };
     const tower = new TowerBase(params);
@@ -301,7 +354,6 @@ function initUI() {
     refreshSceneList(); selectObject(tower); hidePanel(addPanel);
   });
 
-  // Add Tower (solid)
   addTowerSolidBtn.addEventListener('click', () => {
     const params = { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 };
     const tower = new TowerBase(params);
@@ -311,7 +363,6 @@ function initUI() {
     refreshSceneList(); selectObject(tower); hidePanel(addPanel);
   });
 
-  // Add Double Door
   addDoubleDoorBtn.addEventListener('click', () => {
     const params = { totalWidth: 8, height: 10, depth: 0.5, frameThickness: 0.5, cornerRadius: 0.2, cornerSmoothness: 16, edgeRoundness: 0.1, edgeSmoothness: 4, glassR:1, glassG:1, glassB:1, glassOpacity:0.5, glassRoughness:0.2 };
     const doors = new DoubleDoor(params);
@@ -321,7 +372,6 @@ function initUI() {
     refreshSceneList(); selectObject(doors); hidePanel(addPanel);
   });
 
-  // Add Window
   addWindowBtn.addEventListener('click', () => {
     const params = { totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4, cornerRadius: 0.1, cornerSmoothness: 16, edgeRoundness: 0.05, edgeSmoothness: 4, glassR:0.8, glassG:0.8, glassB:1, glassOpacity:0.3, glassRoughness:0.1, curveRadius: 0, hasBolts:false, hasBars:false };
     const win = new WindowAsset(params);
@@ -331,7 +381,6 @@ function initUI() {
     refreshSceneList(); selectObject(win); hidePanel(addPanel);
   });
 
-  // Add Floor
   addFloorBtn.addEventListener('click', () => {
     const params = { width: 20, depth: 20, thickness: 0.5, colorR: 0.5, colorG: 0.5, colorB: 0.5 };
     const floor = new Floor(params);
@@ -341,7 +390,6 @@ function initUI() {
     refreshSceneList(); selectObject(floor); hidePanel(addPanel);
   });
 
-  // Add Pipe
   addPipeBtn.addEventListener('click', () => {
     const p = new Pipe();
     p.position.y = 1;
@@ -349,13 +397,6 @@ function initUI() {
     scene.add(p); allModels.push(p);
     refreshSceneList(); selectObject(p); hidePanel(addPanel);
   });
-}
-
-function updateGizmoButtonLabel() {
-  if (!gizmoText) return;
-  const mode = transformControls.getMode();
-  const nice = mode[0].toUpperCase() + mode.slice(1);
-  gizmoText.textContent = nice;
 }
 
 // -----------------------------
@@ -396,10 +437,9 @@ function deleteModel(obj) {
 
   if (currentSelection === obj) deselectAll();
 
-  if (typeof obj.dispose === 'function') obj.dispose();
   obj.traverse((n) => {
     if (n.isMesh) {
-      if (n.geometry?.dispose) n.geometry.dispose();
+      n.geometry?.dispose?.();
       const m = n.material;
       if (Array.isArray(m)) m.forEach((mm) => mm?.dispose && mm.dispose());
       else if (m?.dispose) m.dispose();
@@ -670,7 +710,6 @@ function updatePropsPanel(object) {
     return;
   }
 
-  // Controls
   for (const key in paramConfig) {
     const cfg = paramConfig[key];
 
@@ -685,26 +724,24 @@ function updatePropsPanel(object) {
       continue;
     }
 
-    // dynamic max for tower/window/door radius
-    if (key === 'cornerRadius') cfg.max = type === 'TowerBase'
+    if (key === 'cornerRadius') cfg.max = (object.userData.type === 'TowerBase')
       ? TowerBase.getMaxCornerRadius(p)
-      : type === 'DoubleDoor'
+      : (object.userData.type === 'DoubleDoor')
       ? DoubleDoor.getMaxCornerRadius(p)
-      : type === 'Window'
+      : (object.userData.type === 'Window')
       ? WindowAsset.getMaxCornerRadius(p)
       : cfg.max;
 
-    if (key === 'edgeRoundness') cfg.max = type === 'TowerBase'
+    if (key === 'edgeRoundness') cfg.max = (object.userData.type === 'TowerBase')
       ? TowerBase.getMaxEdgeRoundness(p)
-      : type === 'DoubleDoor'
+      : (object.userData.type === 'DoubleDoor')
       ? DoubleDoor.getMaxEdgeRoundness(p)
-      : type === 'Window'
+      : (object.userData.type === 'Window')
       ? WindowAsset.getMaxEdgeRoundness(p)
       : cfg.max;
 
-    if (type === 'TowerBase' && key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
-
-    if (type === 'Pipe' && key === 'wallThickness') cfg.max = Pipe.getMaxWall(p);
+    if (object.userData.type === 'TowerBase' && key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
+    if (object.userData.type === 'Pipe' && key === 'wallThickness') cfg.max = Pipe.getMaxWall(p);
 
     const value = (p[key] ?? cfg.min);
     const valueFmt = (cfg.step >= 1) ? Math.round(value) : Number(value).toFixed(2);
@@ -732,7 +769,6 @@ function updatePropsPanel(object) {
 
       // Recompute dependent limits
       if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height','outerRadius'].includes(key)) {
-        // Corner Radius
         const crSlider = document.getElementById('cornerRadius-slider');
         if (crSlider) {
           let maxCR = crSlider.max;
@@ -747,7 +783,6 @@ function updatePropsPanel(object) {
             document.getElementById('cornerRadius-value').textContent = v;
           }
         }
-        // Edge Roundness
         const erSlider = document.getElementById('edgeRoundness-slider');
         if (erSlider) {
           let maxER = erSlider.max;
@@ -762,7 +797,6 @@ function updatePropsPanel(object) {
             document.getElementById('edgeRoundness-value').textContent = v;
           }
         }
-        // Door Width (Tower only)
         const dwSlider = document.getElementById('doorWidth-slider');
         if (dwSlider && object.userData.type === 'TowerBase') {
           const maxDW = TowerBase.getMaxDoorWidth(next);
@@ -774,7 +808,6 @@ function updatePropsPanel(object) {
             document.getElementById('doorWidth-value').textContent = v;
           }
         }
-        // Pipe wallThickness depends on outerRadius
         if (object.userData.type === 'Pipe') {
           const wt = document.getElementById('wallThickness-slider');
           if (wt) {
@@ -805,6 +838,225 @@ function updatePropsPanel(object) {
       object.updateParams(next);
     });
   });
+}
+
+// -----------------------------
+// Export / Import / Save / Load
+// -----------------------------
+function openExportModal() { exportModal.classList.add('show'); }
+function closeExportModal() { exportModal.classList.remove('show'); }
+
+/** Build a root that contains only model roots (no grid/lights/etc). */
+function buildExportRoot() {
+  const exportRoot = new THREE.Group();
+  exportRoot.name = 'ExportRoot';
+
+  // roots are objects whose parent is not in allModels
+  const roots = allModels.filter(o => !allModels.includes(o.parent));
+  roots.forEach(root => {
+    const clone = root.clone(true);
+    exportRoot.add(clone);
+  });
+
+  return exportRoot;
+}
+
+function downloadBlob(bufferOrStr, filename, mime) {
+  const blob = bufferOrStr instanceof Blob ? bufferOrStr : new Blob([bufferOrStr], { type: mime || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function base64ToArrayBuffer(b64) {
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function exportGLB(opts = {}) {
+  const name = (opts.name || 'Model').replace(/[^\w\-\.]+/g, '_');
+  const exporter = new GLTFExporter();
+
+  // Only export model hierarchy (no helpers, lights, grid, etc)
+  const root = buildExportRoot();
+
+  const parseOpts = {
+    binary: true,
+    onlyVisible: !!opts.onlyVisible,
+    embedImages: !!opts.embedImages,
+    includeCustomExtensions: !!opts.includeUserData, // piggyback to keep userData if you add a custom extension later
+    trs: !!opts.applyTRS
+  };
+
+  await new Promise((resolve, reject) => {
+    exporter.parse(root, (result) => {
+      const blob = new Blob([result], { type: 'model/gltf-binary' });
+      downloadBlob(blob, `${name}.glb`, 'model/gltf-binary');
+      showTempMessage('Exported GLB');
+      resolve();
+    }, parseOpts);
+  });
+}
+
+async function importGLBFile(file) {
+  const loader = new GLTFLoader();
+  const url = URL.createObjectURL(file);
+  try {
+    const gltf = await new Promise((resolve, reject) => {
+      loader.load(url, resolve, undefined, reject);
+    });
+
+    const imported = gltf.scene || new THREE.Group();
+    imported.traverse((n) => {
+      if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
+    });
+
+    const wrapper = new THREE.Group();
+    wrapper.add(imported);
+    wrapper.userData.isModel = true;
+    wrapper.userData.type = 'Imported';
+    assignDefaultName(wrapper);
+
+    scene.add(wrapper);
+    allModels.push(wrapper);
+    refreshSceneList();
+    selectObject(wrapper);
+    showTempMessage('Imported GLB');
+  } catch (err) {
+    showTempMessage('Import failed');
+    console.error(err);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function serializeSessionJSON() {
+  const records = [];
+  const parents = new Map(allModels.map(o => [o.uuid, o.parent && allModels.includes(o.parent) ? o.parent.uuid : null]));
+  const pushRecord = (obj) => {
+    const rec = {
+      uuid: obj.uuid,
+      type: obj.userData?.type || obj.type || 'Object',
+      label: obj.userData?.label || '',
+      params: obj.userData?.params || null,
+      position: obj.position.toArray(),
+      quaternion: obj.quaternion.toArray(),
+      scale: obj.scale.toArray(),
+      parentUUID: parents.get(obj.uuid) || null
+    };
+    records.push(rec);
+  };
+  allModels.forEach(pushRecord);
+
+  return { version: 1, models: records };
+}
+
+async function saveSession() {
+  // Include embedded GLB for Imported models so load works perfectly.
+  const exporter = new GLTFExporter();
+  const json = serializeSessionJSON();
+
+  // map: uuid -> base64 glb for Imported
+  const importedRecs = json.models.filter(r => r.type === 'Imported');
+  await Promise.all(importedRecs.map(async (rec) => {
+    const obj = allModels.find(o => o.uuid === rec.uuid);
+    if (!obj) return;
+    await new Promise((resolve) => {
+      exporter.parse(obj, (result) => {
+        rec.glbBase64 = arrayBufferToBase64(result);
+        resolve();
+      }, { binary: true, embedImages: true });
+    });
+  }));
+
+  downloadBlob(JSON.stringify(json, null, 2), 'iconic-session.json', 'application/json');
+  showTempMessage('Session saved');
+}
+
+async function loadSessionFromFile(file) {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || !Array.isArray(data.models)) throw new Error('Invalid save file');
+
+    // Clear existing models
+    [...allModels].forEach(obj => deleteModel(obj));
+    allModels = [];
+
+    // First pass: create instances
+    const map = new Map(); // uuid -> object
+    for (const rec of data.models) {
+      let obj = null;
+
+      if (rec.type === 'TowerBase') obj = new TowerBase(rec.params || {});
+      else if (rec.type === 'DoubleDoor') obj = new DoubleDoor(rec.params || {});
+      else if (rec.type === 'Window') obj = new WindowAsset(rec.params || {});
+      else if (rec.type === 'Floor') obj = new Floor(rec.params || {});
+      else if (rec.type === 'Pipe') obj = new Pipe(rec.params || {});
+      else if (rec.type === 'Imported' && rec.glbBase64) {
+        // Recreate from embedded GLB
+        const loader = new GLTFLoader();
+        const buf = base64ToArrayBuffer(rec.glbBase64);
+        const blob = new Blob([buf], { type: 'model/gltf-binary' });
+        const url = URL.createObjectURL(blob);
+        try {
+          const gltf = await new Promise((resolve, reject) => {
+            loader.load(url, resolve, undefined, reject);
+          });
+          const wrapper = new THREE.Group();
+          wrapper.add(gltf.scene);
+          obj = wrapper;
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        // fallback generic group
+        obj = new THREE.Group();
+      }
+
+      obj.userData.isModel = true;
+      obj.userData.type = rec.type || 'Object';
+      obj.userData.params = rec.params || null;
+      if (rec.label) obj.userData.label = rec.label;
+
+      // transform
+      if (Array.isArray(rec.position)) obj.position.fromArray(rec.position);
+      if (Array.isArray(rec.quaternion)) obj.quaternion.fromArray(rec.quaternion);
+      if (Array.isArray(rec.scale)) obj.scale.fromArray(rec.scale);
+
+      scene.add(obj);
+      allModels.push(obj);
+      map.set(rec.uuid, obj);
+    }
+
+    // Second pass: parenting
+    for (const rec of data.models) {
+      if (rec.parentUUID && map.has(rec.uuid) && map.has(rec.parentUUID)) {
+        const child = map.get(rec.uuid);
+        const parent = map.get(rec.parentUUID);
+        setParentPreserveWorld(child, parent);
+      }
+    }
+
+    refreshSceneList();
+    showTempMessage('Session loaded');
+  } catch (e) {
+    console.error(e);
+    showTempMessage('Load failed');
+  }
 }
 
 // -----------------------------
