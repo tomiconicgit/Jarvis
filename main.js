@@ -60,6 +60,20 @@ const BUILDERS = {
 };
 
 // -----------------------------
+// Layout helpers
+// -----------------------------
+function isDesktop() {
+  return window.matchMedia('(pointer:fine) and (min-width: 1024px)').matches;
+}
+function updateLayoutMode() {
+  document.body.classList.toggle('desktop', isDesktop());
+  // Ensure drawers hidden on mode switch to mobile
+  if (!document.body.classList.contains('desktop')) {
+    [filePanel, addPanel, scenePanel, parentPanel, exportPanel].forEach(p => p && p.classList.remove('show'));
+  }
+}
+
+// -----------------------------
 // Init
 // -----------------------------
 function init() {
@@ -118,7 +132,8 @@ function init() {
   // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a2a2a);
-  scene.fog = new THREE.Fog(0x2a2a2a, 50, 200);
+  // Expanded fog distances to avoid early fade when zoomed out
+  scene.fog = new THREE.Fog(0x2a2a2a, 500, 6000);
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -132,13 +147,14 @@ function init() {
   const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
   scene.environment = envTex;
 
-  // Camera
+  // Camera (extend render distance)
   camera = new THREE.PerspectiveCamera(
     50,
     canvasContainer.clientWidth / canvasContainer.clientHeight,
     0.1,
-    1000
+    8000 // extended
   );
+  camera.updateProjectionMatrix();
   camera.position.set(15, 20, 25);
 
   // Lights
@@ -149,10 +165,10 @@ function init() {
   dirLight.shadow.mapSize.set(1024, 1024);
   scene.add(dirLight);
 
-  // Ground
-  scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444));
+  // Ground / Grid (larger to match farther camera)
+  scene.add(new THREE.GridHelper(2000, 200, 0x888888, 0x444444));
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100),
+    new THREE.PlaneGeometry(4000, 4000),
     new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1 })
   );
   ground.rotation.x = -Math.PI / 2;
@@ -183,12 +199,13 @@ function init() {
   touchStartPos = new THREE.Vector2();
 
   // Events
-  window.addEventListener('resize', resizeRenderer);
+  window.addEventListener('resize', () => { resizeRenderer(); updateLayoutMode(); });
   canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
   canvasContainer.addEventListener('touchend', onTouchEnd);
 
   // UI listeners
   initUI();
+  updateLayoutMode();
 
   // Hide loading
   loadingScreen.style.opacity = '0';
@@ -293,17 +310,26 @@ function deselectAll() {
 // -----------------------------
 function togglePanel(panel, toHide = []) {
   if (!panel) return;
-  if (panel.style.visibility === 'visible') hidePanel(panel);
-  else {
-    toHide.forEach(hidePanel);
-    showPanel(panel);
+  if (document.body.classList.contains('desktop') && panel.classList.contains('left-drawer')) {
+    const isOpen = panel.classList.contains('show');
+    if (isOpen) panel.classList.remove('show');
+    else {
+      toHide.forEach(p => p && p.classList.remove('show'));
+      panel.classList.add('show');
+    }
+  } else {
+    if (panel.style.visibility === 'visible') hidePanel(panel);
+    else {
+      toHide.forEach(hidePanel);
+      showPanel(panel);
+    }
   }
 }
 
 function initUI() {
   // FILE
   fileBtn.addEventListener('click', () => togglePanel(filePanel, [addPanel, scenePanel, parentPanel, propsPanel, exportPanel]));
-  closeFilePanel.addEventListener('click', () => hidePanel(filePanel));
+  closeFilePanel.addEventListener('click', () => { filePanel.classList.remove('show'); hidePanel(filePanel); });
 
   fileSaveBtn.addEventListener('click', () => {
     const data = serializeModels(scene);
@@ -338,8 +364,8 @@ function initUI() {
     exportNameInput.value = 'Model.glb';
     togglePanel(exportPanel, [filePanel, addPanel, scenePanel, parentPanel, propsPanel]);
   });
-  exportClose.addEventListener('click', () => hidePanel(exportPanel));
-  exportCancel.addEventListener('click', () => hidePanel(exportPanel));
+  exportClose.addEventListener('click', () => { exportPanel.classList.remove('show'); hidePanel(exportPanel); });
+  exportCancel.addEventListener('click', () => { exportPanel.classList.remove('show'); hidePanel(exportPanel); });
   exportGo.addEventListener('click', () => {
     const name = (exportNameInput.value || 'Model.glb').trim();
     exportGLB(
@@ -360,7 +386,7 @@ function initUI() {
         refreshSceneList();
         selectObject(o);
       });
-      showTempMessage('Importing…');
+      showTempMessage('Importingâ¦');
     } catch (err) {
       console.error(err);
       showTempMessage('Import failed');
@@ -371,7 +397,7 @@ function initUI() {
 
   // ADD panel
   addBtn.addEventListener('click', () => togglePanel(addPanel, [filePanel, scenePanel, parentPanel, propsPanel, exportPanel]));
-  closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
+  closeAddPanel.addEventListener('click', () => { addPanel.classList.remove('show'); hidePanel(addPanel); });
   closePropsPanel.addEventListener('click', () => deselectAll());
 
   // Scene
@@ -379,15 +405,15 @@ function initUI() {
     refreshSceneList();
     togglePanel(scenePanel, [filePanel, addPanel, parentPanel, propsPanel, exportPanel]);
   });
-  closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
+  closeScenePanel.addEventListener('click', () => { scenePanel.classList.remove('show'); hidePanel(scenePanel); });
 
   // Parenting
   parentBtn.addEventListener('click', () => {
     refreshParentList();
     togglePanel(parentPanel, [filePanel, addPanel, scenePanel, propsPanel, exportPanel]);
   });
-  closeParentPanel.addEventListener('click', () => hidePanel(parentPanel));
-  parentCancelBtn.addEventListener('click', () => hidePanel(parentPanel));
+  closeParentPanel.addEventListener('click', () => { parentPanel.classList.remove('show'); hidePanel(parentPanel); });
+  parentCancelBtn.addEventListener('click', () => { parentPanel.classList.remove('show'); hidePanel(parentPanel); });
   parentApplyBtn.addEventListener('click', applyParenting);
 
   // Adders
@@ -444,7 +470,7 @@ function initUI() {
     refreshSceneList(); selectObject(p); hidePanel(addPanel);
   });
 
-  // NEW: Truss Arm
+  // Truss Arm
   addTrussArmBtn.addEventListener('click', () => {
     const p = new TrussArm({
       length: 12, armWidth: 3, armHeight: 2.2, tubeRadius: 0.12,
@@ -459,15 +485,25 @@ function initUI() {
 
 function showPanel(p) {
   if (!p) return;
-  p.style.visibility = 'visible';
-  p.style.opacity = '1';
-  p.style.transform = 'translateY(0)';
+  const desktop = document.body.classList.contains('desktop');
+  if (desktop && p.classList.contains('left-drawer')) {
+    p.classList.add('show');
+  } else {
+    p.style.visibility = 'visible';
+    p.style.opacity = '1';
+    p.style.transform = 'translateY(0)';
+  }
 }
 function hidePanel(p) {
   if (!p) return;
-  p.style.opacity = '0';
-  p.style.transform = 'translateY(100%)';
-  setTimeout(() => (p.style.visibility = 'hidden'), 240);
+  const desktop = document.body.classList.contains('desktop');
+  if (desktop && p.classList.contains('left-drawer')) {
+    p.classList.remove('show');
+  } else {
+    p.style.opacity = '0';
+    p.style.transform = 'translateY(100%)';
+    setTimeout(() => (p.style.visibility = 'hidden'), 240);
+  }
 }
 function showTempMessage(text) {
   const box = document.getElementById('message-box');
@@ -588,28 +624,6 @@ function refreshSceneList() {
 }
 
 // -----------------------------
-// Panels + Toast
-// -----------------------------
-function showPanel(p) {
-  if (!p) return;
-  p.style.visibility = 'visible';
-  p.style.opacity = '1';
-  p.style.transform = 'translateY(0)';
-}
-function hidePanel(p) {
-  if (!p) return;
-  p.style.opacity = '0';
-  p.style.transform = 'translateY(100%)';
-  setTimeout(() => (p.style.visibility = 'hidden'), 240);
-}
-function showTempMessage(text) {
-  const box = document.getElementById('message-box');
-  document.getElementById('message-text').textContent = text;
-  box.classList.add('show');
-  setTimeout(() => box.classList.remove('show'), 1500);
-}
-
-// -----------------------------
 // Parenting
 // -----------------------------
 function findByUUID(uuid) { return allModels.find(o => o.uuid === uuid); }
@@ -683,50 +697,8 @@ function applyParenting() {
 }
 
 // ============================================================================
-//                                TABBED PROPERTIES
+//                           TEXTURE / MATERIAL HELPERS
 // ============================================================================
-function makeTabs(rootEl, tabsSpec) {
-  const header = document.createElement('div');
-  header.className = 'flex gap-2 mb-3 sticky top-0 bg-[rgba(30,30,30,0.9)] pt-1 pb-2 z-10';
-
-  const contentWrap = document.createElement('div');
-  contentWrap.className = 'mt-1';
-
-  const pages = new Map();
-  let currentId = tabsSpec[0].id;
-
-  tabsSpec.forEach(tab => {
-    const btn = document.createElement('button');
-    btn.textContent = tab.label;
-    btn.className = 'px-3 py-1.5 rounded-md text-sm bg-gray-700 data-[active=true]:bg-blue-600 font-semibold';
-    btn.dataset.id = tab.id;
-    header.appendChild(btn);
-
-    const page = document.createElement('div');
-    page.style.display = 'none';
-    pages.set(tab.id, { page, builder: tab.build, built: false });
-    contentWrap.appendChild(page);
-
-    btn.addEventListener('click', () => {
-      if (currentId === tab.id) return;
-      header.querySelectorAll('button').forEach(b => b.dataset.active = 'false');
-      btn.dataset.active = 'true';
-      pages.get(currentId).page.style.display = 'none';
-      currentId = tab.id;
-      const p = pages.get(currentId);
-      if (!p.built) { p.builder(p.page); p.built = true; }
-      p.page.style.display = '';
-    });
-  });
-
-  rootEl.appendChild(header);
-  rootEl.appendChild(contentWrap);
-  header.querySelector('button').dataset.active = 'true';
-  const first = pages.get(currentId);
-  first.builder(first.page); first.built = true; first.page.style.display = '';
-}
-
-// Materials collect + UV helpers
 function collectMaterialsFromObject(root) {
   const set = new Set();
   root.traverse(n => {
@@ -769,6 +741,7 @@ function makeNoiseTexture(size = 256) {
   return tex;
 }
 
+// Apply UV scale/rotation to *all* current maps (used for procedural preview, not overrides)
 function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
   const apply = (tex) => {
     if (!tex) return;
@@ -783,6 +756,22 @@ function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
     apply(m.aoMap); apply(m.emissiveMap); apply(m.bumpMap); apply(m.displacementMap);
   });
 }
+
+// Apply UV to *uploaded override* maps only
+function applyUVToOverrides(materials, st) {
+  const slots = ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','displacementMap'];
+  const texSet = slots.map(s => st[s]).filter(Boolean);
+  texSet.forEach((tex) => {
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(st.uvScale || 1, st.uvScale || 1);
+    tex.center.set(0.5, 0.5);
+    tex.rotation = st.uvRotation || 0;
+    tex.needsUpdate = true;
+  });
+  // Ensure mats update
+  materials.forEach(m => m.needsUpdate = true);
+}
+
 function setMaterialScalar(materials, key, value) {
   materials.forEach(m => { if (key in m) { m[key] = value; m.needsUpdate = true; } });
 }
@@ -858,13 +847,18 @@ function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvR
           tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
         }
 
+        // Attach to all materials for that slot
         materials.forEach(m => { m[slot.prop] = tex; m.needsUpdate = true; });
 
+        // Track overrides
         const st = ensureTexState(object);
         if (st[slot.prop] && st[slot.prop] !== tex) { st[slot.prop].dispose?.(); }
         st[slot.prop] = tex;
         st.uvScale = uvScale;
         st.uvRotation = uvRotation;
+
+        // Apply only to overrides
+        applyUVToOverrides(materials, st);
 
         URL.revokeObjectURL(url);
         resolve();
@@ -898,6 +892,50 @@ function clearAllOverrides(object, materials) {
   });
 }
 
+// ============================================================================
+//                                TABBED PROPERTIES
+// ============================================================================
+function makeTabs(rootEl, tabsSpec) {
+  const header = document.createElement('div');
+  header.className = 'flex gap-2 mb-3 sticky top-0 bg-[rgba(30,30,30,0.9)] pt-1 pb-2 z-10';
+
+  const contentWrap = document.createElement('div');
+  contentWrap.className = 'mt-1';
+
+  const pages = new Map();
+  let currentId = tabsSpec[0].id;
+
+  tabsSpec.forEach(tab => {
+    const btn = document.createElement('button');
+    btn.textContent = tab.label;
+    btn.className = 'px-3 py-1.5 rounded-md text-sm bg-gray-700 data-[active=true]:bg-blue-600 font-semibold';
+    btn.dataset.id = tab.id;
+    header.appendChild(btn);
+
+    const page = document.createElement('div');
+    page.style.display = 'none';
+    pages.set(tab.id, { page, builder: tab.build, built: false });
+    contentWrap.appendChild(page);
+
+    btn.addEventListener('click', () => {
+      if (currentId === tab.id) return;
+      header.querySelectorAll('button').forEach(b => b.dataset.active = 'false');
+      btn.dataset.active = 'true';
+      pages.get(currentId).page.style.display = 'none';
+      currentId = tab.id;
+      const p = pages.get(currentId);
+      if (!p.built) { p.builder(p.page); p.built = true; }
+      p.page.style.display = '';
+    });
+  });
+
+  rootEl.appendChild(header);
+  rootEl.appendChild(contentWrap);
+  header.querySelector('button').dataset.active = 'true';
+  const first = pages.get(currentId);
+  first.builder(first.page); first.built = true; first.page.style.display = '';
+}
+
 // ---------------- Transform tab ----------------
 function buildTransformTab(object, page) {
   const toRow = (id, label, min, max, step, value) => `
@@ -914,9 +952,9 @@ function buildTransformTab(object, page) {
       ${toRow('tz','Pos Z', -100,100,0.1, object.position.z.toFixed(2))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
-      ${toRow('rx','Rot X°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
-      ${toRow('ry','Rot Y°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
-      ${toRow('rz','Rot Z°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
+      ${toRow('rx','Rot XÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
+      ${toRow('ry','Rot YÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
+      ${toRow('rz','Rot ZÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
       ${toRow('sx','Scale X', 0.01,20,0.01, object.scale.x.toFixed(2))}
@@ -1075,6 +1113,7 @@ function buildShapeTab(object, page) {
 
   Object.keys(paramConfig).forEach(key => {
     const cfg = paramConfig[key];
+    const p = object.userData.params || {};
     if (cfg.type === 'checkbox') {
       const row = document.createElement('div');
       row.className = 'flex items-center gap-2';
@@ -1105,7 +1144,8 @@ function buildShapeTab(object, page) {
 
       // Recompute dependent limits if footprint changes
       if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height','outerRadius','overhang','thickness'].includes(key)) {
-        const crSlider = wrap.querySelector('#cornerRadius-slider');
+        const wrapEl = wrap; // keep ref
+        const crSlider = wrapEl.querySelector('#cornerRadius-slider');
         if (crSlider) {
           let maxCR = crSlider.max;
           if (object.userData.type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
@@ -1118,10 +1158,10 @@ function buildShapeTab(object, page) {
             next.cornerRadius = maxCR;
             crSlider.value = maxCR;
             const v = (paramConfig.cornerRadius.step >= 1) ? Math.round(maxCR) : Number(maxCR).toFixed(2);
-            wrap.querySelector('#cornerRadius-value').textContent = v;
+            wrapEl.querySelector('#cornerRadius-value').textContent = v;
           }
         }
-        const erSlider = wrap.querySelector('#edgeRoundness-slider');
+        const erSlider = wrapEl.querySelector('#edgeRoundness-slider');
         if (erSlider) {
           let maxER = erSlider.max;
           if      (object.userData.type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
@@ -1134,10 +1174,10 @@ function buildShapeTab(object, page) {
             next.edgeRoundness = maxER;
             erSlider.value = maxER;
             const v = (paramConfig.edgeRoundness.step >= 1) ? Math.round(maxER) : Number(maxER).toFixed(2);
-            wrap.querySelector('#edgeRoundness-value').textContent = v;
+            wrapEl.querySelector('#edgeRoundness-value').textContent = v;
           }
         }
-        const dwSlider = wrap.querySelector('#doorWidth-slider');
+        const dwSlider = wrapEl.querySelector('#doorWidth-slider');
         if (dwSlider && object.userData.type === 'TowerBase') {
           const maxDW = TowerBase.getMaxDoorWidth(next);
           dwSlider.max = maxDW;
@@ -1145,7 +1185,7 @@ function buildShapeTab(object, page) {
             next.doorWidth = maxDW;
             dwSlider.value = maxDW;
             const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : Number(maxDW).toFixed(2);
-            wrap.querySelector('#doorWidth-value').textContent = v;
+            wrapEl.querySelector('#doorWidth-value').textContent = v;
           }
         }
       }
@@ -1214,8 +1254,8 @@ function buildTexturesTab(object, page) {
               <option value="noise">Noise</option>
             </select>
           </label>
-          <label class="text-sm font-medium">Scale
-            <input type="range" id="tex-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
+          <label class="text-sm font-medium">Pattern Scale
+            <input type="range" id="tex-scale" min="0.25" max="8" step="0.25" value="1">
           </label>
         </div>
         <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
@@ -1232,14 +1272,14 @@ function buildTexturesTab(object, page) {
       </div>
 
       <div class="mt-3 border-t border-white/10 pt-3">
-        <h4 class="text-sm font-bold mb-2">Upload PBR Maps (overrides per-slot)</h4>
+        <h4 class="text-sm font-bold mb-2">Uploaded PBR Maps (per-slot overrides)</h4>
         <div class="grid grid-cols-2 gap-2" id="pbr-grid"></div>
         <div class="mt-2 grid grid-cols-2 gap-3">
-          <label class="text-sm font-medium">UV Repeat
-            <input type="range" id="uv-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
+          <label class="text-sm font-medium">Uploaded UV Repeat
+            <input type="range" id="up-uv-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
           </label>
-          <label class="text-sm font-medium">UV Rotation°
-            <input type="range" id="uv-rot" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
+          <label class="text-sm font-medium">Uploaded UV RotationÂ°
+            <input type="range" id="up-uv-rot" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
           </label>
         </div>
         <div class="mt-2">
@@ -1259,7 +1299,6 @@ function buildTexturesTab(object, page) {
   page.querySelector('#mat-metal').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'metalness',v); page.querySelector('#metal-val').textContent=v.toFixed(2); });
   page.querySelector('#mat-emi').addEventListener('input',   e => { const v=parseFloat(e.target.value); setEmissive(mats, page.querySelector('#mat-emissive').value, v); page.querySelector('#emi-val').textContent=v.toFixed(2); });
 
-  const st = ensureTexState(object);
   const procApply = () => {
     const pattern = page.querySelector('#tex-pattern').value;
     const scale   = parseFloat(page.querySelector('#tex-scale').value);
@@ -1283,8 +1322,8 @@ function buildTexturesTab(object, page) {
       },
       locks
     );
-    st.uvScale = scale;
-    applyUVToAllMaps(mats, st.uvScale, st.uvRotation || 0);
+    // Apply pattern UV to all current maps for preview (does not override uploaded UV controls)
+    applyUVToAllMaps(mats, 1, 0);
   };
   page.querySelector('#apply-tex').addEventListener('click', procApply);
   page.querySelector('#clear-proc').addEventListener('click', () => {
@@ -1315,18 +1354,18 @@ function buildTexturesTab(object, page) {
     inp.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
-      const scale = parseFloat(page.querySelector('#uv-scale').value);
-      const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#uv-rot').value));
+      const scale = parseFloat(page.querySelector('#up-uv-scale').value);
+      const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#up-uv-rot').value));
       try {
         await uploadMapFromFile({ object, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
-        applyUVToAllMaps(mats, scale, rot);
+        applyUVToOverrides(mats, st);
       } catch (err) {
         console.error('Texture upload failed:', err);
       } finally {
         inp.value = '';
       }
     });
-    clr.addEventListener('click', () => clearOverrideSlot(object, mats, slotName));
+    clr.addEventListener('click', () => { clearOverrideSlot(object, mats, slotName); applyUVToOverrides(mats, st); });
   };
 
   makeUploadRow('Albedo (Base Color)', 'albedo');
@@ -1337,17 +1376,15 @@ function buildTexturesTab(object, page) {
   makeUploadRow('Emissive',           'emissive');
   makeUploadRow('Height (Displacement)', 'height');
 
-  const uvScaleEl = page.querySelector('#uv-scale');
-  const uvRotEl   = page.querySelector('#uv-rot');
-  const syncUV = () => {
-    const scale = parseFloat(uvScaleEl.value);
-    const rot   = THREE.MathUtils.degToRad(parseFloat(uvRotEl.value));
-    st.uvScale = scale;
-    st.uvRotation = rot;
-    applyUVToAllMaps(mats, scale, rot);
+  const upScaleEl = page.querySelector('#up-uv-scale');
+  const upRotEl   = page.querySelector('#up-uv-rot');
+  const syncUploadedUV = () => {
+    st.uvScale = parseFloat(upScaleEl.value);
+    st.uvRotation = THREE.MathUtils.degToRad(parseFloat(upRotEl.value));
+    applyUVToOverrides(mats, st);
   };
-  uvScaleEl.addEventListener('input', syncUV);
-  uvRotEl.addEventListener('input', syncUV);
+  upScaleEl.addEventListener('input', syncUploadedUV);
+  upRotEl.addEventListener('input', syncUploadedUV);
 
   const dispEl = page.querySelector('#disp-scale');
   const dispLbl = page.querySelector('#disp-val');
