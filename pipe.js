@@ -1,20 +1,10 @@
-// pipe.js
 import * as THREE from 'three';
 
 /**
  * Pipe (straight + optional elbow "shoulder") with optional flanges and bolt rings.
  * Y is up in scene. The straight section runs along +X from center.
- *
- * userData.type = 'Pipe'
- * userData.params = see defaults in constructor
- *
- * NOTE: This renders a visually realistic pipe without CSG.
- * The pipe is modeled as outer surfaces (not true thickness subtraction)
- * for performance and simplicity inside the editor. If you later need true
- * hollow geometry, we can switch to CSG or custom BufferGeometry merging.
  */
 export default class Pipe extends THREE.Group {
-  // --- Helper max clamps for UI sliders (optional to use in your UI) ---
   static getMaxWall(p) {
     return Math.max(0.005, p.outerRadius * 0.95);
   }
@@ -31,31 +21,27 @@ export default class Pipe extends THREE.Group {
     this.userData.type = 'Pipe';
 
     const defaults = {
-      // Main straight
-      length: 8,                  // along +X, centered at origin
+      length: 8,
       outerRadius: 0.5,
       wallThickness: 0.06,
       radialSegments: 24,
 
-      // Shoulder / elbow
       hasElbow: true,
-      shoulderDeg: 90,            // elbow angle, 0..135 typically
-      elbowRadius: 1.75,          // centerline bend radius
-      elbowSegments: 32,          // tubular segments along the bend
-      elbowPlaneDeg: 0,           // rotate the bend plane around +X (0 = bend in XY plane)
+      shoulderDeg: 90,
+      elbowRadius: 1.75,
+      elbowSegments: 32,
+      elbowPlaneDeg: 0,
 
-      // Flanges & bolts
       hasFlangeStart: true,
       hasFlangeEnd: true,
-      flangeRadius: 0.8,          // visual flange radius (disc)
+      flangeRadius: 0.8,
       flangeThickness: 0.12,
       hasBolts: true,
       boltCount: 8,
       boltRadius: 0.05,
       boltHeight: 0.12,
-      boltRingInset: 0.16,        // how far in from flange outer edge
+      boltRingInset: 0.16,
 
-      // Materials
       pipeColor: 0x9aa3a8,
       flangeColor: 0x8a8f94,
       boltColor: 0x44474a,
@@ -65,7 +51,6 @@ export default class Pipe extends THREE.Group {
 
     this.userData.params = { ...defaults, ...params };
 
-    // Materials
     this.pipeMat = new THREE.MeshStandardMaterial({
       color: this.userData.params.pipeColor,
       roughness: this.userData.params.roughness,
@@ -85,7 +70,6 @@ export default class Pipe extends THREE.Group {
     this.build();
   }
 
-  // Dispose meshes/geometries before rebuilding
   _clearChildren() {
     this.traverse((n) => {
       if (n.isMesh) {
@@ -102,50 +86,36 @@ export default class Pipe extends THREE.Group {
 
     const p = this.userData.params;
 
-    // Clamp basics
     const wall = Math.min(Math.max(0.002, p.wallThickness), Pipe.getMaxWall(p));
     const outerR = Math.max(0.05, p.outerRadius);
     const innerR = Math.max(0.001, outerR - wall);
     const length = Math.max(0.05, p.length);
 
-    // ---------- STRAIGHT SECTION (centered, along +X) ----------
-    // Cylinder is Y-aligned by default. Rotate to X and center at origin.
+    // STRAIGHT (along +X)
     const straightGeo = new THREE.CylinderGeometry(outerR, outerR, length, p.radialSegments, 1, true);
     const straightMesh = new THREE.Mesh(straightGeo, this.pipeMat);
-    straightMesh.castShadow = true;
-    straightMesh.receiveShadow = true;
-
-    // rotate to X axis
     const qMain = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(1, 0, 0)
+      new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0)
     );
     straightMesh.applyQuaternion(qMain);
+    straightMesh.castShadow = true;
+    straightMesh.receiveShadow = true;
     this.add(straightMesh);
 
-    // Optional visual inner wall for the straight section (rendering the inside)
-    // Use BackSide so we see inner surface at open ends
     if (innerR > 0.001) {
       const innerGeo = new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true);
-      const innerMat = this.pipeMat.clone();
-      innerMat.side = THREE.BackSide;
+      const innerMat = this.pipeMat.clone(); innerMat.side = THREE.BackSide;
       const innerMesh = new THREE.Mesh(innerGeo, innerMat);
       innerMesh.applyQuaternion(qMain);
-      innerMesh.castShadow = false;
-      innerMesh.receiveShadow = false;
       this.add(innerMesh);
     }
 
-    // ---------- ELBOW / SHOULDER ----------
-    // We create a TubeGeometry along a 2D arc that starts at (0,0,0)
-    // with a tangent along +X, then rotate the elbow plane about +X,
-    // and translate so it starts at the end of the straight section (+X side).
+    // ELBOW
     if (p.hasElbow && p.shoulderDeg > 0) {
       const angleRad = THREE.MathUtils.degToRad(Math.min(135, Math.max(1, p.shoulderDeg)));
       const bendR = Math.max(outerR * 1.1, p.elbowRadius);
 
-      // Custom arc curve: center at (0, bendR, 0), from theta=-PI/2 to -PI/2 + angle
-      // so start point is (0,0,0) and start tangent points to +X.
+      // Circle arc centered at (0,0) in local XY; start at theta=-PI/2 so tangent is +X
       class ElbowCurve extends THREE.Curve {
         getPoint(t) {
           const theta = -Math.PI / 2 + t * angleRad;
@@ -157,54 +127,49 @@ export default class Pipe extends THREE.Group {
       const curve = new ElbowCurve();
 
       const elbowGeo = new THREE.TubeGeometry(
-        curve,
-        Math.max(8, p.elbowSegments),
-        outerR,
-        Math.max(8, p.radialSegments),
-        false
+        curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false
       );
       const elbowMesh = new THREE.Mesh(elbowGeo, this.pipeMat);
-      elbowMesh.castShadow = true;
-      elbowMesh.receiveShadow = true;
+      elbowMesh.castShadow = true; elbowMesh.receiveShadow = true;
 
-      // Rotate the bend plane about +X
-      elbowMesh.rotateX(THREE.MathUtils.degToRad(p.elbowPlaneDeg || 0));
-      // Move elbow so its start (0,0,0) aligns to straight's +X end (length/2, 0, 0).
-      elbowMesh.position.x = length / 2;
+      // --- FIX: rotate in plane, then translate so the elbow's START sits exactly at the straight pipe end ---
+      const phi = THREE.MathUtils.degToRad(p.elbowPlaneDeg || 0);
+      elbowMesh.rotateX(phi);
 
+      // Local start of arc is (0, -bendR, 0); after rotateX(phi) it is (0, -R cosφ, -R sinφ).
+      // To place that at world (length/2, 0, 0), we offset by (length/2, +R cosφ, +R sinφ).
+      const baseOffset = new THREE.Vector3(length / 2, bendR * Math.cos(phi), bendR * Math.sin(phi));
+      elbowMesh.position.copy(baseOffset);
       this.add(elbowMesh);
 
-      // --- End flange at elbow tip (if enabled) ---
+      // End flange aligned with elbow tangent at end
       if (p.hasFlangeEnd) {
-        // Compute end position & direction in elbow local space (before we applied rotation/translation).
-        // End point on the curve (t=1):
-        const endTheta = -Math.PI / 2 + angleRad;
+        const endTheta = -Math.PI / 2 + angleRad; // end of arc
+        // end point and tangent in elbow local (pre-rotation)
         const endLocal = new THREE.Vector3(
           bendR * Math.cos(endTheta),
           bendR * Math.sin(endTheta),
           0
         );
-        // Tangent (derivative): [-R sin, R cos, 0] at end
         const tangLocal = new THREE.Vector3(
           -bendR * Math.sin(endTheta),
-          bendR * Math.cos(endTheta),
-          0
+           bendR * Math.cos(endTheta),
+           0
         ).normalize();
 
-        // Apply same rotation/translation we applied to elbowMesh
-        const rot = new THREE.Quaternion().setFromAxisAngle(
-          new THREE.Vector3(1, 0, 0),
-          THREE.MathUtils.degToRad(p.elbowPlaneDeg || 0)
-        );
+        // rotate into the chosen plane
+        const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), phi);
         endLocal.applyQuaternion(rot);
         tangLocal.applyQuaternion(rot);
-        endLocal.add(new THREE.Vector3(length / 2, 0, 0));
+
+        // --- FIX: add the same baseOffset so the end flange is measured in world space correctly ---
+        endLocal.add(baseOffset);
 
         const flangeEnd = this._makeFlange(endLocal, tangLocal, p, outerR);
         this.add(flangeEnd);
       }
     } else {
-      // No elbow: just put an end flange at +X if requested
+      // Straight-only end flange
       if (p.hasFlangeEnd) {
         const pos = new THREE.Vector3(length / 2, 0, 0);
         const dir = new THREE.Vector3(1, 0, 0);
@@ -213,7 +178,7 @@ export default class Pipe extends THREE.Group {
       }
     }
 
-    // --- Start flange at -X end (if enabled) ---
+    // Start flange
     if (p.hasFlangeStart) {
       const pos = new THREE.Vector3(-length / 2, 0, 0);
       const dir = new THREE.Vector3(-1, 0, 0);
@@ -222,106 +187,68 @@ export default class Pipe extends THREE.Group {
     }
   }
 
-  /**
-   * Build a flange (disc) plus optional bolt ring, oriented by normal dir.
-   * @param {THREE.Vector3} center - world/local center where flange sits
-   * @param {THREE.Vector3} normal - outward normal direction (unit vector)
-   * @param {*} p - params
-   * @param {number} outerR - pipe outer radius (used for positioning)
-   */
   _makeFlange(center, normal, p, outerR) {
     const grp = new THREE.Group();
     grp.position.copy(center);
 
-    // Oriented cylinder along "normal" (cylinders are Y-up by default)
     const flangeGeo = new THREE.CylinderGeometry(
-      p.flangeRadius, p.flangeRadius,
-      p.flangeThickness,
-      Math.max(24, p.radialSegments)
+      p.flangeRadius, p.flangeRadius, p.flangeThickness, Math.max(24, p.radialSegments)
     );
     const flange = new THREE.Mesh(flangeGeo, this.flangeMat);
-    flange.castShadow = true;
-    flange.receiveShadow = true;
-
-    // Orient flange's Y axis to the "normal"
     const yAxis = new THREE.Vector3(0, 1, 0);
     const q = new THREE.Quaternion().setFromUnitVectors(yAxis, normal.clone().normalize());
     flange.quaternion.copy(q);
-
-    // Slightly offset so disc sits flush at pipe end (centered on center)
-    // Move half thickness outward along normal so face touches pipe end
     flange.position.copy(normal).multiplyScalar(p.flangeThickness * 0.5);
-
+    flange.castShadow = true; flange.receiveShadow = true;
     grp.add(flange);
 
     if (p.hasBolts && p.boltCount > 1) {
-      const boltRing = this._makeBoltRing(p, outerR);
-      // Bolt ring lies in the flange plane: build local frame (u,v) around "normal"
       const n = normal.clone().normalize();
-      // robust orthonormal basis
       const tmp = Math.abs(n.y) < 0.99 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-      const u = tmp.clone().cross(n).normalize();     // first in-plane axis
-      const v = n.clone().cross(u).normalize();       // second in-plane axis
+      const u = tmp.clone().cross(n).normalize();
+      const v = n.clone().cross(u).normalize();
 
-      // Distribute bolts around ring
       const ringR = Math.max(outerR + 0.05, p.flangeRadius - p.boltRingInset);
-      const boltH = p.boltHeight;
       for (let i = 0; i < p.boltCount; i++) {
         const t = (i / p.boltCount) * Math.PI * 2;
         const posInPlane = u.clone().multiplyScalar(Math.cos(t) * ringR)
           .add(v.clone().multiplyScalar(Math.sin(t) * ringR));
 
-        const bolt = boltRing.clone(true);
-        // position bolt so it sits just above the flange surface
-        const surfOffset = n.clone().multiplyScalar(p.flangeThickness * 0.5 + boltH * 0.5);
-        bolt.position.copy(posInPlane).add(surfOffset);
+        const boltGeo = new THREE.CylinderGeometry(p.boltRadius, p.boltRadius, p.boltHeight, 12);
+        const bolt = new THREE.Mesh(boltGeo, this.boltMat);
+        bolt.castShadow = true; bolt.receiveShadow = true;
 
-        // orient bolt axis along normal
         const qb = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
         bolt.quaternion.copy(qb);
+        const surfOffset = n.clone().multiplyScalar(p.flangeThickness * 0.5 + p.boltHeight * 0.5);
+        bolt.position.copy(posInPlane).add(surfOffset);
 
         grp.add(bolt);
       }
     }
-
     return grp;
   }
 
-  _makeBoltRing(p, outerR) {
-    const boltGeo = new THREE.CylinderGeometry(
-      p.boltRadius, p.boltRadius,
-      p.boltHeight,
-      12
-    );
-    const bolt = new THREE.Mesh(boltGeo, this.boltMat);
-    bolt.castShadow = true;
-    bolt.receiveShadow = true;
-    return bolt;
-  }
-
   updateParams(next) {
-    // merge & clamp
     const prev = this.userData.params;
     const merged = { ...prev, ...next };
 
-    // basic clamps
-    merged.outerRadius = Math.max(0.02, merged.outerRadius);
-    merged.wallThickness = Math.min(Math.max(0.002, merged.wallThickness), Pipe.getMaxWall(merged));
-    merged.length = Math.max(0.05, merged.length);
-    merged.shoulderDeg = Math.min(180, Math.max(0, merged.shoulderDeg));
-    merged.elbowRadius = Math.max(merged.outerRadius * 1.05, merged.elbowRadius);
-    merged.elbowSegments = Math.max(6, Math.floor(merged.elbowSegments || 24));
-    merged.radialSegments = Math.max(8, Math.floor(merged.radialSegments || 16));
-    merged.boltCount = Math.min(Pipe.getMaxBoltCount(), Math.max(2, Math.floor(merged.boltCount || 8)));
-    merged.flangeRadius = Math.max(merged.outerRadius * 1.1, merged.flangeRadius);
+    merged.outerRadius     = Math.max(0.02, merged.outerRadius);
+    merged.wallThickness   = Math.min(Math.max(0.002, merged.wallThickness), Pipe.getMaxWall(merged));
+    merged.length          = Math.max(0.05, merged.length);
+    merged.shoulderDeg     = Math.min(180, Math.max(0, merged.shoulderDeg));
+    merged.elbowRadius     = Math.max(merged.outerRadius * 1.05, merged.elbowRadius);
+    merged.elbowSegments   = Math.max(6, Math.floor(merged.elbowSegments || 24));
+    merged.radialSegments  = Math.max(8, Math.floor(merged.radialSegments || 16));
+    merged.boltCount       = Math.min(Pipe.getMaxBoltCount(), Math.max(2, Math.floor(merged.boltCount || 8)));
+    merged.flangeRadius    = Math.max(merged.outerRadius * 1.1, merged.flangeRadius);
     merged.flangeThickness = Math.max(0.02, merged.flangeThickness);
-    merged.boltRadius = Math.max(0.01, merged.boltRadius);
-    merged.boltHeight = Math.max(0.04, merged.boltHeight);
-    merged.boltRingInset = Math.max(0.02, merged.boltRingInset);
+    merged.boltRadius      = Math.max(0.01, merged.boltRadius);
+    merged.boltHeight      = Math.max(0.04, merged.boltHeight);
+    merged.boltRingInset   = Math.max(0.02, merged.boltRingInset);
 
     this.userData.params = merged;
 
-    // Update material colors/props if changed
     this.pipeMat.color.set(merged.pipeColor);
     this.pipeMat.roughness = merged.roughness;
     this.pipeMat.metalness = merged.metalness;
@@ -331,7 +258,5 @@ export default class Pipe extends THREE.Group {
     this.build();
   }
 
-  dispose() {
-    this._clearChildren();
-  }
+  dispose() { this._clearChildren(); }
 }
