@@ -7,21 +7,22 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 // --- Import our custom Assets ---
 import TowerBase from './towerbase.js';
 import DoubleDoor from './doubledoor.js';
-import WindowAsset from './window.js';   // avoid Window(global) clash
+import WindowAsset from './window.js';   // avoid Window global
 import Floor from './floor.js';
-import TrussArm from './trussarm.js';    // NEW
+import TrussArm from './trussarm.js';
+import Pipe from './pipe.js';
 
 // --- Global Variables ---
 let scene, camera, renderer, orbitControls, transformControls;
 let raycaster, touchStartPos, currentSelection;
-let allModels = []; // root selectable groups
+let allModels = [];
 
 // UI Elements
 let loadingScreen, canvasContainer, addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, toolsBtn, gizmoText;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addTrussArmBtn, addPipeBtn;
+let toolsBtn, gizmoText;
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
-let addTrussBtn; // NEW
 
 // Touch/Tap Controls
 let lastTapTime = 0;
@@ -60,13 +61,12 @@ function init() {
   addDoubleDoorBtn= document.getElementById('add-double-door-btn');
   addWindowBtn    = document.getElementById('add-window-btn');
   addFloorBtn     = document.getElementById('add-floor-btn');
+  addTrussArmBtn  = document.getElementById('add-trussarm-btn');
+  addPipeBtn      = document.getElementById('add-pipe-btn');
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
   sceneList       = document.getElementById('scene-list');
-
-  // Optional (index may not have it yet) — guard so app doesn't crash
-  addTrussBtn     = document.getElementById('add-truss-btn');
 
   // Scene
   scene = new THREE.Scene();
@@ -80,10 +80,9 @@ function init() {
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
 
-  // Environment
+  // Environment (correct usage for r180)
   const pmrem = new THREE.PMREMGenerator(renderer);
-  // Works across r180+; RoomEnvironment accepts renderer in recent revs but optional in others
-  const envTex = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
 
   // Camera
@@ -257,7 +256,7 @@ function deselectAll() {
 // -----------------------------
 function initUI() {
   // Toggle Add panel
-  addBtn?.addEventListener('click', () => {
+  addBtn.addEventListener('click', () => {
     if (addPanel.style.visibility === 'visible') {
       hidePanel(addPanel);
     } else {
@@ -266,11 +265,11 @@ function initUI() {
       hidePanel(propsPanel);
     }
   });
-  closeAddPanel?.addEventListener('click', () => hidePanel(addPanel));
-  closePropsPanel?.addEventListener('click', () => deselectAll());
+  closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
+  closePropsPanel.addEventListener('click', () => deselectAll());
 
   // Cycle transform mode + label
-  toolsBtn?.addEventListener('click', () => {
+  toolsBtn.addEventListener('click', () => {
     const m = transformControls.getMode();
     const next = m === 'translate' ? 'rotate' : m === 'rotate' ? 'scale' : 'translate';
     transformControls.setMode(next);
@@ -279,7 +278,7 @@ function initUI() {
   });
 
   // Scene list toggle
-  sceneBtn?.addEventListener('click', () => {
+  sceneBtn.addEventListener('click', () => {
     if (scenePanel.style.visibility === 'visible') {
       hidePanel(scenePanel);
     } else {
@@ -289,15 +288,14 @@ function initUI() {
       hidePanel(propsPanel);
     }
   });
-  closeScenePanel?.addEventListener('click', () => hidePanel(scenePanel));
+  closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
 
   // Add Tower (door)
-  addTowerDoorBtn?.addEventListener('click', () => {
+  addTowerDoorBtn.addEventListener('click', () => {
     const params = {
       width: 12, depth: 12, height: 6,
       wallThickness: 1, cornerRadius: 1.2,
-      edgeRoundness: 0.3, edgeSmoothness: 4,
-      doorWidth: 4
+      edgeRoundness: 0.3, doorWidth: 4
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
@@ -310,12 +308,11 @@ function initUI() {
   });
 
   // Add Tower (solid)
-  addTowerSolidBtn?.addEventListener('click', () => {
+  addTowerSolidBtn.addEventListener('click', () => {
     const params = {
       width: 10, depth: 10, height: 8,
       wallThickness: 1, cornerRadius: 1.0,
-      edgeRoundness: 0.2, edgeSmoothness: 4,
-      doorWidth: 0
+      edgeRoundness: 0.2, doorWidth: 0
     };
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
@@ -328,7 +325,7 @@ function initUI() {
   });
 
   // Add Double Door
-  addDoubleDoorBtn?.addEventListener('click', () => {
+  addDoubleDoorBtn.addEventListener('click', () => {
     const params = {
       totalWidth: 8, height: 10, depth: 0.5,
       frameThickness: 0.5, cornerRadius: 0.2,
@@ -346,7 +343,7 @@ function initUI() {
   });
 
   // Add Window
-  addWindowBtn?.addEventListener('click', () => {
+  addWindowBtn.addEventListener('click', () => {
     const params = {
       totalWidth: 6, height: 8, depth: 0.3,
       frameThickness: 0.4, cornerRadius: 0.1,
@@ -364,11 +361,16 @@ function initUI() {
     hidePanel(addPanel);
   });
 
-  // Add Floor
-  addFloorBtn?.addEventListener('click', () => {
+  // Add Floor / Roof
+  addFloorBtn.addEventListener('click', () => {
     const params = {
       width: 20, depth: 20, thickness: 0.5,
-      colorR: 0.5, colorG: 0.5, colorB: 0.5
+      colorR: 0.65, colorG: 0.65, colorB: 0.65,
+      cornerRadius: 0.4, cornerSmoothness: 16,
+      edgeBevelSize: 0.0, edgeBevelThickness: 0.0, edgeSmoothness: 2,
+      skylightEnabled: false, skylightGlass: false,
+      skylightW: 5, skylightD: 5, skylightR: 0.2, skylightX: 0, skylightZ: 0,
+      bulgeEnabled: false, bulgeHeight: 0.0, bulgeRadiusX: 8, bulgeRadiusZ: 8, bulgeX: 0, bulgeZ: 0
     };
     const floor = new Floor(params);
     floor.position.y = -params.thickness / 2;
@@ -380,26 +382,57 @@ function initUI() {
     hidePanel(addPanel);
   });
 
-  // Add Truss Arm (guarded if button exists in current index.html)
-  addTrussBtn?.addEventListener('click', () => {
+  // Add Truss Arm
+  addTrussArmBtn.addEventListener('click', () => {
     const params = {
       length: 10,
-      armWidth: 2,
-      armHeight: 2,
-      tubeRadius: 0.12,
-      roundSegments: 12,
-      segments: 8,
+      armWidth: 1.2,
+      railRadius: 0.06,
+      segmentCount: 6,
       curve: 0.0,
-      hasEndJoint: true,
-      jointRadius: 0.4
+      jointAtEnd: true,
+      jointRadius: 0.2,
+      addBolt: true
     };
     const arm = new TrussArm(params);
-    arm.position.set(0, params.armHeight * 0.5, 0);
+    arm.position.y = 1.2;
     assignDefaultName(arm);
     scene.add(arm);
     allModels.push(arm);
     refreshSceneList();
     selectObject(arm);
+    hidePanel(addPanel);
+  });
+
+  // Add Pipe
+  addPipeBtn.addEventListener('click', () => {
+    const params = {
+      length: 10,
+      outerRadius: 0.45,
+      wallThickness: 0.05,
+      radialSegments: 24,
+      hasElbow: true,
+      shoulderDeg: 45,
+      elbowRadius: 1.5,
+      elbowSegments: 24,
+      elbowPlaneDeg: 0,
+      hasFlangeStart: true,
+      hasFlangeEnd: true,
+      flangeRadius: 0.8,
+      flangeThickness: 0.12,
+      hasBolts: true,
+      boltCount: 12,
+      boltRadius: 0.05,
+      boltHeight: 0.12,
+      boltRingInset: 0.16
+    };
+    const pipe = new Pipe(params);
+    pipe.position.y = 0.6;
+    assignDefaultName(pipe);
+    scene.add(pipe);
+    allModels.push(pipe);
+    refreshSceneList();
+    selectObject(pipe);
     hidePanel(addPanel);
   });
 }
@@ -424,6 +457,7 @@ function duplicateModel(src) {
   else if (type === 'Window')     copy = new WindowAsset(params);
   else if (type === 'Floor')      copy = new Floor(params);
   else if (type === 'TrussArm')   copy = new TrussArm(params);
+  else if (type === 'Pipe')       copy = new Pipe(params);
   else {
     copy = src.clone(true);
     copy.userData = { ...src.userData };
@@ -479,17 +513,14 @@ function refreshSceneList() {
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-md px-3 py-2';
 
-    // Left: name button (select)
     const nameBtn = document.createElement('button');
     nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform';
     nameBtn.textContent = name;
     nameBtn.addEventListener('click', () => { selectObject(obj); hidePanel(scenePanel); });
 
-    // Right: actions
     const actions = document.createElement('div');
     actions.className = 'flex items-center gap-2';
 
-    // Duplicate
     const dupBtn = document.createElement('button');
     dupBtn.className = 'p-2 rounded-md bg-gray-800 hover:bg-gray-900 active:scale-95 transition-transform';
     dupBtn.title = 'Duplicate';
@@ -501,7 +532,6 @@ function refreshSceneList() {
       </svg>`;
     dupBtn.addEventListener('click', (e) => { e.stopPropagation(); duplicateModel(obj); });
 
-    // Delete
     const delBtn = document.createElement('button');
     delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-95 transition-transform';
     delBtn.title = 'Delete';
@@ -614,26 +644,68 @@ function updatePropsPanel(object) {
       glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
     };
   } else if (type === 'Floor') {
-    // Keep to supported params in your current floor.js
     paramConfig = {
       width:            { min: 4,   max: 100, step: 0.1, label: 'Width' },
       depth:            { min: 4,   max: 100, step: 0.1, label: 'Depth' },
-      thickness:        { min: 0.1, max: 5,   step: 0.1, label: 'Thickness' },
+      thickness:        { min: 0.1, max: 5,   step: 0.05, label: 'Thickness' },
       colorR:           { min: 0,   max: 1,   step: 0.01, label: 'Color Red' },
       colorG:           { min: 0,   max: 1,   step: 0.01, label: 'Color Green' },
-      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' }
+      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' },
+      cornerRadius:     { min: 0,   max: Floor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64,  step: 1,   label: 'Corner Smoothness' },
+      edgeBevelSize:    { min: 0,   max: Floor.getMaxBevelSize(p), step: 0.02, label: 'Edge Bevel Size' },
+      edgeBevelThickness:{min: 0,   max: 1.0, step: 0.02, label: 'Edge Bevel Thickness' },
+      edgeSmoothness:   { min: 1,   max: 12,  step: 1,   label: 'Edge Smoothness' },
+
+      skylightEnabled:  { type: 'checkbox', label: 'Skylight (Hole)' },
+      skylightGlass:    { type: 'checkbox', label: 'Skylight Glass' },
+      skylightW:        { min: 0.5, max: Math.max(0.5, p.width - 1), step: 0.1, label: 'Skylight Width' },
+      skylightD:        { min: 0.5, max: Math.max(0.5, p.depth - 1), step: 0.1, label: 'Skylight Depth' },
+      skylightR:        { min: 0,   max: 5,   step: 0.05, label: 'Skylight Corner R' },
+      skylightX:        { min: -p.width/2+0.25,  max:  p.width/2-0.25,  step: 0.1, label: 'Skylight X' },
+      skylightZ:        { min: -p.depth/2+0.25,  max:  p.depth/2-0.25,  step: 0.1, label: 'Skylight Z' },
+
+      bulgeEnabled:     { type: 'checkbox', label: 'Bulge (Roof Dome)' },
+      bulgeHeight:      { min: 0,   max: 5,   step: 0.05, label: 'Bulge Height' },
+      bulgeRadiusX:     { min: 0.5, max: 100, step: 0.1, label: 'Bulge Radius X' },
+      bulgeRadiusZ:     { min: 0.5, max: 100, step: 0.1, label: 'Bulge Radius Z' },
+      bulgeX:           { min: -p.width/2,  max: p.width/2,  step: 0.1, label: 'Bulge Center X' },
+      bulgeZ:           { min: -p.depth/2,  max: p.depth/2,  step: 0.1, label: 'Bulge Center Z' }
     };
   } else if (type === 'TrussArm') {
     paramConfig = {
-      length:        { min: 1,   max: 100, step: 0.1, label: 'Length' },
-      armWidth:      { min: 0.2, max: 10,  step: 0.1, label: 'Frame Width' },
-      armHeight:     { min: 0.2, max: 10,  step: 0.1, label: 'Frame Height' },
-      tubeRadius:    { min: 0.02,max: 1,   step: 0.01,label: 'Tube Radius' },
-      segments:      { min: 2,   max: 32,  step: 1,   label: 'Lattice Segments' },
-      roundSegments: { min: 6,   max: 32,  step: 1,   label: 'Round Segments' },
-      curve:         { min: -5,  max: 5,   step: 0.1, label: 'Curve (rise)' },
-      hasEndJoint:   { type: 'checkbox',   label: 'End Joint' },
-      jointRadius:   { min: 0.05,max: 2,   step: 0.05,label: 'Joint Radius' }
+      length:       { min: 2, max: 80, step: 0.1, label: 'Length' },
+      armWidth:     { min: 0.4, max: 5, step: 0.05, label: 'Arm Width' },
+      railRadius:   { min: 0.02, max: 0.3, step: 0.01, label: 'Rail Radius' },
+      segmentCount: { min: 2, max: 20, step: 1, label: 'Segments' },
+      curve:        { min: 0, max: 2, step: 0.01, label: 'Curve (Arc Height)' },
+      jointAtEnd:   { type: 'checkbox', label: 'Joint At End' },
+      jointRadius:  { min: 0.05, max: 1, step: 0.01, label: 'Joint Radius' },
+      addBolt:      { type: 'checkbox', label: 'Add Bolt' }
+    };
+  } else if (type === 'Pipe') {
+    paramConfig = {
+      length:          { min: 1, max: 100, step: 0.1, label: 'Length' },
+      outerRadius:     { min: 0.05, max: 4, step: 0.01, label: 'Outer Radius' },
+      wallThickness:   { min: 0.002, max: 1, step: 0.002, label: 'Wall Thickness' },
+      radialSegments:  { min: 8, max: 64, step: 1, label: 'Radial Segments' },
+
+      hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
+      shoulderDeg:     { min: 0, max: 135, step: 1, label: 'Elbow Angle (deg)' },
+      elbowRadius:     { min: 0.1, max: 10, step: 0.05, label: 'Elbow Radius' },
+      elbowSegments:   { min: 6, max: 64, step: 1, label: 'Elbow Segments' },
+      elbowPlaneDeg:   { min: 0, max: 360, step: 1, label: 'Elbow Plane (deg)' },
+
+      hasFlangeStart:  { type: 'checkbox', label: 'Flange Start' },
+      hasFlangeEnd:    { type: 'checkbox', label: 'Flange End' },
+      flangeRadius:    { min: 0.1, max: 10, step: 0.05, label: 'Flange Radius' },
+      flangeThickness: { min: 0.02, max: 1, step: 0.01, label: 'Flange Thickness' },
+
+      hasBolts:        { type: 'checkbox', label: 'Bolt Ring' },
+      boltCount:       { min: 2, max: 36, step: 1, label: 'Bolt Count' },
+      boltRadius:      { min: 0.01, max: 0.3, step: 0.005, label: 'Bolt Radius' },
+      boltHeight:      { min: 0.04, max: 0.6, step: 0.01, label: 'Bolt Height' },
+      boltRingInset:   { min: 0.02, max: 2, step: 0.01, label: 'Bolt Ring Inset' }
     };
   } else {
     propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
@@ -654,24 +726,6 @@ function updatePropsPanel(object) {
       propsContent.insertAdjacentHTML('beforeend', html);
       continue;
     }
-
-    if (key === 'cornerRadius') cfg.max = type === 'TowerBase'
-      ? TowerBase.getMaxCornerRadius(p)
-      : type === 'DoubleDoor'
-      ? DoubleDoor.getMaxCornerRadius(p)
-      : type === 'Window'
-      ? WindowAsset.getMaxCornerRadius(p)
-      : cfg.max;
-
-    if (key === 'edgeRoundness') cfg.max = type === 'TowerBase'
-      ? TowerBase.getMaxEdgeRoundness(p)
-      : type === 'DoubleDoor'
-      ? DoubleDoor.getMaxEdgeRoundness(p)
-      : type === 'Window'
-      ? WindowAsset.getMaxEdgeRoundness(p)
-      : cfg.max;
-
-    if (key === 'doorWidth' && type === 'TowerBase') cfg.max = TowerBase.getMaxDoorWidth(p);
 
     const value = (p[key] ?? cfg.min);
     const valueFmt = (cfg.step >= 1) ? Math.round(value) : Number(value).toFixed(2);
@@ -697,55 +751,45 @@ function updatePropsPanel(object) {
 
       let next = { ...object.userData.params, [key]: val };
 
-      if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height'].includes(key)) {
-        // Corner Radius
-        const crSlider = document.getElementById('cornerRadius-slider');
-        if (crSlider) {
-          let maxCR = crSlider.max;
-          if (object.userData.type === 'TowerBase')       maxCR = TowerBase.getMaxCornerRadius(next);
-          else if (object.userData.type === 'DoubleDoor') maxCR = DoubleDoor.getMaxCornerRadius(next);
-          else if (object.userData.type === 'Window')     maxCR = WindowAsset.getMaxCornerRadius(next);
-          crSlider.max = maxCR;
-          if (next.cornerRadius > maxCR) {
-            next.cornerRadius = maxCR;
-            crSlider.value = maxCR;
-            const v = (paramConfig.cornerRadius.step >= 1) ? Math.round(maxCR) : Number(maxCR).toFixed(2);
-            document.getElementById('cornerRadius-value').textContent = v;
+      // Dynamic maxes for some linked params
+      if (type === 'Floor') {
+        if (['width','depth','thickness','cornerRadius'].includes(key)) {
+          const crSlider = document.getElementById('cornerRadius-slider');
+          if (crSlider) {
+            const maxCR = Floor.getMaxCornerRadius(next);
+            crSlider.max = maxCR;
+            if (next.cornerRadius > maxCR) {
+              next.cornerRadius = maxCR; crSlider.value = maxCR;
+              document.getElementById('cornerRadius-value').textContent = maxCR.toFixed(2);
+            }
+          }
+          const bsSlider = document.getElementById('edgeBevelSize-slider');
+          if (bsSlider) {
+            const maxBS = Floor.getMaxBevelSize(next);
+            bsSlider.max = maxBS;
+            if (next.edgeBevelSize > maxBS) {
+              next.edgeBevelSize = maxBS; bsSlider.value = maxBS;
+              document.getElementById('edgeBevelSize-value').textContent = maxBS.toFixed(2);
+            }
           }
         }
-        // Edge Roundness
-        const erSlider = document.getElementById('edgeRoundness-slider');
-        if (erSlider) {
-          let maxER = erSlider.max;
-          if (object.userData.type === 'TowerBase')       maxER = TowerBase.getMaxEdgeRoundness(next);
-          else if (object.userData.type === 'DoubleDoor') maxER = DoubleDoor.getMaxEdgeRoundness(next);
-          else if (object.userData.type === 'Window')     maxER = WindowAsset.getMaxEdgeRoundness(next);
-          erSlider.max = maxER;
-          if (next.edgeRoundness > maxER) {
-            next.edgeRoundness = maxER;
-            erSlider.value = maxER;
-            const v = (paramConfig.edgeRoundness.step >= 1) ? Math.round(maxER) : Number(maxER).toFixed(2);
-            document.getElementById('edgeRoundness-value').textContent = v;
-          }
-        }
-        // Door Width (Tower only)
-        const dwSlider = document.getElementById('doorWidth-slider');
-        if (dwSlider && object.userData.type === 'TowerBase') {
-          const maxDW = TowerBase.getMaxDoorWidth(next);
-          dwSlider.max = maxDW;
-          if (next.doorWidth > maxDW) {
-            next.doorWidth = maxDW;
-            dwSlider.value = maxDW;
-            const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : Number(maxDW).toFixed(2);
-            document.getElementById('doorWidth-value').textContent = v;
-          }
+        if (['width','depth','skylightW','skylightD'].includes(key)) {
+          const sx = document.getElementById('skylightX-slider');
+          const sz = document.getElementById('skylightZ-slider');
+          if (sx) { sx.min = -next.width/2 + 0.25; sx.max =  next.width/2 - 0.25; }
+          if (sz) { sz.min = -next.depth/2 + 0.25; sz.max =  next.depth/2 - 0.25; }
         }
       }
 
       const lbl = document.getElementById(`${key}-value`);
-      if (lbl) lbl.textContent = (cfg.step >= 1) ? Math.round(val) : Number(val).toFixed(2);
+      if (lbl) lbl.textContent = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
 
       object.updateParams(next);
+
+      // keep floors resting on ground when thickness changes
+      if (type === 'Floor' && (key === 'thickness')) {
+        object.position.y = -object.userData.params.thickness / 2;
+      }
     });
   });
 
@@ -765,14 +809,14 @@ function updatePropsPanel(object) {
 // -----------------------------
 window.addEventListener('DOMContentLoaded', init);
 
-// Show runtime errors in the toast and never leave loader stuck
+// Bubble runtime errors into the toast + clear loader
 window.addEventListener('error', (e) => {
   const msg = e?.error?.message || e.message || 'Unknown error';
   const box = document.getElementById('message-box');
   if (box) {
     document.getElementById('message-text').textContent = msg;
     box.classList.add('show');
-    setTimeout(() => box.classList.remove('show'), 4000);
+    setTimeout(() => box.classList.remove('show'), 3500);
   }
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
