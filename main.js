@@ -889,13 +889,16 @@ function clearAllOverrides(object, materials) {
 
 // ---------------- Transform tab ----------------
 function buildTransformTab(object, page) {
+  const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
   const toRow = (id, label, min, max, step, value) => `
     <div class="space-y-1">
-      <label class="text-sm font-medium flex justify-between">
-        <span>${label}</span><span id="${id}-val">${value}</span>
+      <label class="text-sm font-medium flex justify-between items-center">
+        <span>${label}</span>
+        <input type="number" id="${id}-val" class="${numberInputClasses}" min="${min}" max="${max}" step="${step}" value="${value}">
       </label>
-      <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}">
+      <input type="range" id="${id}-slider" min="${min}" max="${max}" step="${step}" value="${value}">
     </div>`;
+
   page.innerHTML = `
     <div class="grid grid-cols-3 gap-3">
       ${toRow('tx','Pos X', -100,100,0.1, object.position.x.toFixed(2))}
@@ -918,20 +921,67 @@ function buildTransformTab(object, page) {
       <button id="reset-scl" class="px-3 py-2 rounded bg-gray-700">Reset Scale</button>
     </div>
   `;
-  const setLbl = (id, v) => page.querySelector(`#${id}-val`).textContent = (typeof v === 'number' ? v.toFixed(2) : v);
-  const link = (id, fn) => page.querySelector('#'+id).addEventListener('input', e => { fn(parseFloat(e.target.value)); setLbl(id, parseFloat(e.target.value)); if (transformControls) transformControls.update(); });
+
+  const link = (id, fn, formatFn) => {
+    const slider = page.querySelector(`#${id}-slider`);
+    const number = page.querySelector(`#${id}-val`);
+    if (!slider || !number) return;
+
+    const format = formatFn || (v => v.toFixed(2));
+
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value);
+      number.value = format(val);
+      fn(val);
+      if (transformControls) transformControls.update();
+    });
+
+    const updateFromNumber = () => {
+      let val = parseFloat(number.value);
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      if (isNaN(val)) val = min;
+      val = Math.max(min, Math.min(max, val)); // Clamp
+      
+      number.value = format(val);
+      slider.value = val;
+      fn(val);
+      if (transformControls) transformControls.update();
+    };
+    
+    number.addEventListener('change', updateFromNumber); // On blur
+    number.addEventListener('keydown', e => { // On Enter
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        updateFromNumber();
+        number.blur();
+      }
+    });
+  };
+
+  const formatDeg = v => v.toFixed(0);
   link('tx', v => object.position.x = v);
   link('ty', v => object.position.y = v);
   link('tz', v => object.position.z = v);
-  link('rx', v => object.rotation.x = THREE.MathUtils.degToRad(v));
-  link('ry', v => object.rotation.y = THREE.MathUtils.degToRad(v));
-  link('rz', v => object.rotation.z = THREE.MathUtils.degToRad(v));
+  link('rx', v => object.rotation.x = THREE.MathUtils.degToRad(v), formatDeg);
+  link('ry', v => object.rotation.y = THREE.MathUtils.degToRad(v), formatDeg);
+  link('rz', v => object.rotation.z = THREE.MathUtils.degToRad(v), formatDeg);
   link('sx', v => object.scale.x = v);
   link('sy', v => object.scale.y = v);
   link('sz', v => object.scale.z = v);
-  page.querySelector('#reset-pos').addEventListener('click', () => { object.position.set(0,0,0); ['tx','ty','tz'].forEach(id=>{page.querySelector('#'+id).value=0; setLbl(id,0);}); });
-  page.querySelector('#reset-rot').addEventListener('click', () => { object.rotation.set(0,0,0); ['rx','ry','rz'].forEach(id=>{page.querySelector('#'+id).value=0; setLbl(id,0);}); });
-  page.querySelector('#reset-scl').addEventListener('click', () => { object.scale.set(1,1,1); ['sx','sy','sz'].forEach(id=>{page.querySelector('#'+id).value=1; setLbl(id,1);}); });
+
+  const reset = (ids, val, fn) => {
+    fn(val);
+    ids.forEach(id => {
+      page.querySelector(`#${id}-slider`).value = val;
+      page.querySelector(`#${id}-val`).value = (id.startsWith('r') ? val.toFixed(0) : (id.startsWith('s') ? val.toFixed(2) : val.toFixed(2)));
+    });
+    if (transformControls) transformControls.update();
+  };
+
+  page.querySelector('#reset-pos').addEventListener('click', () => reset(['tx','ty','tz'], 0, v => object.position.set(v,v,v)));
+  page.querySelector('#reset-rot').addEventListener('click', () => reset(['rx','ry','rz'], 0, v => object.rotation.set(v,v,v)));
+  page.querySelector('#reset-scl').addEventListener('click', () => reset(['sx','sy','sz'], 1, v => object.scale.set(v,v,v)));
 }
 
 // ---------------- Shape tab (per-type params) ----------------
@@ -939,6 +989,7 @@ function buildShapeTab(object, page) {
   const type = object.userData.type;
   const p = object.userData.params || {};
   let paramConfig = {};
+  const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
 
   if (type === 'TowerBase') {
     paramConfig = {
@@ -1105,8 +1156,10 @@ function buildShapeTab(object, page) {
       const row = document.createElement('div');
       row.className = 'space-y-1';
       row.innerHTML = `
-        <label class="text-sm font-medium flex justify-between">
-          <span>${cfg.label}</span><span id="${key}-value">${valueFmt}</span>
+        <label class="text-sm font-medium flex justify-between items-center">
+          <span>${cfg.label}</span>
+          <input type="number" id="${key}-value" class="${numberInputClasses}" 
+                 min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${valueFmt}">
         </label>
         <input type="range" id="${key}-slider" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${value}">
       `;
@@ -1114,92 +1167,147 @@ function buildShapeTab(object, page) {
     }
   });
 
-  // Slider events
-  wrap.querySelectorAll('input[type="range"]').forEach(slider => {
-    slider.addEventListener('input', () => {
-      const key = slider.id.replace('-slider', '');
-      const cfg = paramConfig[key];
-      const val = (cfg.step >= 1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
-      let next = { ...object.userData.params, [key]: val };
+  // Function to handle the actual parameter update and UI refresh
+  const updateModelParams = () => {
+    let next = { ...object.userData.params };
+    
+    // Read all values from number inputs
+    wrap.querySelectorAll('input[type="number"]').forEach(number => {
+      const key = number.id.replace('-value', '');
+      if (paramConfig[key]) {
+        next[key] = parseFloat(number.value);
+      }
+    });
+    wrap.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      const key = checkbox.id.replace('-toggle', '');
+      if (paramConfig[key]) {
+        next[key] = checkbox.checked;
+      }
+    });
 
-      // Recompute dependent limits
-      if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height','outerRadius','overhang','thickness'].includes(key)) {
-        // Corner Radius
-        const crSlider = wrap.querySelector('#cornerRadius-slider');
-        if (crSlider) {
-          let maxCR = crSlider.max;
-          if (type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
-          else if (type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
-          else if (type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
-          else if (type === 'Floor')     maxCR = Floor.getMaxCornerRadius(next);
-          else if (type === 'Roof')      maxCR = Roof.getMaxCornerRadius(next);
-          crSlider.max = maxCR;
-          if (next.cornerRadius > maxCR) {
-            next.cornerRadius = maxCR;
-            crSlider.value = maxCR;
-            const v = (paramConfig.cornerRadius.step >= 1) ? Math.round(maxCR) : Number(maxCR).toFixed(2);
-            wrap.querySelector('#cornerRadius-value').textContent = v;
-          }
-        }
-        // Edge Roundness
-        const erSlider = wrap.querySelector('#edgeRoundness-slider');
-        if (erSlider) {
-          let maxER = erSlider.max;
-          if      (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
-          else if (type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
-          else if (type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
-          else if (type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
-          else if (type === 'Roof')      maxER = Roof.getMaxEdgeRoundness(next);
-          erSlider.max = maxER;
-          if (next.edgeRoundness > maxER) {
-            next.edgeRoundness = maxER;
-            erSlider.value = maxER;
-            const v = (paramConfig.edgeRoundness.step >= 1) ? Math.round(maxER) : Number(maxER).toFixed(2);
-            wrap.querySelector('#edgeRoundness-value').textContent = v;
-          }
-        }
-        // Door Width (Tower only)
-        const dwSlider = wrap.querySelector('#doorWidth-slider');
-        if (dwSlider && type === 'TowerBase') {
-          const maxDW = TowerBase.getMaxDoorWidth(next);
-          dwSlider.max = maxDW;
-          if (next.doorWidth > maxDW) {
-            next.doorWidth = maxDW;
-            dwSlider.value = maxDW;
-            const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : Number(maxDW).toFixed(2);
-            wrap.querySelector('#doorWidth-value').textContent = v;
-          }
-        }
-        // Pipe wallThickness depends on outerRadius
-        if (type === 'Pipe') {
-          const wt = wrap.querySelector('#wallThickness-slider');
-          if (wt) {
-            const maxWT = Pipe.getMaxWall(next);
-            wt.max = maxWT;
-            if (next.wallThickness > maxWT) {
-              next.wallThickness = maxWT;
-              wt.value = maxWT;
-              wrap.querySelector('#wallThickness-value').textContent = Number(maxWT).toFixed(2);
-            }
-          }
+    // --- Re-run constraint logic ---
+    // Corner Radius
+    const crSlider = wrap.querySelector('#cornerRadius-slider');
+    if (crSlider) {
+      let maxCR = parseFloat(crSlider.max);
+      if (type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
+      else if (type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
+      else if (type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
+      else if (type === 'Floor')     maxCR = Floor.getMaxCornerRadius(next);
+      else if (type === 'Roof')      maxCR = Roof.getMaxCornerRadius(next);
+      crSlider.max = maxCR;
+      if (next.cornerRadius > maxCR) {
+        next.cornerRadius = maxCR;
+      }
+    }
+    // Edge Roundness
+    const erSlider = wrap.querySelector('#edgeRoundness-slider');
+    if (erSlider) {
+      let maxER = parseFloat(erSlider.max);
+      if      (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
+      else if (type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
+      else if (type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
+      else if (type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
+      else if (type === 'Roof')      maxER = Roof.getMaxEdgeRoundness(next);
+      erSlider.max = maxER;
+      if (next.edgeRoundness > maxER) {
+        next.edgeRoundness = maxER;
+      }
+    }
+    // Door Width (Tower only)
+    const dwSlider = wrap.querySelector('#doorWidth-slider');
+    if (dwSlider && type === 'TowerBase') {
+      const maxDW = TowerBase.getMaxDoorWidth(next);
+      dwSlider.max = maxDW;
+      if (next.doorWidth > maxDW) {
+        next.doorWidth = maxDW;
+      }
+    }
+    // Pipe wallThickness
+    if (type === 'Pipe') {
+      const wtSlider = wrap.querySelector('#wallThickness-slider');
+      if (wtSlider) {
+        const maxWT = Pipe.getMaxWall(next);
+        wtSlider.max = maxWT;
+        if (next.wallThickness > maxWT) {
+          next.wallThickness = maxWT;
         }
       }
+    }
+    // --- End constraint logic ---
+    
+    // Update the model
+    object.updateParams(next);
 
-      const lbl = wrap.querySelector(`#${key}-value`);
-      if (lbl) lbl.textContent = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
+    // Refresh UI values from the (potentially constrained) 'next' object
+    Object.keys(paramConfig).forEach(key => {
+      const cfg = paramConfig[key];
+      if (cfg.type === 'checkbox') {
+        const check = wrap.querySelector(`#${key}-toggle`);
+        if (check) check.checked = next[key];
+      } else {
+        const slider = wrap.querySelector(`#${key}-slider`);
+        const number = wrap.querySelector(`#${key}-value`);
+        if (slider && number) {
+          const val = next[key];
+          const valFmt = (cfg.step >= 1) ? Math.round(val) : Number(val).toFixed(2);
+          slider.value = val;
+          number.value = valFmt;
+        }
+      }
+    });
+  };
 
-      object.updateParams(next);
+  // Slider events
+  wrap.querySelectorAll('input[type="range"]').forEach(slider => {
+    const key = slider.id.replace('-slider', '');
+    const cfg = paramConfig[key];
+    const number = wrap.querySelector(`#${key}-value`);
+
+    // On Drag: update number box
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value);
+      const valFmt = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
+      if (number) number.value = valFmt;
+    });
+    
+    // On Mouse Up: trigger model rebuild
+    slider.addEventListener('change', updateModelParams);
+  });
+
+  // Number input events
+  wrap.querySelectorAll('input[type="number"]').forEach(number => {
+    const key = number.id.replace('-value', '');
+    const cfg = paramConfig[key];
+    const slider = wrap.querySelector(`#${key}-slider`);
+
+    const updateFromNumber = () => {
+      let val = parseFloat(number.value);
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      if (isNaN(val)) val = min;
+      val = Math.max(min, Math.min(max, val)); // Clamp
+      
+      const valFmt = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
+      number.value = valFmt;
+      slider.value = val;
+      
+      updateModelParams(); // Trigger model rebuild
+    };
+    
+    number.addEventListener('change', updateFromNumber); // On blur
+    number.addEventListener('keydown', e => { // On Enter
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        updateFromNumber();
+        number.blur();
+      }
     });
   });
 
   // Checkbox events
   wrap.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
-    checkbox.addEventListener('change', () => {
-      const key = checkbox.id.replace('-toggle','');
-      const val = checkbox.checked;
-      let next = { ...object.userData.params, [key]: val };
-      object.updateParams(next);
-    });
+    checkbox.addEventListener('change', updateModelParams); // Trigger model rebuild
   });
 }
 
@@ -1208,6 +1316,7 @@ function buildTexturesTab(object, page) {
   const mats = collectMaterialsFromObject(object);
   const rep = mats[0] || {};
   const st = ensureTexState(object);
+  const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
 
   const colorHex    = rep?.color ? `#${rep.color.getHexString()}` : '#cccccc';
   const emissiveHex = rep?.emissive ? `#${rep.emissive.getHexString()}` : '#000000';
@@ -1226,18 +1335,27 @@ function buildTexturesTab(object, page) {
         </label>
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm font-medium flex justify-between"><span>Roughness</span><span id="rough-val">${rough.toFixed(2)}</span></label>
-          <input type="range" id="mat-rough" min="0" max="1" step="0.01" value="${rough}">
+        <div class="space-y-1">
+          <label class="text-sm font-medium flex justify-between items-center">
+            <span>Roughness</span>
+            <input type="number" id="mat-rough-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${rough.toFixed(2)}">
+          </label>
+          <input type="range" id="mat-rough-slider" min="0" max="1" step="0.01" value="${rough}">
         </div>
-        <div>
-          <label class="text-sm font-medium flex justify-between"><span>Metalness</span><span id="metal-val">${metal.toFixed(2)}</span></label>
-          <input type="range" id="mat-metal" min="0" max="1" step="0.01" value="${metal}">
+        <div class="space-y-1">
+          <label class="text-sm font-medium flex justify-between items-center">
+            <span>Metalness</span>
+            <input type="number" id="mat-metal-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${metal.toFixed(2)}">
+          </label>
+          <input type="range" id="mat-metal-slider" min="0" max="1" step="0.01" value="${metal}">
         </div>
       </div>
-      <div>
-        <label class="text-sm font-medium flex justify-between"><span>Emissive Intensity</span><span id="emi-val">${emisI.toFixed(2)}</span></label>
-        <input type="range" id="mat-emi" min="0" max="10" step="0.05" value="${emisI}">
+      <div class="space-y-1">
+        <label class="text-sm font-medium flex justify-between items-center">
+          <span>Emissive Intensity</span>
+          <input type="number" id="mat-emi-val" class="${numberInputClasses}" min="0" max="10" step="0.05" value="${emisI.toFixed(2)}">
+        </label>
+        <input type="range" id="mat-emi-slider" min="0" max="10" step="0.05" value="${emisI}">
       </div>
 
       <div class="mt-2 border-t border-white/10 pt-3">
@@ -1271,18 +1389,27 @@ function buildTexturesTab(object, page) {
         <div class="grid grid-cols-2 gap-2" id="pbr-grid"></div>
         
         <div class="mt-2 grid grid-cols-2 gap-3">
-          <label class="text-sm font-medium">Uploaded UV Repeat
-            <span id="uv-scale-val" class="float-right">${Math.round(st.uvScale || 1)}</span>
-            <input type="range" id="uv-scale" min="1" max="50" step="1" value="${st.uvScale || 1}">
-          </label>
-          <label class="text-sm font-medium">Uploaded UV RotationÃÂ°
-            <span id="uv-rot-val" class="float-right">${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}</span>
-            <input type="range" id="uv-rot" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
-          </label>
+          <div class="space-y-1">
+            <label class="text-sm font-medium flex justify-between items-center">
+              <span>Uploaded UV Repeat</span>
+              <input type="number" id="uv-scale-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${st.uvScale.toFixed(1)}">
+            </label>
+            <input type="range" id="uv-scale-slider" min="0.1" max="50" step="0.1" value="${st.uvScale}">
+          </div>
+          <div class="space-y-1">
+            <label class="text-sm font-medium flex justify-between items-center">
+              <span>Uploaded UV RotationÃÂ°</span>
+              <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}">
+            </label>
+            <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
+          </div>
         </div>
-        <div class="mt-2">
-          <label class="text-sm font-medium flex justify-between"><span>Displacement Scale</span><span id="disp-val">${(st.displacementScale || 0).toFixed(2)}</span></label>
-          <input type="range" id="disp-scale" min="0" max="1" step="0.01" value="${st.displacementScale || 0}">
+        <div class="mt-2 space-y-1">
+          <label class="text-sm font-medium flex justify-between items-center">
+            <span>Displacement Scale</span>
+            <input type="number" id="disp-scale-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${(st.displacementScale || 0).toFixed(2)}">
+          </label>
+          <input type="range" id="disp-scale-slider" min="0" max="1" step="0.01" value="${st.displacementScale || 0}">
         </div>
         <div class="mt-3 flex flex-wrap gap-2">
           <button id="clear-all-pbr" class="px-3 py-2 rounded bg-red-600">Clear All PBR Maps</button>
@@ -1291,14 +1418,82 @@ function buildTexturesTab(object, page) {
     </div>
   `;
 
-  // Color/PBR scalar events
+  // Color events
   page.querySelector('#mat-color').addEventListener('input', e => setMaterialColor(mats, e.target.value));
-  page.querySelector('#mat-emissive').addEventListener('input', e => setEmissive(mats, e.target.value, parseFloat(page.querySelector('#mat-emi').value)));
-  page.querySelector('#mat-rough').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'roughness',v); page.querySelector('#rough-val').textContent=v.toFixed(2); });
-  page.querySelector('#mat-metal').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'metalness',v); page.querySelector('#metal-val').textContent=v.toFixed(2); });
-  page.querySelector('#mat-emi').addEventListener('input',   e => { const v=parseFloat(e.target.value); setEmissive(mats, page.querySelector('#mat-emissive').value, v); page.querySelector('#emi-val').textContent=v.toFixed(2); });
+  page.querySelector('#mat-emissive').addEventListener('input', e => setEmissive(mats, page.querySelector('#mat-emissive').value, parseFloat(page.querySelector('#mat-emi-slider').value)));
+  
+  // Generic linker for simple slider/number pairs
+  const linkSimple = (idBase, formatFn, updateFn) => {
+    const slider = page.querySelector(`#${idBase}-slider`);
+    const number = page.querySelector(`#${idBase}-val`);
+    if (!slider || !number) return;
 
-  // Procedural apply respecting overrides
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value);
+      number.value = formatFn(val);
+      updateFn(val);
+    });
+    
+    const updateFromNumber = () => {
+      let val = parseFloat(number.value);
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      if (isNaN(val)) val = min;
+      val = Math.max(min, Math.min(max, val)); // Clamp
+      
+      number.value = formatFn(val);
+      slider.value = val;
+      updateFn(val);
+    };
+    
+    number.addEventListener('change', updateFromNumber);
+    number.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        updateFromNumber();
+        number.blur();
+      }
+    });
+  };
+
+  const formatF2 = v => v.toFixed(2);
+  const formatF1 = v => v.toFixed(1);
+  const formatF0 = v => v.toFixed(0);
+
+  // Link Roughness
+  linkSimple('mat-rough', formatF2, v => {
+    setMaterialScalar(mats, 'roughness', v);
+  });
+  
+  // Link Metalness
+  linkSimple('mat-metal', formatF2, v => {
+    setMaterialScalar(mats, 'metalness', v);
+  });
+  
+  // Link Emissive Intensity
+  linkSimple('mat-emi', formatF2, v => {
+    setEmissive(mats, page.querySelector('#mat-emissive').value, v);
+  });
+
+  // Link UV Scale & Rotation
+  const syncUV = () => {
+    const scale = parseFloat(page.querySelector('#uv-scale-slider').value);
+    const rotDeg = parseFloat(page.querySelector('#uv-rot-slider').value);
+    const rotRad = THREE.MathUtils.degToRad(rotDeg);
+    st.uvScale = scale;
+    st.uvRotation = rotRad;
+    applyUVToAllMaps(mats, scale, rotRad);
+  };
+  linkSimple('uv-scale', formatF1, syncUV);
+  linkSimple('uv-rot', formatF0, syncUV);
+
+  // Link Displacement Scale
+  linkSimple('disp-scale', formatF2, v => {
+    st.displacementScale = v;
+    setMaterialScalar(mats, 'displacementScale', v);
+  });
+
+  // --- Procedural Textures ---
   const procApply = () => {
     const pattern = page.querySelector('#tex-pattern').value;
     const scale   = parseFloat(page.querySelector('#tex-scale').value);
@@ -1334,7 +1529,8 @@ function buildTexturesTab(object, page) {
     mats.forEach(m=> m.needsUpdate=true);
   });
 
-  // PBR Upload rows
+
+  // --- PBR Upload Rows ---
   const pbrGrid = page.querySelector('#pbr-grid');
   const makeUploadRow = (label, slotName) => {
     const row = document.createElement('div');
@@ -1355,8 +1551,9 @@ function buildTexturesTab(object, page) {
     inp.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
-      const scale = parseFloat(page.querySelector('#uv-scale').value);
-      const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#uv-rot').value));
+      // Read scale/rot from the sliders (which are the source of truth)
+      const scale = parseFloat(page.querySelector('#uv-scale-slider').value);
+      const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#uv-rot-slider').value));
       try {
         await uploadMapFromFile({ object, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
         applyUVToAllMaps(mats, scale, rot);
@@ -1377,38 +1574,7 @@ function buildTexturesTab(object, page) {
   makeUploadRow('Emissive',           'emissive');
   makeUploadRow('Height (Displacement)', 'height');
 
-  // UV tiling & rotation Ã¢ÂÂ applies ONLY to uploaded maps
-  const uvScaleEl = page.querySelector('#uv-scale');
-  const uvRotEl   = page.querySelector('#uv-rot');
-  const uvScaleLbl = page.querySelector('#uv-scale-val'); // Added
-  const uvRotLbl   = page.querySelector('#uv-rot-val');   // Added
-
-  const syncUV = () => {
-    const scale = parseFloat(uvScaleEl.value);
-    const rotDeg = parseFloat(uvRotEl.value); // Get degrees from slider
-    const rotRad = THREE.MathUtils.degToRad(rotDeg);
-
-    st.uvScale = scale;
-    st.uvRotation = rotRad;
-    applyUVToAllMaps(mats, scale, rotRad);
-
-    if (uvScaleLbl) uvScaleLbl.textContent = Math.round(scale); // Update label
-    if (uvRotLbl)   uvRotLbl.textContent = Math.round(rotDeg); // Update label
-  };
-  uvScaleEl.addEventListener('input', syncUV);
-  uvRotEl.addEventListener('input', syncUV);
-  
-  // Displacement scale
-  const dispEl = page.querySelector('#disp-scale');
-  const dispLbl = page.querySelector('#disp-val');
-  dispEl.addEventListener('input', () => {
-    const v = parseFloat(dispEl.value);
-    st.displacementScale = v;
-    setMaterialScalar(mats, 'displacementScale', v);
-    dispLbl.textContent = v.toFixed(2);
-  });
-  setMaterialScalar(mats, 'displacementScale', st.displacementScale || 0);
-
+  // --- Clear All ---
   page.querySelector('#clear-all-pbr').addEventListener('click', () => {
     clearAllOverrides(object, mats);
   });
