@@ -33,8 +33,8 @@ let parentBtn, parentPanel, closeParentPanel, parentList, parentApplyBtn, parent
 // Hidden pickers
 let pickerLoadJSON, pickerImportGLB;
 
-// Export modal
-let exportModal, exportNameInput, exportClose, exportCancel, exportGo, optOnlyModels, optBinary;
+// Export bottom panel
+let exportPanel, exportNameInput, exportClose, exportCancel, exportGo, optOnlyModels, optBinary;
 
 // Touch
 let lastTapTime = 0;
@@ -106,7 +106,7 @@ function init() {
   parentApplyBtn   = document.getElementById('parent-apply');
   parentCancelBtn  = document.getElementById('parent-cancel');
 
-  exportModal     = document.getElementById('export-modal');
+  exportPanel     = document.getElementById('export-panel');
   exportNameInput = document.getElementById('export-name');
   exportClose     = document.getElementById('export-close');
   exportCancel    = document.getElementById('export-cancel');
@@ -278,10 +278,7 @@ function selectObject(o) {
   transformControls.attach(o);
   updatePropsPanel(o);
   showPanel(propsPanel);
-  hidePanel(addPanel);
-  hidePanel(scenePanel);
-  hidePanel(parentPanel);
-  hidePanel(filePanel);
+  [addPanel, scenePanel, parentPanel, filePanel, exportPanel].forEach(hidePanel);
 }
 
 function deselectAll() {
@@ -294,10 +291,8 @@ function deselectAll() {
 // UI
 // -----------------------------
 function initUI() {
-  // FILE dropdown
-  fileBtn.addEventListener('click', () => {
-    togglePanel(filePanel, [addPanel, scenePanel, parentPanel, propsPanel]);
-  });
+  // FILE dropdown (bottom sheet)
+  fileBtn.addEventListener('click', () => togglePanel(filePanel, [addPanel, scenePanel, parentPanel, propsPanel, exportPanel]));
   closeFilePanel.addEventListener('click', () => hidePanel(filePanel));
 
   fileSaveBtn.addEventListener('click', () => {
@@ -331,28 +326,18 @@ function initUI() {
 
   fileExportBtn.addEventListener('click', () => {
     exportNameInput.value = 'Model.glb';
-    exportModal.classList.remove('hidden');
-    hidePanel(filePanel);
+    togglePanel(exportPanel, [filePanel, addPanel, scenePanel, parentPanel, propsPanel]);
   });
-  exportClose.addEventListener('click', () => exportModal.classList.add('hidden'));
-  exportCancel.addEventListener('click', () => exportModal.classList.add('hidden'));
+  exportClose.addEventListener('click', () => hidePanel(exportPanel));
+  exportCancel.addEventListener('click', () => hidePanel(exportPanel));
   exportGo.addEventListener('click', () => {
     const name = (exportNameInput.value || 'Model.glb').trim();
     exportGLB(
-      {
-        scene,
-        modelsOnly: optOnlyModels.checked,
-        binary: optBinary.checked,
-        fileName: name,
-        allModels
-      },
+      { scene, modelsOnly: optOnlyModels.checked, binary: optBinary.checked, fileName: name, allModels },
       () => showTempMessage('Exported'),
-      (e) => {
-        console.error(e);
-        showTempMessage('Export failed');
-      }
+      (e) => { console.error(e); showTempMessage('Export failed'); }
     );
-    exportModal.classList.add('hidden');
+    hidePanel(exportPanel);
   });
 
   fileImportBtn.addEventListener('click', () => pickerImportGLB.click());
@@ -375,23 +360,21 @@ function initUI() {
   });
 
   // ADD panel
-  addBtn.addEventListener('click', () => {
-    togglePanel(addPanel, [filePanel, scenePanel, parentPanel, propsPanel]);
-  });
+  addBtn.addEventListener('click', () => togglePanel(addPanel, [filePanel, scenePanel, parentPanel, propsPanel, exportPanel]));
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
 
   // Scene list toggle
   sceneBtn.addEventListener('click', () => {
     refreshSceneList();
-    togglePanel(scenePanel, [filePanel, addPanel, parentPanel, propsPanel]);
+    togglePanel(scenePanel, [filePanel, addPanel, parentPanel, propsPanel, exportPanel]);
   });
   closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
 
   // Parenting panel
   parentBtn.addEventListener('click', () => {
     refreshParentList();
-    togglePanel(parentPanel, [filePanel, addPanel, scenePanel, propsPanel]);
+    togglePanel(parentPanel, [filePanel, addPanel, scenePanel, propsPanel, exportPanel]);
   });
   closeParentPanel.addEventListener('click', () => hidePanel(parentPanel));
   parentCancelBtn.addEventListener('click', () => hidePanel(parentPanel));
@@ -453,6 +436,7 @@ function initUI() {
 }
 
 function togglePanel(panel, toHide = []) {
+  if (!panel) return;
   if (panel.style.visibility === 'visible') hidePanel(panel);
   else {
     toHide.forEach(hidePanel);
@@ -584,7 +568,7 @@ function hidePanel(p) {
   if (!p) return;
   p.style.opacity = '0';
   p.style.transform = 'translateY(100%)';
-  setTimeout(() => (p.style.visibility = 'hidden'), 300);
+  setTimeout(() => (p.style.visibility = 'hidden'), 240);
 }
 function showTempMessage(text) {
   const box = document.getElementById('message-box');
@@ -667,12 +651,241 @@ function applyParenting() {
 }
 
 // -----------------------------
-// Dynamic Properties Panel (unchanged)
+// Properties Panel (FULL)
 // -----------------------------
 function updatePropsPanel(object) {
-  // ... (identical to your previous version) ...
-  // Keeping your full properties logic as-is to keep this diff focused on the toolbar + file I/O.
-  // If you need me to re-post the whole props builder again, say the word.
+  propsContent.innerHTML = '';
+
+  if (!object || !object.userData?.params) {
+    propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
+    return;
+  }
+
+  const type = object.userData.type;
+  const p = object.userData.params;
+
+  let paramConfig = {};
+  if (type === 'TowerBase') {
+    paramConfig = {
+      height:           { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      width:            { min: 4,   max: 60, step: 0.1, label: 'Width' },
+      depth:            { min: 4,   max: 60, step: 0.1, label: 'Depth' },
+      wallThickness:    { min: 0.1, max: 5,  step: 0.1, label: 'Wall Thickness' },
+      cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      ...(p.doorWidth > 0 && {
+        doorWidth:      { min: 0.1, max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+      })
+    };
+  } else if (type === 'DoubleDoor') {
+    paramConfig = {
+      height:           { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      totalWidth:       { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
+      depth:            { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
+      frameThickness:   { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
+      cornerRadius:     { min: 0,   max: DoubleDoor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:    { min: 0,   max: DoubleDoor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Red' },
+      glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Green' },
+      glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Blue' },
+      glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+      glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+    };
+  } else if (type === 'Window') {
+    paramConfig = {
+      height:           { min: 1,   max: 40, step: 0.1, label: 'Height' },
+      totalWidth:       { min: 4,   max: 60, step: 0.1, label: 'Total Width' },
+      depth:            { min: 0.1, max: 5,  step: 0.1, label: 'Depth' },
+      frameThickness:   { min: 0.1, max: 2,  step: 0.1, label: 'Frame Thickness' },
+      cornerRadius:     { min: 0,   max: WindowAsset.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+      cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+      edgeRoundness:    { min: 0,   max: WindowAsset.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+      edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+      curveRadius:      { min: 0,   max: 20, step: 0.1, label: 'Curve Radius' },
+      hasBolts:         { type: 'checkbox', label: 'Has Bolts' },
+      hasBars:          { type: 'checkbox', label: 'Has Bars' },
+      glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Red' },
+      glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Green' },
+      glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass Blue' },
+      glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+      glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+    };
+  } else if (type === 'Floor') {
+    paramConfig = {
+      width:            { min: 4,   max: 100, step: 0.1, label: 'Width' },
+      depth:            { min: 4,   max: 100, step: 0.1, label: 'Depth' },
+      thickness:        { min: 0.1, max: 5,   step: 0.1, label: 'Thickness' },
+      colorR:           { min: 0,   max: 1,   step: 0.01, label: 'Color Red' },
+      colorG:           { min: 0,   max: 1,   step: 0.01, label: 'Color Green' },
+      colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' }
+    };
+  } else if (type === 'Pipe') {
+    paramConfig = {
+      length:          { min: 0.5, max: 40,   step: 0.1,  label: 'Length' },
+      outerRadius:     { min: 0.05, max: 5,   step: 0.01, label: 'Outer Radius' },
+      wallThickness:   { min: 0.002, max: Pipe.getMaxWall(p), step: 0.01, label: 'Wall Thickness' },
+      radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
+
+      hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
+      shoulderDeg:     { min: 1,    max: 180, step: 1,    label: 'Elbow Angle (deg)' },
+      elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
+      elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
+      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane (deg)' },
+
+      hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
+      hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
+      flangeRadius:    { min: 0.1, max: 20,  step: 0.05, label: 'Flange Radius' },
+      flangeThickness: { min: 0.02, max: 2,  step: 0.01, label: 'Flange Thickness' },
+
+      hasBolts:        { type: 'checkbox', label: 'Bolts on Flanges' },
+      boltCount:       { min: 2,    max: 36,  step: 1,    label: 'Bolt Count' },
+      boltRadius:      { min: 0.01, max: 0.5, step: 0.01, label: 'Bolt Radius' },
+      boltHeight:      { min: 0.04, max: 1.5, step: 0.01, label: 'Bolt Height' },
+      boltRingInset:   { min: 0.02, max: 2.0, step: 0.01, label: 'Bolt Ring Inset' }
+    };
+  } else {
+    propsContent.innerHTML = '<p class="text-gray-400">No parameters to edit.</p>';
+    return;
+  }
+
+  // Render controls
+  for (const key in paramConfig) {
+    const cfg = paramConfig[key];
+
+    if (cfg.type === 'checkbox') {
+      const checked = p[key] ? 'checked' : '';
+      const html = `
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="${key}-toggle" data-param="${key}" ${checked}>
+          <label for="${key}-toggle" class="text-sm font-medium text-gray-300">${cfg.label}</label>
+        </div>`;
+      propsContent.insertAdjacentHTML('beforeend', html);
+      continue;
+    }
+
+    // dynamic maxes
+    if (key === 'cornerRadius') cfg.max = type === 'TowerBase'
+      ? TowerBase.getMaxCornerRadius(p)
+      : type === 'DoubleDoor'
+      ? DoubleDoor.getMaxCornerRadius(p)
+      : type === 'Window'
+      ? WindowAsset.getMaxCornerRadius(p)
+      : cfg.max;
+
+    if (key === 'edgeRoundness') cfg.max = type === 'TowerBase'
+      ? TowerBase.getMaxEdgeRoundness(p)
+      : type === 'DoubleDoor'
+      ? DoubleDoor.getMaxEdgeRoundness(p)
+      : type === 'Window'
+      ? WindowAsset.getMaxEdgeRoundness(p)
+      : cfg.max;
+
+    if (type === 'TowerBase' && key === 'doorWidth') cfg.max = TowerBase.getMaxDoorWidth(p);
+    if (type === 'Pipe' && key === 'wallThickness') cfg.max = Pipe.getMaxWall(p);
+
+    const value = (p[key] ?? cfg.min);
+    const valueFmt = (cfg.step >= 1) ? Math.round(value) : Number(value).toFixed(2);
+
+    const html = `
+      <div class="space-y-1">
+        <label class="text-sm font-medium text-gray-300 flex justify-between">
+          <span>${cfg.label}</span>
+          <span id="${key}-value">${valueFmt}</span>
+        </label>
+        <input type="range" id="${key}-slider" data-param="${key}"
+          min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${value}">
+      </div>`;
+    propsContent.insertAdjacentHTML('beforeend', html);
+  }
+
+  // Slider events
+  propsContent.querySelectorAll('input[type="range"]').forEach((slider) => {
+    slider.addEventListener('input', () => {
+      const key = slider.dataset.param;
+      const cfg = paramConfig[key];
+      const val = (cfg.step >= 1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
+
+      let next = { ...object.userData.params, [key]: val };
+
+      // Recompute dependent limits
+      if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height','outerRadius'].includes(key)) {
+        // Corner Radius
+        const crSlider = document.getElementById('cornerRadius-slider');
+        if (crSlider) {
+          let maxCR = crSlider.max;
+          if (object.userData.type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
+          else if (object.userData.type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
+          else if (object.userData.type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
+          crSlider.max = maxCR;
+          if (next.cornerRadius > maxCR) {
+            next.cornerRadius = maxCR;
+            crSlider.value = maxCR;
+            const v = (paramConfig.cornerRadius.step >= 1) ? Math.round(maxCR) : Number(maxCR).toFixed(2);
+            document.getElementById('cornerRadius-value').textContent = v;
+          }
+        }
+        // Edge Roundness
+        const erSlider = document.getElementById('edgeRoundness-slider');
+        if (erSlider) {
+          let maxER = erSlider.max;
+          if (object.userData.type === 'TowerBase')      maxER = TowerBase.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
+          erSlider.max = maxER;
+          if (next.edgeRoundness > maxER) {
+            next.edgeRoundness = maxER;
+            erSlider.value = maxER;
+            const v = (paramConfig.edgeRoundness.step >= 1) ? Math.round(maxER) : Number(maxER).toFixed(2);
+            document.getElementById('edgeRoundness-value').textContent = v;
+          }
+        }
+        // Door Width (Tower only)
+        const dwSlider = document.getElementById('doorWidth-slider');
+        if (dwSlider && object.userData.type === 'TowerBase') {
+          const maxDW = TowerBase.getMaxDoorWidth(next);
+          dwSlider.max = maxDW;
+          if (next.doorWidth > maxDW) {
+            next.doorWidth = maxDW;
+            dwSlider.value = maxDW;
+            const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : Number(maxDW).toFixed(2);
+            document.getElementById('doorWidth-value').textContent = v;
+          }
+        }
+        // Pipe wallThickness depends on outerRadius
+        if (object.userData.type === 'Pipe') {
+          const wt = document.getElementById('wallThickness-slider');
+          if (wt) {
+            const maxWT = Pipe.getMaxWall(next);
+            wt.max = maxWT;
+            if (next.wallThickness > maxWT) {
+              next.wallThickness = maxWT;
+              wt.value = maxWT;
+              document.getElementById('wallThickness-value').textContent = Number(maxWT).toFixed(2);
+            }
+          }
+        }
+      }
+
+      const lbl = document.getElementById(`${key}-value`);
+      if (lbl) lbl.textContent = (cfg.step >= 1) ? Math.round(val) : val.toFixed(2);
+
+      object.updateParams(next);
+    });
+  });
+
+  // Checkbox events
+  propsContent.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const key = checkbox.dataset.param;
+      const val = checkbox.checked;
+      let next = { ...object.userData.params, [key]: val };
+      object.updateParams(next);
+    });
+  });
 }
 
 // -----------------------------
