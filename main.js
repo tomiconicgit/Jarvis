@@ -24,7 +24,7 @@ let loadingScreen, canvasContainer;
 let fileBtn, filePanel, closeFilePanel, fileSaveBtn, fileLoadBtn, fileExportBtn, fileImportBtn;
 let addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn, addTrussArmBtn;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn;
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Parenting UI
@@ -50,28 +50,14 @@ function assignDefaultName(obj) {
 
 // Builders map for loader
 const BUILDERS = {
-  TowerBase,
-  DoubleDoor,
-  Window: WindowAsset,
-  Floor,
-  Pipe,
-  Roof,
-  TrussArm
+  'TowerBase': TowerBase,
+  'DoubleDoor': DoubleDoor,
+  'Window': WindowAsset,
+  'Floor': Floor,
+  'Pipe': Pipe,
+  'Roof': Roof,
+  'TrussArm': TrussArm
 };
-
-// -----------------------------
-// Layout helpers
-// -----------------------------
-function isDesktop() {
-  return window.matchMedia('(pointer:fine) and (min-width: 1024px)').matches;
-}
-function updateLayoutMode() {
-  document.body.classList.toggle('desktop', isDesktop());
-  // Ensure drawers hidden on mode switch to mobile
-  if (!document.body.classList.contains('desktop')) {
-    [filePanel, addPanel, scenePanel, parentPanel, exportPanel].forEach(p => p && p.classList.remove('show'));
-  }
-}
 
 // -----------------------------
 // Init
@@ -109,7 +95,6 @@ function init() {
   addWindowBtn    = document.getElementById('add-window-btn');
   addFloorBtn     = document.getElementById('add-floor-btn');
   addPipeBtn      = document.getElementById('add-pipe-btn');
-  addTrussArmBtn  = document.getElementById('add-trussarm-btn');
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
@@ -132,8 +117,8 @@ function init() {
   // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a2a2a);
-  // Expanded fog distances to avoid early fade when zoomed out
-  scene.fog = new THREE.Fog(0x2a2a2a, 500, 6000);
+  // Push fog out so nothing within ~100 units gets fogged
+  scene.fog = new THREE.Fog(0x2a2a2a, 1500, 10000);
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -147,14 +132,13 @@ function init() {
   const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
   scene.environment = envTex;
 
-  // Camera (extend render distance)
+  // Camera â extend far so large builds are fully visible
   camera = new THREE.PerspectiveCamera(
     50,
     canvasContainer.clientWidth / canvasContainer.clientHeight,
-    0.1,
-    8000 // extended
+    0.05,
+    10000
   );
-  camera.updateProjectionMatrix();
   camera.position.set(15, 20, 25);
 
   // Lights
@@ -165,10 +149,10 @@ function init() {
   dirLight.shadow.mapSize.set(1024, 1024);
   scene.add(dirLight);
 
-  // Ground / Grid (larger to match farther camera)
-  scene.add(new THREE.GridHelper(2000, 200, 0x888888, 0x444444));
+  // Ground + Grid â keep REAL 1Ã1 tiles, original environment size
+  scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444)); // 1-unit spacing
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(4000, 4000),
+    new THREE.PlaneGeometry(100, 100),
     new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1 })
   );
   ground.rotation.x = -Math.PI / 2;
@@ -180,6 +164,8 @@ function init() {
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.1;
   orbitControls.enablePan = true;
+  // Allow pulling back comfortably without fog
+  orbitControls.maxDistance = 2000;
 
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('translate');
@@ -199,13 +185,12 @@ function init() {
   touchStartPos = new THREE.Vector2();
 
   // Events
-  window.addEventListener('resize', () => { resizeRenderer(); updateLayoutMode(); });
+  window.addEventListener('resize', resizeRenderer);
   canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
   canvasContainer.addEventListener('touchend', onTouchEnd);
 
   // UI listeners
   initUI();
-  updateLayoutMode();
 
   // Hide loading
   loadingScreen.style.opacity = '0';
@@ -308,28 +293,10 @@ function deselectAll() {
 // -----------------------------
 // UI
 // -----------------------------
-function togglePanel(panel, toHide = []) {
-  if (!panel) return;
-  if (document.body.classList.contains('desktop') && panel.classList.contains('left-drawer')) {
-    const isOpen = panel.classList.contains('show');
-    if (isOpen) panel.classList.remove('show');
-    else {
-      toHide.forEach(p => p && p.classList.remove('show'));
-      panel.classList.add('show');
-    }
-  } else {
-    if (panel.style.visibility === 'visible') hidePanel(panel);
-    else {
-      toHide.forEach(hidePanel);
-      showPanel(panel);
-    }
-  }
-}
-
 function initUI() {
-  // FILE
+  // FILE dropdown (bottom sheet)
   fileBtn.addEventListener('click', () => togglePanel(filePanel, [addPanel, scenePanel, parentPanel, propsPanel, exportPanel]));
-  closeFilePanel.addEventListener('click', () => { filePanel.classList.remove('show'); hidePanel(filePanel); });
+  closeFilePanel.addEventListener('click', () => hidePanel(filePanel));
 
   fileSaveBtn.addEventListener('click', () => {
     const data = serializeModels(scene);
@@ -364,8 +331,8 @@ function initUI() {
     exportNameInput.value = 'Model.glb';
     togglePanel(exportPanel, [filePanel, addPanel, scenePanel, parentPanel, propsPanel]);
   });
-  exportClose.addEventListener('click', () => { exportPanel.classList.remove('show'); hidePanel(exportPanel); });
-  exportCancel.addEventListener('click', () => { exportPanel.classList.remove('show'); hidePanel(exportPanel); });
+  exportClose.addEventListener('click', () => hidePanel(exportPanel));
+  exportCancel.addEventListener('click', () => hidePanel(exportPanel));
   exportGo.addEventListener('click', () => {
     const name = (exportNameInput.value || 'Model.glb').trim();
     exportGLB(
@@ -397,23 +364,23 @@ function initUI() {
 
   // ADD panel
   addBtn.addEventListener('click', () => togglePanel(addPanel, [filePanel, scenePanel, parentPanel, propsPanel, exportPanel]));
-  closeAddPanel.addEventListener('click', () => { addPanel.classList.remove('show'); hidePanel(addPanel); });
+  closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
 
-  // Scene
+  // Scene list toggle
   sceneBtn.addEventListener('click', () => {
     refreshSceneList();
     togglePanel(scenePanel, [filePanel, addPanel, parentPanel, propsPanel, exportPanel]);
   });
-  closeScenePanel.addEventListener('click', () => { scenePanel.classList.remove('show'); hidePanel(scenePanel); });
+  closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
 
-  // Parenting
+  // Parenting panel
   parentBtn.addEventListener('click', () => {
     refreshParentList();
     togglePanel(parentPanel, [filePanel, addPanel, scenePanel, propsPanel, exportPanel]);
   });
-  closeParentPanel.addEventListener('click', () => { parentPanel.classList.remove('show'); hidePanel(parentPanel); });
-  parentCancelBtn.addEventListener('click', () => { parentPanel.classList.remove('show'); hidePanel(parentPanel); });
+  closeParentPanel.addEventListener('click', () => hidePanel(parentPanel));
+  parentCancelBtn.addEventListener('click', () => hidePanel(parentPanel));
   parentApplyBtn.addEventListener('click', applyParenting);
 
   // Adders
@@ -469,47 +436,15 @@ function initUI() {
     scene.add(p); allModels.push(p);
     refreshSceneList(); selectObject(p); hidePanel(addPanel);
   });
-
-  // Truss Arm
-  addTrussArmBtn.addEventListener('click', () => {
-    const p = new TrussArm({
-      length: 12, armWidth: 3, armHeight: 2.2, tubeRadius: 0.12,
-      segments: 8, roundSegments: 14, curve: 0.4, hasEndJoint: true, jointRadius: 0.4
-    });
-    p.position.y = 1.2;
-    assignDefaultName(p);
-    scene.add(p); allModels.push(p);
-    refreshSceneList(); selectObject(p); hidePanel(addPanel);
-  });
 }
 
-function showPanel(p) {
-  if (!p) return;
-  const desktop = document.body.classList.contains('desktop');
-  if (desktop && p.classList.contains('left-drawer')) {
-    p.classList.add('show');
-  } else {
-    p.style.visibility = 'visible';
-    p.style.opacity = '1';
-    p.style.transform = 'translateY(0)';
+function togglePanel(panel, toHide = []) {
+  if (!panel) return;
+  if (panel.style.visibility === 'visible') hidePanel(panel);
+  else {
+    toHide.forEach(hidePanel);
+    showPanel(panel);
   }
-}
-function hidePanel(p) {
-  if (!p) return;
-  const desktop = document.body.classList.contains('desktop');
-  if (desktop && p.classList.contains('left-drawer')) {
-    p.classList.remove('show');
-  } else {
-    p.style.opacity = '0';
-    p.style.transform = 'translateY(100%)';
-    setTimeout(() => (p.style.visibility = 'hidden'), 240);
-  }
-}
-function showTempMessage(text) {
-  const box = document.getElementById('message-box');
-  document.getElementById('message-text').textContent = text;
-  box.classList.add('show');
-  setTimeout(() => box.classList.remove('show'), 1500);
 }
 
 // -----------------------------
@@ -520,17 +455,16 @@ function duplicateModel(src) {
   const type = src.userData?.type || 'Object';
   const params = { ...(src.userData?.params || {}) };
 
-  switch (type) {
-    case 'TowerBase': copy = new TowerBase(params); break;
-    case 'DoubleDoor': copy = new DoubleDoor(params); break;
-    case 'Window': copy = new WindowAsset(params); break;
-    case 'Floor': copy = new Floor(params); break;
-    case 'Pipe': copy = new Pipe(params); break;
-    case 'Roof': copy = new Roof(params); break;
-    case 'TrussArm': copy = new TrussArm(params); break;
-    default:
-      copy = src.clone(true);
-      copy.userData = { ...src.userData };
+  if (type === 'TowerBase')       copy = new TowerBase(params);
+  else if (type === 'DoubleDoor') copy = new DoubleDoor(params);
+  else if (type === 'Window')     copy = new WindowAsset(params);
+  else if (type === 'Floor')      copy = new Floor(params);
+  else if (type === 'Pipe')       copy = new Pipe(params);
+  else if (type === 'Roof')       copy = new Roof(params);
+  else if (type === 'TrussArm')   copy = new TrussArm(params);
+  else {
+    copy = src.clone(true);
+    copy.userData = { ...src.userData };
   }
 
   copy.position.copy(src.position).add(new THREE.Vector3(1, 0, 1));
@@ -550,6 +484,7 @@ function duplicateModel(src) {
 function deleteModel(obj) {
   const idx = allModels.indexOf(obj);
   if (idx !== -1) allModels.splice(idx, 1);
+
   if (currentSelection === obj) deselectAll();
 
   if (typeof obj.dispose === 'function') obj.dispose();
@@ -621,6 +556,28 @@ function refreshSceneList() {
     row.appendChild(actions);
     sceneList.appendChild(row);
   });
+}
+
+// -----------------------------
+// Panels + Toast
+// -----------------------------
+function showPanel(p) {
+  if (!p) return;
+  p.style.visibility = 'visible';
+  p.style.opacity = '1';
+  p.style.transform = 'translateY(0)';
+}
+function hidePanel(p) {
+  if (!p) return;
+  p.style.opacity = '0';
+  p.style.transform = 'translateY(100%)';
+  setTimeout(() => (p.style.visibility = 'hidden'), 240);
+}
+function showTempMessage(text) {
+  const box = document.getElementById('message-box');
+  document.getElementById('message-text').textContent = text;
+  box.classList.add('show');
+  setTimeout(() => box.classList.remove('show'), 1500);
 }
 
 // -----------------------------
@@ -697,204 +654,10 @@ function applyParenting() {
 }
 
 // ============================================================================
-//                           TEXTURE / MATERIAL HELPERS
-// ============================================================================
-function collectMaterialsFromObject(root) {
-  const set = new Set();
-  root.traverse(n => {
-    if (n.isMesh && n.material) {
-      if (Array.isArray(n.material)) n.material.forEach(m => m && set.add(m));
-      else set.add(n.material);
-      if (n.geometry?.attributes?.uv && !n.geometry.attributes.uv2) {
-        n.geometry.setAttribute('uv2', n.geometry.attributes.uv);
-      }
-    }
-  });
-  return Array.from(set);
-}
-
-function makeCheckerTexture(size = 256, cells = 8) {
-  const data = new Uint8Array(size * size * 3);
-  const cellSize = size / cells;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const cx = Math.floor(x / cellSize), cy = Math.floor(y / cellSize);
-      const v = (cx + cy) % 2 === 0 ? 220 : 40;
-      const i = (y * size + x) * 3;
-      data[i] = data[i+1] = data[i+2] = v;
-    }
-  }
-  const tex = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
-  tex.needsUpdate = true;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-function makeNoiseTexture(size = 256) {
-  const data = new Uint8Array(size * size * 3);
-  for (let i = 0; i < data.length; i += 3) {
-    const v = (Math.random() * 255) | 0;
-    data[i] = data[i+1] = data[i+2] = v;
-  }
-  const tex = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
-  tex.needsUpdate = true;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-
-// Apply UV scale/rotation to *all* current maps (used for procedural preview, not overrides)
-function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
-  const apply = (tex) => {
-    if (!tex) return;
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(scale, scale);
-    tex.center.set(0.5, 0.5);
-    tex.rotation = rotationRad;
-    tex.needsUpdate = true;
-  };
-  materials.forEach(m => {
-    apply(m.map); apply(m.normalMap); apply(m.roughnessMap); apply(m.metalnessMap);
-    apply(m.aoMap); apply(m.emissiveMap); apply(m.bumpMap); apply(m.displacementMap);
-  });
-}
-
-// Apply UV to *uploaded override* maps only
-function applyUVToOverrides(materials, st) {
-  const slots = ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','displacementMap'];
-  const texSet = slots.map(s => st[s]).filter(Boolean);
-  texSet.forEach((tex) => {
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(st.uvScale || 1, st.uvScale || 1);
-    tex.center.set(0.5, 0.5);
-    tex.rotation = st.uvRotation || 0;
-    tex.needsUpdate = true;
-  });
-  // Ensure mats update
-  materials.forEach(m => m.needsUpdate = true);
-}
-
-function setMaterialScalar(materials, key, value) {
-  materials.forEach(m => { if (key in m) { m[key] = value; m.needsUpdate = true; } });
-}
-function setMaterialColor(materials, hex) {
-  materials.forEach(m => { if (m.color) { m.color.set(hex); m.needsUpdate = true; } });
-}
-function setEmissive(materials, hex, intensity) {
-  materials.forEach(m => {
-    if (m.emissive) m.emissive.set(hex);
-    if ('emissiveIntensity' in m) m.emissiveIntensity = intensity;
-    m.needsUpdate = true;
-  });
-}
-
-function applyProceduralMaps(materials, { pattern = 'none', scale = 1, useAlbedo = true, useRoughness = false, useMetalness = false, useBump = false, useAO = false }, locks = {}) {
-  let tex = null;
-  if (pattern === 'checker') tex = makeCheckerTexture(256, 8);
-  if (pattern === 'noise')   tex = makeNoiseTexture(256);
-  if (tex) tex.repeat.set(scale, scale);
-
-  const setIfFree = (slot, value) => {
-    if (locks[slot]) return;
-    materials.forEach(m => { m[slot] = value || null; m.needsUpdate = true; });
-  };
-
-  setIfFree('map',         useAlbedo   ? tex : null);
-  setIfFree('roughnessMap',useRoughness? tex : null);
-  setIfFree('metalnessMap',useMetalness? tex : null);
-  setIfFree('bumpMap',     useBump     ? tex : null);
-  setIfFree('aoMap',       useAO       ? tex : null);
-}
-
-const MAP_SLOTS = {
-  albedo:   { prop: 'map',             color: true  },
-  normal:   { prop: 'normalMap',       color: false },
-  roughness:{ prop: 'roughnessMap',    color: false },
-  metalness:{ prop: 'metalnessMap',    color: false },
-  ao:       { prop: 'aoMap',           color: false },
-  emissive: { prop: 'emissiveMap',     color: true  },
-  height:   { prop: 'displacementMap', color: false }
-};
-
-function ensureTexState(object) {
-  if (!object.userData._texOverrides) object.userData._texOverrides = {
-    map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
-    aoMap: null, emissiveMap: null, displacementMap: null,
-    uvScale: 1, uvRotation: 0, displacementScale: 0.0
-  };
-  return object.userData._texOverrides;
-}
-
-function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvRotation = 0 }) {
-  return new Promise((resolve, reject) => {
-    const slot = MAP_SLOTS[slotName];
-    if (!slot) return reject(new Error('Unknown map slot'));
-
-    const url = URL.createObjectURL(file);
-    const loader = new THREE.TextureLoader();
-    loader.load(url, (tex) => {
-      try {
-        const setSRGB = (t) => {
-          if ('colorSpace' in t) t.colorSpace = THREE.SRGBColorSpace;
-          else if ('encoding' in t) t.encoding = THREE.sRGBEncoding;
-        };
-        if (slot.color) setSRGB(tex);
-
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        tex.center.set(0.5, 0.5);
-        tex.repeat.set(uvScale, uvScale);
-        tex.rotation = uvRotation;
-
-        if (typeof renderer?.capabilities?.getMaxAnisotropy === 'function') {
-          tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-        }
-
-        // Attach to all materials for that slot
-        materials.forEach(m => { m[slot.prop] = tex; m.needsUpdate = true; });
-
-        // Track overrides
-        const st = ensureTexState(object);
-        if (st[slot.prop] && st[slot.prop] !== tex) { st[slot.prop].dispose?.(); }
-        st[slot.prop] = tex;
-        st.uvScale = uvScale;
-        st.uvRotation = uvRotation;
-
-        // Apply only to overrides
-        applyUVToOverrides(materials, st);
-
-        URL.revokeObjectURL(url);
-        resolve();
-      } catch (e) {
-        URL.revokeObjectURL(url);
-        reject(e);
-      }
-    }, undefined, (err) => {
-      URL.revokeObjectURL(url);
-      reject(err);
-    });
-  });
-}
-function clearOverrideSlot(object, materials, slotName) {
-  const slot = MAP_SLOTS[slotName];
-  const st = ensureTexState(object);
-  const tex = st[slot.prop];
-  if (tex) tex.dispose?.();
-  st[slot.prop] = null;
-  materials.forEach(m => { m[slot.prop] = null; m.needsUpdate = true; });
-}
-function clearAllOverrides(object, materials) {
-  const st = ensureTexState(object);
-  ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','displacementMap'].forEach(k => {
-    if (st[k]) st[k].dispose?.();
-    st[k] = null;
-  });
-  materials.forEach(m => {
-    m.map = m.normalMap = m.roughnessMap = m.metalnessMap = m.aoMap = m.emissiveMap = m.displacementMap = null;
-    m.needsUpdate = true;
-  });
-}
-
-// ============================================================================
 //                                TABBED PROPERTIES
 // ============================================================================
+
+// Simple tab system
 function makeTabs(rootEl, tabsSpec) {
   const header = document.createElement('div');
   header.className = 'flex gap-2 mb-3 sticky top-0 bg-[rgba(30,30,30,0.9)] pt-1 pb-2 z-10';
@@ -934,6 +697,193 @@ function makeTabs(rootEl, tabsSpec) {
   header.querySelector('button').dataset.active = 'true';
   const first = pages.get(currentId);
   first.builder(first.page); first.built = true; first.page.style.display = '';
+}
+
+// Collect unique THREE.Materials under an object; ensure uv2 for AO/displacement
+function collectMaterialsFromObject(root) {
+  const set = new Set();
+  root.traverse(n => {
+    if (n.isMesh && n.material) {
+      if (Array.isArray(n.material)) n.material.forEach(m => m && set.add(m));
+      else set.add(n.material);
+      if (n.geometry?.attributes?.uv && !n.geometry.attributes.uv2) {
+        n.geometry.setAttribute('uv2', n.geometry.attributes.uv);
+      }
+    }
+  });
+  return Array.from(set);
+}
+
+// --- Simple procedural generators (checker / noise) ---
+function makeCheckerTexture(size = 256, cells = 8) {
+  const data = new Uint8Array(size * size * 3);
+  const cellSize = size / cells;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const cx = Math.floor(x / cellSize), cy = Math.floor(y / cellSize);
+      const v = (cx + cy) % 2 === 0 ? 220 : 40;
+      const i = (y * size + x) * 3;
+      data[i] = data[i+1] = data[i+2] = v;
+    }
+  }
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+  tex.needsUpdate = true;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+function makeNoiseTexture(size = 256) {
+  const data = new Uint8Array(size * size * 3);
+  for (let i = 0; i < data.length; i += 3) {
+    const v = (Math.random() * 255) | 0;
+    data[i] = data[i+1] = data[i+2] = v;
+  }
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+  tex.needsUpdate = true;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// --- Per-object texture override state ---
+function ensureTexState(object) {
+  if (!object.userData._texOverrides) object.userData._texOverrides = {
+    map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
+    aoMap: null, emissiveMap: null, displacementMap: null,
+    uvScale: 1, uvRotation: 0, displacementScale: 0.0
+  };
+  return object.userData._texOverrides;
+}
+
+// Apply UV tiling & rotation to all currently attached maps on given materials
+function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
+  const apply = (tex) => {
+    if (!tex) return;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(scale, scale);
+    tex.center.set(0.5, 0.5);
+    tex.rotation = rotationRad;
+    tex.needsUpdate = true;
+  };
+  materials.forEach(m => {
+    apply(m.map);
+    apply(m.normalMap);
+    apply(m.roughnessMap);
+    apply(m.metalnessMap);
+    apply(m.aoMap);
+    apply(m.emissiveMap);
+    apply(m.bumpMap);
+    apply(m.displacementMap);
+  });
+}
+
+function setMaterialScalar(materials, key, value) {
+  materials.forEach(m => {
+    if (key in m) { m[key] = value; m.needsUpdate = true; }
+  });
+}
+function setMaterialColor(materials, hex) {
+  materials.forEach(m => { if (m.color) { m.color.set(hex); m.needsUpdate = true; } });
+}
+function setEmissive(materials, hex, intensity) {
+  materials.forEach(m => {
+    if (m.emissive) m.emissive.set(hex);
+    if ('emissiveIntensity' in m) m.emissiveIntensity = intensity;
+    m.needsUpdate = true;
+  });
+}
+
+// Procedural maps application; respects uploaded overrides
+function applyProceduralMaps(materials, { pattern = 'none', scale = 1, useAlbedo = true, useRoughness = false, useMetalness = false, useBump = false, useAO = false }, locks = {}) {
+  let tex = null;
+  if (pattern === 'checker') tex = makeCheckerTexture(256, 8);
+  if (pattern === 'noise')   tex = makeNoiseTexture(256);
+  if (tex) tex.repeat.set(scale, scale);
+
+  const setIfFree = (slot, value) => {
+    if (locks[slot]) return;
+    materials.forEach(m => { m[slot] = value || null; m.needsUpdate = true; });
+  };
+
+  setIfFree('map',         useAlbedo   ? tex : null);
+  setIfFree('roughnessMap',useRoughness? tex : null);
+  setIfFree('metalnessMap',useMetalness? tex : null);
+  setIfFree('bumpMap',     useBump     ? tex : null);
+  setIfFree('aoMap',       useAO       ? tex : null);
+}
+
+// Map name -> material property slot + colorSpace rule
+const MAP_SLOTS = {
+  albedo:   { prop: 'map',             color: true  },
+  normal:   { prop: 'normalMap',       color: false },
+  roughness:{ prop: 'roughnessMap',    color: false },
+  metalness:{ prop: 'metalnessMap',    color: false },
+  ao:       { prop: 'aoMap',           color: false },
+  emissive: { prop: 'emissiveMap',     color: true  },
+  height:   { prop: 'displacementMap', color: false }
+};
+
+function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvRotation = 0 }) {
+  return new Promise((resolve, reject) => {
+    const slot = MAP_SLOTS[slotName];
+    if (!slot) return reject(new Error('Unknown map slot'));
+
+    const url = URL.createObjectURL(file);
+    const loader = new THREE.TextureLoader();
+    loader.load(url, (tex) => {
+      try {
+        const setSRGB = (t) => {
+          if ('colorSpace' in t) t.colorSpace = THREE.SRGBColorSpace;
+          else if ('encoding' in t) t.encoding = THREE.sRGBEncoding;
+        };
+        if (slot.color) setSRGB(tex);
+
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.center.set(0.5, 0.5);
+        tex.repeat.set(uvScale, uvScale);
+        tex.rotation = uvRotation;
+
+        if (typeof renderer?.capabilities?.getMaxAnisotropy === 'function') {
+          tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        }
+
+        materials.forEach(m => { m[slot.prop] = tex; m.needsUpdate = true; });
+
+        const st = ensureTexState(object);
+        if (st[slot.prop] && st[slot.prop] !== tex) { st[slot.prop].dispose?.(); }
+        st[slot.prop] = tex;
+        st.uvScale = uvScale;
+        st.uvRotation = uvRotation;
+
+        URL.revokeObjectURL(url);
+        resolve();
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
+    }, undefined, (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    });
+  });
+}
+
+function clearOverrideSlot(object, materials, slotName) {
+  const slot = MAP_SLOTS[slotName];
+  const st = ensureTexState(object);
+  const tex = st[slot.prop];
+  if (tex) tex.dispose?.();
+  st[slot.prop] = null;
+  materials.forEach(m => { m[slot.prop] = null; m.needsUpdate = true; });
+}
+function clearAllOverrides(object, materials) {
+  const st = ensureTexState(object);
+  ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','displacementMap'].forEach(k => {
+    if (st[k]) st[k].dispose?.();
+    st[k] = null;
+  });
+  materials.forEach(m => {
+    m.map = m.normalMap = m.roughnessMap = m.metalnessMap = m.aoMap = m.emissiveMap = m.displacementMap = null;
+    m.needsUpdate = true;
+  });
 }
 
 // ---------------- Transform tab ----------------
@@ -1060,6 +1010,30 @@ function buildShapeTab(object, page) {
       glassOpacity:     { min: 0,   max: 1,   step: 0.01, label: 'Glass Opacity' },
       glassRoughness:   { min: 0,   max: 1,   step: 0.01, label: 'Glass Roughness' }
     };
+  } else if (type === 'Pipe') {
+    paramConfig = {
+      length:          { min: 0.5, max: 80,   step: 0.1,  label: 'Length' },
+      outerRadius:     { min: 0.02, max: 10,  step: 0.01, label: 'Outer Radius' },
+      wallThickness:   { min: 0.002, max: Pipe.getMaxWall(p), step: 0.01, label: 'Wall Thickness' },
+      radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
+
+      hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
+      shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle Â°' },
+      elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
+      elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
+      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane Â°' },
+
+      hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
+      hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
+      flangeRadius:    { min: 0.1, max: 20,  step: 0.05, label: 'Flange Radius' },
+      flangeThickness: { min: 0.02,max: 2,   step: 0.01, label: 'Flange Thickness' },
+
+      hasBolts:        { type: 'checkbox', label: 'Bolts on Flanges' },
+      boltCount:       { min: 2,    max: 36,  step: 1,    label: 'Bolt Count' },
+      boltRadius:      { min: 0.01, max: 0.5, step: 0.01, label: 'Bolt Radius' },
+      boltHeight:      { min: 0.04, max: 1.5, step: 0.01, label: 'Bolt Height' },
+      boltRingInset:   { min: 0.02, max: 2.0, step: 0.01, label: 'Bolt Ring Inset' }
+    };
   } else if (type === 'Roof') {
     paramConfig = {
       width:            { min: 4,  max: 200, step: 0.1, label: 'Width' },
@@ -1070,20 +1044,26 @@ function buildShapeTab(object, page) {
       cornerSmoothness: { min: 8,  max: 64,  step: 1,    label: 'Corner Smoothness' },
       edgeRoundness:    { min: 0,  max: Roof.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
       edgeSmoothness:   { min: 1,  max: 12,  step: 1,    label: 'Edge Smoothness' },
+
       archHeight:       { min: 0,  max: 5,   step: 0.05, label: 'Arch Height' },
       archX:            { type:'checkbox', label: 'Curve X' },
       archZ:            { type:'checkbox', label: 'Curve Z' },
+
       hasSkylight:      { type:'checkbox', label: 'Skylight' },
       skylightWidth:    { min: 0.2, max: Math.max(0.2, (p.width||12)+(p.overhang||0)*2 - 0.6), step: 0.05, label: 'Skylight W' },
       skylightDepth:    { min: 0.2, max: Math.max(0.2, (p.depth||12)+(p.overhang||0)*2 - 0.6), step: 0.05, label: 'Skylight D' },
       skylightCornerRadius:{ min: 0, max: 10, step: 0.05, label: 'Skylight Corner' },
+
       glassOpacity:     { min: 0,  max: 1,   step: 0.01, label: 'Glass Opacity' },
       glassRoughness:   { min: 0,  max: 1,   step: 0.01, label: 'Glass Roughness' },
+
       hasRails:         { type:'checkbox', label: 'Rails' },
       railHeight:       { min: 0.2,max: 4,   step: 0.05, label: 'Rail Height' },
       railSpacing:      { min: 0.5,max: 5,   step: 0.1,  label: 'Rail Spacing' },
+
       hasVent:          { type:'checkbox', label: 'Vent' },
       hasAntenna:       { type:'checkbox', label: 'Antenna' },
+
       colorR:           { min: 0,  max: 1,   step: 0.01, label: 'Color R' },
       colorG:           { min: 0,  max: 1,   step: 0.01, label: 'Color G' },
       colorB:           { min: 0,  max: 1,   step: 0.01, label: 'Color B' }
@@ -1113,7 +1093,6 @@ function buildShapeTab(object, page) {
 
   Object.keys(paramConfig).forEach(key => {
     const cfg = paramConfig[key];
-    const p = object.userData.params || {};
     if (cfg.type === 'checkbox') {
       const row = document.createElement('div');
       row.className = 'flex items-center gap-2';
@@ -1142,50 +1121,65 @@ function buildShapeTab(object, page) {
       const val = (cfg.step >= 1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
       let next = { ...object.userData.params, [key]: val };
 
-      // Recompute dependent limits if footprint changes
+      // Recompute dependent limits
       if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height','outerRadius','overhang','thickness'].includes(key)) {
-        const wrapEl = wrap; // keep ref
-        const crSlider = wrapEl.querySelector('#cornerRadius-slider');
+        // Corner Radius
+        const crSlider = wrap.querySelector('#cornerRadius-slider');
         if (crSlider) {
           let maxCR = crSlider.max;
-          if (object.userData.type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
-          else if (object.userData.type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
-          else if (object.userData.type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
-          else if (object.userData.type === 'Floor')     maxCR = Floor.getMaxCornerRadius(next);
-          else if (object.userData.type === 'Roof')      maxCR = Roof.getMaxCornerRadius(next);
+          if (type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
+          else if (type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
+          else if (type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
+          else if (type === 'Floor')     maxCR = Floor.getMaxCornerRadius(next);
+          else if (type === 'Roof')      maxCR = Roof.getMaxCornerRadius(next);
           crSlider.max = maxCR;
           if (next.cornerRadius > maxCR) {
             next.cornerRadius = maxCR;
             crSlider.value = maxCR;
             const v = (paramConfig.cornerRadius.step >= 1) ? Math.round(maxCR) : Number(maxCR).toFixed(2);
-            wrapEl.querySelector('#cornerRadius-value').textContent = v;
+            wrap.querySelector('#cornerRadius-value').textContent = v;
           }
         }
-        const erSlider = wrapEl.querySelector('#edgeRoundness-slider');
+        // Edge Roundness
+        const erSlider = wrap.querySelector('#edgeRoundness-slider');
         if (erSlider) {
           let maxER = erSlider.max;
-          if      (object.userData.type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
-          else if (object.userData.type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
-          else if (object.userData.type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
-          else if (object.userData.type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
-          else if (object.userData.type === 'Roof')      maxER = Roof.getMaxEdgeRoundness(next);
+          if      (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
+          else if (type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
+          else if (type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
+          else if (type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
+          else if (type === 'Roof')      maxER = Roof.getMaxEdgeRoundness(next);
           erSlider.max = maxER;
           if (next.edgeRoundness > maxER) {
             next.edgeRoundness = maxER;
             erSlider.value = maxER;
             const v = (paramConfig.edgeRoundness.step >= 1) ? Math.round(maxER) : Number(maxER).toFixed(2);
-            wrapEl.querySelector('#edgeRoundness-value').textContent = v;
+            wrap.querySelector('#edgeRoundness-value').textContent = v;
           }
         }
-        const dwSlider = wrapEl.querySelector('#doorWidth-slider');
-        if (dwSlider && object.userData.type === 'TowerBase') {
+        // Door Width (Tower only)
+        const dwSlider = wrap.querySelector('#doorWidth-slider');
+        if (dwSlider && type === 'TowerBase') {
           const maxDW = TowerBase.getMaxDoorWidth(next);
           dwSlider.max = maxDW;
           if (next.doorWidth > maxDW) {
             next.doorWidth = maxDW;
             dwSlider.value = maxDW;
             const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : Number(maxDW).toFixed(2);
-            wrapEl.querySelector('#doorWidth-value').textContent = v;
+            wrap.querySelector('#doorWidth-value').textContent = v;
+          }
+        }
+        // Pipe wallThickness depends on outerRadius
+        if (type === 'Pipe') {
+          const wt = wrap.querySelector('#wallThickness-slider');
+          if (wt) {
+            const maxWT = Pipe.getMaxWall(next);
+            wt.max = maxWT;
+            if (next.wallThickness > maxWT) {
+              next.wallThickness = maxWT;
+              wt.value = maxWT;
+              wrap.querySelector('#wallThickness-value').textContent = Number(maxWT).toFixed(2);
+            }
           }
         }
       }
@@ -1254,8 +1248,8 @@ function buildTexturesTab(object, page) {
               <option value="noise">Noise</option>
             </select>
           </label>
-          <label class="text-sm font-medium">Pattern Scale
-            <input type="range" id="tex-scale" min="0.25" max="8" step="0.25" value="1">
+          <label class="text-sm font-medium">Scale
+            <input type="range" id="tex-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
           </label>
         </div>
         <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
@@ -1272,14 +1266,14 @@ function buildTexturesTab(object, page) {
       </div>
 
       <div class="mt-3 border-t border-white/10 pt-3">
-        <h4 class="text-sm font-bold mb-2">Uploaded PBR Maps (per-slot overrides)</h4>
+        <h4 class="text-sm font-bold mb-2">Upload PBR Maps (overrides per-slot)</h4>
         <div class="grid grid-cols-2 gap-2" id="pbr-grid"></div>
         <div class="mt-2 grid grid-cols-2 gap-3">
           <label class="text-sm font-medium">Uploaded UV Repeat
-            <input type="range" id="up-uv-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
+            <input type="range" id="uv-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
           </label>
           <label class="text-sm font-medium">Uploaded UV RotationÂ°
-            <input type="range" id="up-uv-rot" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
+            <input type="range" id="uv-rot" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
           </label>
         </div>
         <div class="mt-2">
@@ -1293,12 +1287,14 @@ function buildTexturesTab(object, page) {
     </div>
   `;
 
+  // Color/PBR scalar events
   page.querySelector('#mat-color').addEventListener('input', e => setMaterialColor(mats, e.target.value));
   page.querySelector('#mat-emissive').addEventListener('input', e => setEmissive(mats, e.target.value, parseFloat(page.querySelector('#mat-emi').value)));
   page.querySelector('#mat-rough').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'roughness',v); page.querySelector('#rough-val').textContent=v.toFixed(2); });
   page.querySelector('#mat-metal').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'metalness',v); page.querySelector('#metal-val').textContent=v.toFixed(2); });
   page.querySelector('#mat-emi').addEventListener('input',   e => { const v=parseFloat(e.target.value); setEmissive(mats, page.querySelector('#mat-emissive').value, v); page.querySelector('#emi-val').textContent=v.toFixed(2); });
 
+  // Procedural apply respecting overrides
   const procApply = () => {
     const pattern = page.querySelector('#tex-pattern').value;
     const scale   = parseFloat(page.querySelector('#tex-scale').value);
@@ -1322,8 +1318,8 @@ function buildTexturesTab(object, page) {
       },
       locks
     );
-    // Apply pattern UV to all current maps for preview (does not override uploaded UV controls)
-    applyUVToAllMaps(mats, 1, 0);
+    st.uvScale = scale;
+    applyUVToAllMaps(mats, st.uvScale, st.uvRotation || 0);
   };
   page.querySelector('#apply-tex').addEventListener('click', procApply);
   page.querySelector('#clear-proc').addEventListener('click', () => {
@@ -1334,6 +1330,7 @@ function buildTexturesTab(object, page) {
     mats.forEach(m=> m.needsUpdate=true);
   });
 
+  // PBR Upload rows
   const pbrGrid = page.querySelector('#pbr-grid');
   const makeUploadRow = (label, slotName) => {
     const row = document.createElement('div');
@@ -1354,18 +1351,18 @@ function buildTexturesTab(object, page) {
     inp.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
-      const scale = parseFloat(page.querySelector('#up-uv-scale').value);
-      const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#up-uv-rot').value));
+      const scale = parseFloat(page.querySelector('#uv-scale').value);
+      const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#uv-rot').value));
       try {
         await uploadMapFromFile({ object, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
-        applyUVToOverrides(mats, st);
+        applyUVToAllMaps(mats, scale, rot);
       } catch (err) {
         console.error('Texture upload failed:', err);
       } finally {
         inp.value = '';
       }
     });
-    clr.addEventListener('click', () => { clearOverrideSlot(object, mats, slotName); applyUVToOverrides(mats, st); });
+    clr.addEventListener('click', () => clearOverrideSlot(object, mats, slotName));
   };
 
   makeUploadRow('Albedo (Base Color)', 'albedo');
@@ -1376,16 +1373,20 @@ function buildTexturesTab(object, page) {
   makeUploadRow('Emissive',           'emissive');
   makeUploadRow('Height (Displacement)', 'height');
 
-  const upScaleEl = page.querySelector('#up-uv-scale');
-  const upRotEl   = page.querySelector('#up-uv-rot');
-  const syncUploadedUV = () => {
-    st.uvScale = parseFloat(upScaleEl.value);
-    st.uvRotation = THREE.MathUtils.degToRad(parseFloat(upRotEl.value));
-    applyUVToOverrides(mats, st);
+  // UV tiling & rotation â applies ONLY to uploaded maps
+  const uvScaleEl = page.querySelector('#uv-scale');
+  const uvRotEl   = page.querySelector('#uv-rot');
+  const syncUV = () => {
+    const scale = parseFloat(uvScaleEl.value);
+    const rot   = THREE.MathUtils.degToRad(parseFloat(uvRotEl.value));
+    st.uvScale = scale;
+    st.uvRotation = rot;
+    applyUVToAllMaps(mats, scale, rot);
   };
-  upScaleEl.addEventListener('input', syncUploadedUV);
-  upRotEl.addEventListener('input', syncUploadedUV);
+  uvScaleEl.addEventListener('input', syncUV);
+  uvRotEl.addEventListener('input', syncUV);
 
+  // Displacement scale
   const dispEl = page.querySelector('#disp-scale');
   const dispLbl = page.querySelector('#disp-val');
   dispEl.addEventListener('input', () => {
@@ -1402,7 +1403,7 @@ function buildTexturesTab(object, page) {
 }
 
 // -----------------------------
-// Properties Panel
+// Properties Panel (TABBED)
 // -----------------------------
 function updatePropsPanel(object) {
   propsContent.innerHTML = '';
@@ -1426,12 +1427,14 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// Show runtime errors in the toast + ensure loader hides
 window.addEventListener('error', (e) => {
   const msg = e?.error?.message || e.message || 'Unknown error';
   const box = document.getElementById('message-box');
   if (box) {
     document.getElementById('message-text').textContent = msg;
     box.classList.add('show');
+    setTimeout(() => box.classList.remove('show'), 3500);
   }
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
@@ -1442,6 +1445,7 @@ window.addEventListener('unhandledrejection', (e) => {
   if (box) {
     document.getElementById('message-text').textContent = msg;
     box.classList.add('show');
+    setTimeout(() => box.classList.remove('show'), 3500);
   }
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
