@@ -74,6 +74,9 @@
     }
   </style>
 
+  <!-- Import-map shim (must load before the import map) -->
+  <script src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+
   <!-- Import map -->
   <script type="importmap">
   {
@@ -170,6 +173,16 @@
     </div>
     <button id="close-parent-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
+
+  <!-- Hide loader on global script errors too -->
+  <script>
+    const hideLoader = () => {
+      const ls = document.getElementById('loading-screen');
+      if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+    };
+    window.addEventListener('error', hideLoader);
+    window.addEventListener('unhandledrejection', hideLoader);
+  </script>
 
   <!-- App -->
   <script type="module" src="main.js"></script>
