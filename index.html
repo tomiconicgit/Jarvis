@@ -112,31 +112,31 @@
     <button id="scene-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
       Scene
     </button>
+    <button id="parent-btn" class="px-3 py-2 bg-gray-700 rounded-md shadow-lg active:scale-95 transition-transform text-sm font-semibold">
+      Parent
+    </button>
   </div>
 
   <!-- Add Object Panel -->
   <div id="add-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
     <h3 class="text-lg font-bold mb-4">Add Object</h3>
     <div class="grid grid-cols-3 gap-4">
-      <button id="add-tower-door-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+      <button id="add-tower-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Tower Base (Door)</span>
       </button>
-      <button id="add-tower-solid-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+      <button id="add-tower-solid-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Tower Base (Solid)</span>
       </button>
-      <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+      <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Double Door</span>
       </button>
-      <button id="add-window-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+      <button id="add-window-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Window</span>
       </button>
-      <button id="add-floor-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Floor / Roof</span>
+      <button id="add-floor-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
+        <span class="text-sm font-medium text-center">Floor</span>
       </button>
-      <button id="add-trussarm-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Truss Arm</span>
-      </button>
-      <button id="add-pipe-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
+      <button id="add-pipe-btn" class="bg-gray-700 p-3 rounded-lg flex flex-col items-center active:scale-90 transition-transform">
         <span class="text-sm font-medium text-center">Pipe</span>
       </button>
     </div>
@@ -157,6 +157,18 @@
     <h3 class="text-lg font-bold mb-3">Scene Objects</h3>
     <div id="scene-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
     <button id="close-scene-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
+  </div>
+
+  <!-- Parenting Panel -->
+  <div id="parent-panel" class="ui-panel bottom-24 left-4 right-4 p-4 transform translate-y-full opacity-0" style="visibility:hidden;">
+    <h3 class="text-lg font-bold mb-3">Parenting</h3>
+    <p class="text-sm text-gray-300 mb-3">Select one Main, then one or more Children. Apply to link them.</p>
+    <div id="parent-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+    <div class="mt-4 flex justify-end gap-3">
+      <button id="parent-cancel" class="px-3 py-2 bg-gray-600 rounded-md">Cancel</button>
+      <button id="parent-apply" class="px-3 py-2 bg-blue-600 rounded-md font-semibold">Apply Parenting</button>
+    </div>
+    <button id="close-parent-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
   </div>
 
   <!-- App -->
