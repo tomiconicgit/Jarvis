@@ -10,11 +10,33 @@ export function serializeModels(scene) {
       const t = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
       o.updateMatrixWorld(true);
       o.matrix.decompose(t, q, s);
+
+      // Create a serializable copy of texture overrides
+      let serializableTexOverrides = null;
+      if (o.userData._texOverrides) {
+        const s = o.userData._texOverrides;
+        serializableTexOverrides = {
+          // We can't save the texture objects, but we can save the settings.
+          uvScale: s.uvScale,
+          uvRotation: s.uvRotation,
+          displacementScale: s.displacementScale,
+          // We could also save which slots *had* textures, as a hint
+          hasMap: !!s.map,
+          hasNormalMap: !!s.normalMap,
+          hasRoughnessMap: !!s.roughnessMap,
+          hasMetalnessMap: !!s.metalnessMap,
+          hasAoMap: !!s.aoMap,
+          hasEmissiveMap: !!s.emissiveMap,
+          hasDisplacementMap: !!s.displacementMap
+        };
+      }
+
       nodes.push({
         id: o.uuid,
         type: o.userData.type,
         label: o.userData.label || null,
         params: o.userData.params || {},
+        texOverrides: serializableTexOverrides, // Added
         transform: {
           position: [o.position.x, o.position.y, o.position.z],
           quaternion: [o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w],
@@ -28,6 +50,7 @@ export function serializeModels(scene) {
 }
 
 export function downloadBlob(blob, filename) {
+  // ... (no changes in this function)
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -40,7 +63,7 @@ export function downloadBlob(blob, filename) {
 }
 
 /** Rebuild from JSON {version, nodes[]} with constructors map */
-export function loadFromJSON(json, builders, scene, allModels, onAfterAdd) {
+export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensureTexState) { // Added ensureTexState
   if (!json?.nodes) throw new Error('Invalid save file');
   const byId = {};
   // First pass: create objects
@@ -52,8 +75,16 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd) {
     obj.userData.type = n.type;
     if (n.label) obj.userData.label = n.label;
 
+    // Restore texture override settings
+    if (n.texOverrides && ensureTexState) {
+      const state = ensureTexState(obj); // Get the default object
+      // Merge saved properties (uvScale, uvRotation, etc.)
+      Object.assign(state, n.texOverrides);
+    }
+
     // Apply TRS
     if (n.transform) {
+    // ... (no changes in this block)
       const p = n.transform.position || [0,0,0];
       const q = n.transform.quaternion || [0,0,0,1];
       const s = n.transform.scale || [1,1,1];
@@ -65,6 +96,7 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd) {
   }
   // Second pass: parenting
   for (const n of json.nodes) {
+    // ... (no changes in this loop)
     const o = byId[n.id];
     if (!o) continue;
     const parent = n.parentId ? byId[n.parentId] : scene;
@@ -76,6 +108,7 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd) {
 
 /** Export GLB of either models-only or whole scene (binary or GLTF) */
 export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 'Model.glb', allModels = [] }, onDone, onError) {
+  // ... (no changes in this function)
   const exporter = new GLTFExporter();
 
   let root = scene;
@@ -120,6 +153,7 @@ export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 
 
 /** Import a .glb and add as a single grouped object */
 export function importGLBFile(file, scene, allModels, onAfterAdd) {
+  // ... (no changes in this function)
   const loader = new GLTFLoader();
   const url = URL.createObjectURL(file);
   loader.parseAsync
