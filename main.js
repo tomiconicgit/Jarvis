@@ -89,7 +89,7 @@ function init() {
 
   // Env
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; // correct ctor (no args)
+  const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
   scene.environment = envTex;
 
   // Camera
@@ -523,7 +523,7 @@ function refreshParentList() {
     const hint = document.createElement('div');
     hint.className = 'text-xs text-gray-300';
     const parentName = obj.parent && obj.parent !== scene ? (obj.parent.userData?.label || obj.parent.userData?.type) : null;
-    hint.textContent = parentName ? \`child of \${parentName}\` : '';
+    hint.textContent = parentName ? `child of ${parentName}` : '';
 
     row.appendChild(left);
     row.appendChild(hint);
@@ -642,7 +642,6 @@ function updatePropsPanel(object) {
       colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color Blue' }
     };
   } else if (type === 'Pipe') {
-    // Pipe UI (includes elbow + flanges + bolts)
     paramConfig = {
       length:          { min: 0.5, max: 40,   step: 0.1,  label: 'Length' },
       outerRadius:     { min: 0.05, max: 5,   step: 0.01, label: 'Outer Radius' },
@@ -809,13 +808,28 @@ function updatePropsPanel(object) {
 }
 
 // -----------------------------
-// Start
+// Start (safe even if DOMContentLoaded already fired)
 // -----------------------------
-window.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 // Show runtime errors in the toast + ensure loader hides
 window.addEventListener('error', (e) => {
   const msg = e?.error?.message || e.message || 'Unknown error';
+  const box = document.getElementById('message-box');
+  if (box) {
+    document.getElementById('message-text').textContent = msg;
+    box.classList.add('show');
+    setTimeout(() => box.classList.remove('show'), 3500);
+  }
+  const ls = document.getElementById('loading-screen');
+  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
   const box = document.getElementById('message-box');
   if (box) {
     document.getElementById('message-text').textContent = msg;
