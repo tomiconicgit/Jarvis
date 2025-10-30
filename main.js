@@ -24,7 +24,7 @@ let loadingScreen, canvasContainer;
 let fileBtn, filePanel, closeFilePanel, fileSaveBtn, fileLoadBtn, fileExportBtn, fileImportBtn;
 let addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn, addTrussArmBtn;
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Parenting UI
@@ -50,13 +50,13 @@ function assignDefaultName(obj) {
 
 // Builders map for loader
 const BUILDERS = {
-  'TowerBase': TowerBase,
-  'DoubleDoor': DoubleDoor,
-  'Window': WindowAsset,
-  'Floor': Floor,
-  'Pipe': Pipe,
-  'Roof': Roof,
-  'TrussArm': TrussArm
+  TowerBase,
+  DoubleDoor,
+  Window: WindowAsset,
+  Floor,
+  Pipe,
+  Roof,
+  TrussArm
 };
 
 // -----------------------------
@@ -95,6 +95,7 @@ function init() {
   addWindowBtn    = document.getElementById('add-window-btn');
   addFloorBtn     = document.getElementById('add-floor-btn');
   addPipeBtn      = document.getElementById('add-pipe-btn');
+  addTrussArmBtn  = document.getElementById('add-trussarm-btn');
 
   scenePanel      = document.getElementById('scene-panel');
   closeScenePanel = document.getElementById('close-scene-panel');
@@ -290,8 +291,17 @@ function deselectAll() {
 // -----------------------------
 // UI
 // -----------------------------
+function togglePanel(panel, toHide = []) {
+  if (!panel) return;
+  if (panel.style.visibility === 'visible') hidePanel(panel);
+  else {
+    toHide.forEach(hidePanel);
+    showPanel(panel);
+  }
+}
+
 function initUI() {
-  // FILE dropdown (bottom sheet)
+  // FILE
   fileBtn.addEventListener('click', () => togglePanel(filePanel, [addPanel, scenePanel, parentPanel, propsPanel, exportPanel]));
   closeFilePanel.addEventListener('click', () => hidePanel(filePanel));
 
@@ -364,14 +374,14 @@ function initUI() {
   closeAddPanel.addEventListener('click', () => hidePanel(addPanel));
   closePropsPanel.addEventListener('click', () => deselectAll());
 
-  // Scene list toggle
+  // Scene
   sceneBtn.addEventListener('click', () => {
     refreshSceneList();
     togglePanel(scenePanel, [filePanel, addPanel, parentPanel, propsPanel, exportPanel]);
   });
   closeScenePanel.addEventListener('click', () => hidePanel(scenePanel));
 
-  // Parenting panel
+  // Parenting
   parentBtn.addEventListener('click', () => {
     refreshParentList();
     togglePanel(parentPanel, [filePanel, addPanel, scenePanel, propsPanel, exportPanel]);
@@ -433,15 +443,37 @@ function initUI() {
     scene.add(p); allModels.push(p);
     refreshSceneList(); selectObject(p); hidePanel(addPanel);
   });
+
+  // NEW: Truss Arm
+  addTrussArmBtn.addEventListener('click', () => {
+    const p = new TrussArm({
+      length: 12, armWidth: 3, armHeight: 2.2, tubeRadius: 0.12,
+      segments: 8, roundSegments: 14, curve: 0.4, hasEndJoint: true, jointRadius: 0.4
+    });
+    p.position.y = 1.2;
+    assignDefaultName(p);
+    scene.add(p); allModels.push(p);
+    refreshSceneList(); selectObject(p); hidePanel(addPanel);
+  });
 }
 
-function togglePanel(panel, toHide = []) {
-  if (!panel) return;
-  if (panel.style.visibility === 'visible') hidePanel(panel);
-  else {
-    toHide.forEach(hidePanel);
-    showPanel(panel);
-  }
+function showPanel(p) {
+  if (!p) return;
+  p.style.visibility = 'visible';
+  p.style.opacity = '1';
+  p.style.transform = 'translateY(0)';
+}
+function hidePanel(p) {
+  if (!p) return;
+  p.style.opacity = '0';
+  p.style.transform = 'translateY(100%)';
+  setTimeout(() => (p.style.visibility = 'hidden'), 240);
+}
+function showTempMessage(text) {
+  const box = document.getElementById('message-box');
+  document.getElementById('message-text').textContent = text;
+  box.classList.add('show');
+  setTimeout(() => box.classList.remove('show'), 1500);
 }
 
 // -----------------------------
@@ -452,16 +484,17 @@ function duplicateModel(src) {
   const type = src.userData?.type || 'Object';
   const params = { ...(src.userData?.params || {}) };
 
-  if (type === 'TowerBase')       copy = new TowerBase(params);
-  else if (type === 'DoubleDoor') copy = new DoubleDoor(params);
-  else if (type === 'Window')     copy = new WindowAsset(params);
-  else if (type === 'Floor')      copy = new Floor(params);
-  else if (type === 'Pipe')       copy = new Pipe(params);
-  else if (type === 'Roof')       copy = new Roof(params);
-  else if (type === 'TrussArm')   copy = new TrussArm(params);
-  else {
-    copy = src.clone(true);
-    copy.userData = { ...src.userData };
+  switch (type) {
+    case 'TowerBase': copy = new TowerBase(params); break;
+    case 'DoubleDoor': copy = new DoubleDoor(params); break;
+    case 'Window': copy = new WindowAsset(params); break;
+    case 'Floor': copy = new Floor(params); break;
+    case 'Pipe': copy = new Pipe(params); break;
+    case 'Roof': copy = new Roof(params); break;
+    case 'TrussArm': copy = new TrussArm(params); break;
+    default:
+      copy = src.clone(true);
+      copy.userData = { ...src.userData };
   }
 
   copy.position.copy(src.position).add(new THREE.Vector3(1, 0, 1));
@@ -481,7 +514,6 @@ function duplicateModel(src) {
 function deleteModel(obj) {
   const idx = allModels.indexOf(obj);
   if (idx !== -1) allModels.splice(idx, 1);
-
   if (currentSelection === obj) deselectAll();
 
   if (typeof obj.dispose === 'function') obj.dispose();
@@ -653,8 +685,6 @@ function applyParenting() {
 // ============================================================================
 //                                TABBED PROPERTIES
 // ============================================================================
-
-// Simple tab system
 function makeTabs(rootEl, tabsSpec) {
   const header = document.createElement('div');
   header.className = 'flex gap-2 mb-3 sticky top-0 bg-[rgba(30,30,30,0.9)] pt-1 pb-2 z-10';
@@ -696,7 +726,7 @@ function makeTabs(rootEl, tabsSpec) {
   first.builder(first.page); first.built = true; first.page.style.display = '';
 }
 
-// Collect unique THREE.Materials under an object; ensure uv2 for AO/displacement
+// Materials collect + UV helpers
 function collectMaterialsFromObject(root) {
   const set = new Set();
   root.traverse(n => {
@@ -711,7 +741,6 @@ function collectMaterialsFromObject(root) {
   return Array.from(set);
 }
 
-// --- Simple procedural generators (checker / noise) ---
 function makeCheckerTexture(size = 256, cells = 8) {
   const data = new Uint8Array(size * size * 3);
   const cellSize = size / cells;
@@ -740,17 +769,6 @@ function makeNoiseTexture(size = 256) {
   return tex;
 }
 
-// --- Per-object texture override state ---
-function ensureTexState(object) {
-  if (!object.userData._texOverrides) object.userData._texOverrides = {
-    map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
-    aoMap: null, emissiveMap: null, displacementMap: null,
-    uvScale: 1, uvRotation: 0, displacementScale: 0.0
-  };
-  return object.userData._texOverrides;
-}
-
-// Apply UV tiling & rotation to all currently attached maps on given materials
 function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
   const apply = (tex) => {
     if (!tex) return;
@@ -761,21 +779,12 @@ function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
     tex.needsUpdate = true;
   };
   materials.forEach(m => {
-    apply(m.map);
-    apply(m.normalMap);
-    apply(m.roughnessMap);
-    apply(m.metalnessMap);
-    apply(m.aoMap);
-    apply(m.emissiveMap);
-    apply(m.bumpMap);
-    apply(m.displacementMap);
+    apply(m.map); apply(m.normalMap); apply(m.roughnessMap); apply(m.metalnessMap);
+    apply(m.aoMap); apply(m.emissiveMap); apply(m.bumpMap); apply(m.displacementMap);
   });
 }
-
 function setMaterialScalar(materials, key, value) {
-  materials.forEach(m => {
-    if (key in m) { m[key] = value; m.needsUpdate = true; }
-  });
+  materials.forEach(m => { if (key in m) { m[key] = value; m.needsUpdate = true; } });
 }
 function setMaterialColor(materials, hex) {
   materials.forEach(m => { if (m.color) { m.color.set(hex); m.needsUpdate = true; } });
@@ -788,7 +797,6 @@ function setEmissive(materials, hex, intensity) {
   });
 }
 
-// Procedural maps application; respects uploaded overrides
 function applyProceduralMaps(materials, { pattern = 'none', scale = 1, useAlbedo = true, useRoughness = false, useMetalness = false, useBump = false, useAO = false }, locks = {}) {
   let tex = null;
   if (pattern === 'checker') tex = makeCheckerTexture(256, 8);
@@ -807,7 +815,6 @@ function applyProceduralMaps(materials, { pattern = 'none', scale = 1, useAlbedo
   setIfFree('aoMap',       useAO       ? tex : null);
 }
 
-// Map name -> material property slot + colorSpace rule
 const MAP_SLOTS = {
   albedo:   { prop: 'map',             color: true  },
   normal:   { prop: 'normalMap',       color: false },
@@ -817,6 +824,15 @@ const MAP_SLOTS = {
   emissive: { prop: 'emissiveMap',     color: true  },
   height:   { prop: 'displacementMap', color: false }
 };
+
+function ensureTexState(object) {
+  if (!object.userData._texOverrides) object.userData._texOverrides = {
+    map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
+    aoMap: null, emissiveMap: null, displacementMap: null,
+    uvScale: 1, uvRotation: 0, displacementScale: 0.0
+  };
+  return object.userData._texOverrides;
+}
 
 function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvRotation = 0 }) {
   return new Promise((resolve, reject) => {
@@ -862,7 +878,6 @@ function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvR
     });
   });
 }
-
 function clearOverrideSlot(object, materials, slotName) {
   const slot = MAP_SLOTS[slotName];
   const st = ensureTexState(object);
@@ -1007,30 +1022,6 @@ function buildShapeTab(object, page) {
       glassOpacity:     { min: 0,   max: 1,   step: 0.01, label: 'Glass Opacity' },
       glassRoughness:   { min: 0,   max: 1,   step: 0.01, label: 'Glass Roughness' }
     };
-  } else if (type === 'Pipe') {
-    paramConfig = {
-      length:          { min: 0.5, max: 80,   step: 0.1,  label: 'Length' },
-      outerRadius:     { min: 0.02, max: 10,  step: 0.01, label: 'Outer Radius' },
-      wallThickness:   { min: 0.002, max: Pipe.getMaxWall(p), step: 0.01, label: 'Wall Thickness' },
-      radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
-
-      hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
-      shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle °' },
-      elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
-      elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
-      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane °' },
-
-      hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
-      hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
-      flangeRadius:    { min: 0.1, max: 20,  step: 0.05, label: 'Flange Radius' },
-      flangeThickness: { min: 0.02,max: 2,   step: 0.01, label: 'Flange Thickness' },
-
-      hasBolts:        { type: 'checkbox', label: 'Bolts on Flanges' },
-      boltCount:       { min: 2,    max: 36,  step: 1,    label: 'Bolt Count' },
-      boltRadius:      { min: 0.01, max: 0.5, step: 0.01, label: 'Bolt Radius' },
-      boltHeight:      { min: 0.04, max: 1.5, step: 0.01, label: 'Bolt Height' },
-      boltRingInset:   { min: 0.02, max: 2.0, step: 0.01, label: 'Bolt Ring Inset' }
-    };
   } else if (type === 'Roof') {
     paramConfig = {
       width:            { min: 4,  max: 200, step: 0.1, label: 'Width' },
@@ -1041,26 +1032,20 @@ function buildShapeTab(object, page) {
       cornerSmoothness: { min: 8,  max: 64,  step: 1,    label: 'Corner Smoothness' },
       edgeRoundness:    { min: 0,  max: Roof.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
       edgeSmoothness:   { min: 1,  max: 12,  step: 1,    label: 'Edge Smoothness' },
-
       archHeight:       { min: 0,  max: 5,   step: 0.05, label: 'Arch Height' },
       archX:            { type:'checkbox', label: 'Curve X' },
       archZ:            { type:'checkbox', label: 'Curve Z' },
-
       hasSkylight:      { type:'checkbox', label: 'Skylight' },
       skylightWidth:    { min: 0.2, max: Math.max(0.2, (p.width||12)+(p.overhang||0)*2 - 0.6), step: 0.05, label: 'Skylight W' },
       skylightDepth:    { min: 0.2, max: Math.max(0.2, (p.depth||12)+(p.overhang||0)*2 - 0.6), step: 0.05, label: 'Skylight D' },
       skylightCornerRadius:{ min: 0, max: 10, step: 0.05, label: 'Skylight Corner' },
-
       glassOpacity:     { min: 0,  max: 1,   step: 0.01, label: 'Glass Opacity' },
       glassRoughness:   { min: 0,  max: 1,   step: 0.01, label: 'Glass Roughness' },
-
       hasRails:         { type:'checkbox', label: 'Rails' },
       railHeight:       { min: 0.2,max: 4,   step: 0.05, label: 'Rail Height' },
       railSpacing:      { min: 0.5,max: 5,   step: 0.1,  label: 'Rail Spacing' },
-
       hasVent:          { type:'checkbox', label: 'Vent' },
       hasAntenna:       { type:'checkbox', label: 'Antenna' },
-
       colorR:           { min: 0,  max: 1,   step: 0.01, label: 'Color R' },
       colorG:           { min: 0,  max: 1,   step: 0.01, label: 'Color G' },
       colorB:           { min: 0,  max: 1,   step: 0.01, label: 'Color B' }
@@ -1118,17 +1103,16 @@ function buildShapeTab(object, page) {
       const val = (cfg.step >= 1) ? Math.round(parseFloat(slider.value)) : parseFloat(slider.value);
       let next = { ...object.userData.params, [key]: val };
 
-      // Recompute dependent limits
+      // Recompute dependent limits if footprint changes
       if (['totalWidth','width','depth','frameThickness','wallThickness','cornerRadius','height','outerRadius','overhang','thickness'].includes(key)) {
-        // Corner Radius
         const crSlider = wrap.querySelector('#cornerRadius-slider');
         if (crSlider) {
           let maxCR = crSlider.max;
-          if (type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
-          else if (type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
-          else if (type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
-          else if (type === 'Floor')     maxCR = Floor.getMaxCornerRadius(next);
-          else if (type === 'Roof')      maxCR = Roof.getMaxCornerRadius(next);
+          if (object.userData.type === 'TowerBase')      maxCR = TowerBase.getMaxCornerRadius(next);
+          else if (object.userData.type === 'DoubleDoor')maxCR = DoubleDoor.getMaxCornerRadius(next);
+          else if (object.userData.type === 'Window')    maxCR = WindowAsset.getMaxCornerRadius(next);
+          else if (object.userData.type === 'Floor')     maxCR = Floor.getMaxCornerRadius(next);
+          else if (object.userData.type === 'Roof')      maxCR = Roof.getMaxCornerRadius(next);
           crSlider.max = maxCR;
           if (next.cornerRadius > maxCR) {
             next.cornerRadius = maxCR;
@@ -1137,15 +1121,14 @@ function buildShapeTab(object, page) {
             wrap.querySelector('#cornerRadius-value').textContent = v;
           }
         }
-        // Edge Roundness
         const erSlider = wrap.querySelector('#edgeRoundness-slider');
         if (erSlider) {
           let maxER = erSlider.max;
-          if      (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
-          else if (type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
-          else if (type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
-          else if (type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
-          else if (type === 'Roof')      maxER = Roof.getMaxEdgeRoundness(next);
+          if      (object.userData.type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
+          else if (object.userData.type === 'Roof')      maxER = Roof.getMaxEdgeRoundness(next);
           erSlider.max = maxER;
           if (next.edgeRoundness > maxER) {
             next.edgeRoundness = maxER;
@@ -1154,9 +1137,8 @@ function buildShapeTab(object, page) {
             wrap.querySelector('#edgeRoundness-value').textContent = v;
           }
         }
-        // Door Width (Tower only)
         const dwSlider = wrap.querySelector('#doorWidth-slider');
-        if (dwSlider && type === 'TowerBase') {
+        if (dwSlider && object.userData.type === 'TowerBase') {
           const maxDW = TowerBase.getMaxDoorWidth(next);
           dwSlider.max = maxDW;
           if (next.doorWidth > maxDW) {
@@ -1164,19 +1146,6 @@ function buildShapeTab(object, page) {
             dwSlider.value = maxDW;
             const v = (paramConfig.doorWidth.step >= 1) ? Math.round(maxDW) : Number(maxDW).toFixed(2);
             wrap.querySelector('#doorWidth-value').textContent = v;
-          }
-        }
-        // Pipe wallThickness depends on outerRadius
-        if (type === 'Pipe') {
-          const wt = wrap.querySelector('#wallThickness-slider');
-          if (wt) {
-            const maxWT = Pipe.getMaxWall(next);
-            wt.max = maxWT;
-            if (next.wallThickness > maxWT) {
-              next.wallThickness = maxWT;
-              wt.value = maxWT;
-              wrap.querySelector('#wallThickness-value').textContent = Number(maxWT).toFixed(2);
-            }
           }
         }
       }
@@ -1284,14 +1253,13 @@ function buildTexturesTab(object, page) {
     </div>
   `;
 
-  // Color/PBR scalar events
   page.querySelector('#mat-color').addEventListener('input', e => setMaterialColor(mats, e.target.value));
   page.querySelector('#mat-emissive').addEventListener('input', e => setEmissive(mats, e.target.value, parseFloat(page.querySelector('#mat-emi').value)));
   page.querySelector('#mat-rough').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'roughness',v); page.querySelector('#rough-val').textContent=v.toFixed(2); });
   page.querySelector('#mat-metal').addEventListener('input', e => { const v=parseFloat(e.target.value); setMaterialScalar(mats,'metalness',v); page.querySelector('#metal-val').textContent=v.toFixed(2); });
   page.querySelector('#mat-emi').addEventListener('input',   e => { const v=parseFloat(e.target.value); setEmissive(mats, page.querySelector('#mat-emissive').value, v); page.querySelector('#emi-val').textContent=v.toFixed(2); });
 
-  // Procedural apply respecting overrides
+  const st = ensureTexState(object);
   const procApply = () => {
     const pattern = page.querySelector('#tex-pattern').value;
     const scale   = parseFloat(page.querySelector('#tex-scale').value);
@@ -1327,7 +1295,6 @@ function buildTexturesTab(object, page) {
     mats.forEach(m=> m.needsUpdate=true);
   });
 
-  // PBR Upload rows
   const pbrGrid = page.querySelector('#pbr-grid');
   const makeUploadRow = (label, slotName) => {
     const row = document.createElement('div');
@@ -1370,7 +1337,6 @@ function buildTexturesTab(object, page) {
   makeUploadRow('Emissive',           'emissive');
   makeUploadRow('Height (Displacement)', 'height');
 
-  // UV tiling & rotation
   const uvScaleEl = page.querySelector('#uv-scale');
   const uvRotEl   = page.querySelector('#uv-rot');
   const syncUV = () => {
@@ -1383,7 +1349,6 @@ function buildTexturesTab(object, page) {
   uvScaleEl.addEventListener('input', syncUV);
   uvRotEl.addEventListener('input', syncUV);
 
-  // Displacement scale
   const dispEl = page.querySelector('#disp-scale');
   const dispLbl = page.querySelector('#disp-val');
   dispEl.addEventListener('input', () => {
@@ -1400,7 +1365,7 @@ function buildTexturesTab(object, page) {
 }
 
 // -----------------------------
-// Properties Panel (TABBED) — uses Transform / Shape / Textures
+// Properties Panel
 // -----------------------------
 function updatePropsPanel(object) {
   propsContent.innerHTML = '';
@@ -1424,14 +1389,12 @@ if (document.readyState === 'loading') {
   init();
 }
 
-// Show runtime errors in the toast + ensure loader hides
 window.addEventListener('error', (e) => {
   const msg = e?.error?.message || e.message || 'Unknown error';
   const box = document.getElementById('message-box');
   if (box) {
     document.getElementById('message-text').textContent = msg;
     box.classList.add('show');
-    setTimeout(() => box.classList.remove('show'), 3500);
   }
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
@@ -1442,7 +1405,6 @@ window.addEventListener('unhandledrejection', (e) => {
   if (box) {
     document.getElementById('message-text').textContent = msg;
     box.classList.add('show');
-    setTimeout(() => box.classList.remove('show'), 3500);
   }
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
