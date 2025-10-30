@@ -132,7 +132,7 @@ function init() {
   const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
   scene.environment = envTex;
 
-  // Camera â extend far so large builds are fully visible
+  // Camera Ã¢ÂÂ extend far so large builds are fully visible
   camera = new THREE.PerspectiveCamera(
     50,
     canvasContainer.clientWidth / canvasContainer.clientHeight,
@@ -149,7 +149,7 @@ function init() {
   dirLight.shadow.mapSize.set(1024, 1024);
   scene.add(dirLight);
 
-  // Ground + Grid â keep REAL 1Ã1 tiles, original environment size
+  // Ground + Grid Ã¢ÂÂ keep REAL 1ÃÂ1 tiles, original environment size
   scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444)); // 1-unit spacing
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100),
@@ -313,9 +313,10 @@ function initUI() {
     try {
       const text = await f.text();
       const json = JSON.parse(text);
+      // Pass ensureTexState as the final argument
       loadFromJSON(json, BUILDERS, scene, allModels, (o) => {
         if (!o.userData.label) assignDefaultName(o);
-      });
+      }, ensureTexState); // <-- MODIFIED
       refreshSceneList();
       showTempMessage('Session loaded');
       hidePanel(filePanel);
@@ -353,7 +354,7 @@ function initUI() {
         refreshSceneList();
         selectObject(o);
       });
-      showTempMessage('Importingâ¦');
+      showTempMessage('ImportingÃ¢ÂÂ¦');
     } catch (err) {
       console.error(err);
       showTempMessage('Import failed');
@@ -902,9 +903,9 @@ function buildTransformTab(object, page) {
       ${toRow('tz','Pos Z', -100,100,0.1, object.position.z.toFixed(2))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
-      ${toRow('rx','Rot XÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
-      ${toRow('ry','Rot YÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
-      ${toRow('rz','Rot ZÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
+      ${toRow('rx','Rot XÃÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
+      ${toRow('ry','Rot YÃÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
+      ${toRow('rz','Rot ZÃÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
       ${toRow('sx','Scale X', 0.01,20,0.01, object.scale.x.toFixed(2))}
@@ -1018,10 +1019,10 @@ function buildShapeTab(object, page) {
       radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
 
       hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
-      shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle Â°' },
+      shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle ÃÂ°' },
       elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
       elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
-      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane Â°' },
+      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane ÃÂ°' },
 
       hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
       hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
@@ -1268,11 +1269,14 @@ function buildTexturesTab(object, page) {
       <div class="mt-3 border-t border-white/10 pt-3">
         <h4 class="text-sm font-bold mb-2">Upload PBR Maps (overrides per-slot)</h4>
         <div class="grid grid-cols-2 gap-2" id="pbr-grid"></div>
+        
         <div class="mt-2 grid grid-cols-2 gap-3">
           <label class="text-sm font-medium">Uploaded UV Repeat
-            <input type="range" id="uv-scale" min="0.25" max="8" step="0.25" value="${st.uvScale || 1}">
+            <span id="uv-scale-val" class="float-right">${Math.round(st.uvScale || 1)}</span>
+            <input type="range" id="uv-scale" min="1" max="50" step="1" value="${st.uvScale || 1}">
           </label>
-          <label class="text-sm font-medium">Uploaded UV RotationÂ°
+          <label class="text-sm font-medium">Uploaded UV RotationÃÂ°
+            <span id="uv-rot-val" class="float-right">${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}</span>
             <input type="range" id="uv-rot" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
           </label>
         </div>
@@ -1373,19 +1377,27 @@ function buildTexturesTab(object, page) {
   makeUploadRow('Emissive',           'emissive');
   makeUploadRow('Height (Displacement)', 'height');
 
-  // UV tiling & rotation â applies ONLY to uploaded maps
+  // UV tiling & rotation Ã¢ÂÂ applies ONLY to uploaded maps
   const uvScaleEl = page.querySelector('#uv-scale');
   const uvRotEl   = page.querySelector('#uv-rot');
+  const uvScaleLbl = page.querySelector('#uv-scale-val'); // Added
+  const uvRotLbl   = page.querySelector('#uv-rot-val');   // Added
+
   const syncUV = () => {
     const scale = parseFloat(uvScaleEl.value);
-    const rot   = THREE.MathUtils.degToRad(parseFloat(uvRotEl.value));
+    const rotDeg = parseFloat(uvRotEl.value); // Get degrees from slider
+    const rotRad = THREE.MathUtils.degToRad(rotDeg);
+
     st.uvScale = scale;
-    st.uvRotation = rot;
-    applyUVToAllMaps(mats, scale, rot);
+    st.uvRotation = rotRad;
+    applyUVToAllMaps(mats, scale, rotRad);
+
+    if (uvScaleLbl) uvScaleLbl.textContent = Math.round(scale); // Update label
+    if (uvRotLbl)   uvRotLbl.textContent = Math.round(rotDeg); // Update label
   };
   uvScaleEl.addEventListener('input', syncUV);
   uvRotEl.addEventListener('input', syncUV);
-
+  
   // Displacement scale
   const dispEl = page.querySelector('#disp-scale');
   const dispLbl = page.querySelector('#disp-val');
