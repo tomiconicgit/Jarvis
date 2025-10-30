@@ -1,120 +1,192 @@
 import * as THREE from 'three';
 
-export default class TrussFrameArm extends THREE.Group {
-  static getMaxCurve(p) {
-    // keep curvature reasonable vs length
-    return Math.max(0, p.length * 0.6);
-  }
+function cylinderBetween(a, b, r, radialSegments, material) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  if (len <= 1e-6) return new THREE.Mesh(); // guard
+  const geo = new THREE.CylinderGeometry(r, r, len, Math.max(6, radialSegments));
+  // Cylinder default axis = +Y. Point it along dir.
+  const mesh = new THREE.Mesh(geo, material);
+  const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+  mesh.position.copy(mid);
 
+  const quat = new THREE.Quaternion();
+  quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+  mesh.setRotationFromQuaternion(quat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+export default class TrussArm extends THREE.Group {
   constructor(params = {}) {
     super();
     this.userData.isModel = true;
-    this.userData.type = 'TrussFrameArm';
+    this.userData.type = 'TrussArm';
 
     const defaults = {
-      length: 12,
-      railRadius: 0.15,     // "roundness"
-      railSeparation: 1.4,
-      railSegments: 48,
-      curveAmount: 0,       // 0..getMaxCurve
-      braceSpacing: 1.2,
-      braceRadius: 0.08,
-      hasBolt: true,
-      boltRadius: 0.35,
-      boltLength: 0.6
+      length: 10,          // overall length along +X
+      armWidth: 2,         // distance between left/right rails (X offset is 0; this is ±X in local?)
+      armHeight: 2,        // distance between top/bottom rails
+      tubeRadius: 0.12,    // pipe radius
+      roundSegments: 12,   // radial segments for tubes/bolts
+      segments: 8,         // lattice segments along length
+      curve: 0,            // bend amount in +Y (0 = straight). Think of it as "rise" at midspan
+      hasEndJoint: true,   // show a spherical joint at the far end
+      jointRadius: 0.4,    // radius of the joint sphere
+      color: 0xb0b0b0
     };
     this.userData.params = { ...defaults, ...params };
 
-    this.railMaterial  = new THREE.MeshStandardMaterial({ color: 0xb0b0b0, roughness: 0.55, metalness: 0.35 });
-    this.braceMaterial = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.6,  metalness: 0.4 });
-    this.boltMaterial  = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.4,  metalness: 0.8 });
+    this.metalMaterial = new THREE.MeshStandardMaterial({
+      color: defaults.color, roughness: 0.5, metalness: 0.6
+    });
+    this.jointMaterial = new THREE.MeshStandardMaterial({
+      color: 0x888888, roughness: 0.4, metalness: 0.8
+    });
 
     this.build();
   }
 
-  // Build a simple curved dual-rail truss with diagonal braces.
+  /** Centerline curve along X with optional midspan rise in Y. */
+  _makeCenterCurve(length, riseY) {
+    const p0 = new THREE.Vector3(0, 0, 0);
+    const p1 = new THREE.Vector3(length * 0.5, riseY, 0);
+    const p2 = new THREE.Vector3(length, 0, 0);
+    return new THREE.QuadraticBezierCurve3(p0, p1, p2);
+  }
+
+  /** For a “corner rail” we offset the centerline curve by (ox, oy). */
+  _railPoint(curve, t, ox, oy) {
+    const p = curve.getPoint(t);
+    p.x += 0;      // centerline already along X
+    p.y += oy;     // vertical offset
+    p.z += ox;     // use Z for left/right spacing so X stays the longitudinal axis
+    return p;
+  }
+
   build() {
-    for (const c of this.children) c.geometry && c.geometry.dispose();
+    // dispose old
+    this.traverse((n) => {
+      if (n.isMesh) {
+        n.geometry?.dispose?.();
+        if (Array.isArray(n.material)) n.material.forEach(m => m?.dispose?.());
+        else n.material?.dispose?.();
+      }
+    });
     this.clear();
 
     const p = this.userData.params;
-    const L = Math.max(0.5, p.length);
-    const S = Math.max(0.2, p.railSeparation);
-    const R = Math.max(0.03, p.railRadius);
+    const {
+      length, armWidth, armHeight, tubeRadius,
+      roundSegments, segments, curve,
+      hasEndJoint, jointRadius
+    } = p;
 
-    // Curved path in XZ with Y as "up" bend
-    const ctrl = new THREE.Vector3(0, p.curveAmount, L/2);
-    const start = new THREE.Vector3(0, 0, 0);
-    const end   = new THREE.Vector3(0, 0, L);
-    const path = new THREE.QuadraticBezierCurve3(start, ctrl, end);
+    const railRise = curve; // “rise” at midspan in Y for the centerline
 
-    // Two rails offset in X
-    const mkRail = (xOffset) => {
-      const railPath = {
-        getPoint: (t) => {
-          const q = path.getPoint(t).clone();
-          q.x += xOffset;
-          return q;
+    const center = this._makeCenterCurve(length, railRise);
+
+    // 4 longerons (corner rails) laid out on a rectangle in local YZ:
+    // offsets in Z: ±armWidth/2, offsets in Y: ±armHeight/2
+    const rails = [
+      { ox:  armWidth * 0.5, oy:  armHeight * 0.5 }, // front-right (Z+ / Y+)
+      { ox:  armWidth * 0.5, oy: -armHeight * 0.5 }, // front-right (Z+ / Y-)
+      { ox: -armWidth * 0.5, oy:  armHeight * 0.5 }, // back-left  (Z- / Y+)
+      { ox: -armWidth * 0.5, oy: -armHeight * 0.5 }  // back-left  (Z- / Y-)
+    ];
+
+    // Build rails using a piecewise polyline of cylinders (fast + cheap)
+    const railPts = [];
+    const railNodes = {}; // rail index -> array of node positions along the length
+    const steps = Math.max(segments * 4, 16);
+    for (let r = 0; r < rails.length; r++) {
+      const nodes = [];
+      let prev = null;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const pt = this._railPoint(center, t, rails[r].ox, rails[r].oy);
+        nodes.push(pt.clone());
+        if (prev) {
+          const segMesh = cylinderBetween(prev, pt, tubeRadius, roundSegments, this.metalMaterial);
+          this.add(segMesh);
         }
-      };
-      const geo = new THREE.TubeGeometry(railPath, Math.max(8, p.railSegments), R, 12, false);
-      return new THREE.Mesh(geo, this.railMaterial);
-    };
-
-    const railL = mkRail(-S/2);
-    const railR = mkRail(+S/2);
-    railL.castShadow = railR.castShadow = true;
-    railL.receiveShadow = railR.receiveShadow = true;
-    this.add(railL, railR);
-
-    // Braces: simple diagonals between rails at regular Z
-    const braceRadius = Math.max(0.02, p.braceRadius);
-    const spacing = Math.max(0.5, p.braceSpacing);
-    const braceGeo = new THREE.CylinderGeometry(braceRadius, braceRadius, S, 12);
-    braceGeo.rotateZ(Math.PI/2); // cylinder length along X
-
-    // We'll place braces along straight Z — good enough visually
-    let flip = false;
-    for (let z = spacing; z < L - spacing/2; z += spacing) {
-      const y = (1 - Math.pow((z - L/2)/(L/2), 2)) * p.curveAmount; // approximate curve apex
-      const brace = new THREE.Mesh(braceGeo, this.braceMaterial);
-      // diagonal: +/- tilt in XZ
-      brace.position.set(0, y, z);
-      brace.rotation.y = flip ? Math.PI/6 : -Math.PI/6;
-      flip = !flip;
-      this.add(brace);
+        prev = pt;
+      }
+      railNodes[r] = nodes;
+      railPts.push(nodes);
     }
 
-    // Bolt joint at the end (separate mesh)
-    if (p.hasBolt) {
-      const boltR = Math.max(0.05, p.boltRadius);
-      const boltL = Math.max(0.1, p.boltLength);
+    // Cross frames + diagonals per segment
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
 
-      const bolt = new THREE.Mesh(
-        new THREE.CylinderGeometry(boltR, boltR, boltL, 20),
-        this.boltMaterial
+      // Corners at t0 and t1
+      const TL0 = this._railPoint(center, t0, -armWidth * 0.5,  armHeight * 0.5);
+      const BL0 = this._railPoint(center, t0, -armWidth * 0.5, -armHeight * 0.5);
+      const TR0 = this._railPoint(center, t0,  armWidth * 0.5,  armHeight * 0.5);
+      const BR0 = this._railPoint(center, t0,  armWidth * 0.5, -armHeight * 0.5);
+
+      const TL1 = this._railPoint(center, t1, -armWidth * 0.5,  armHeight * 0.5);
+      const BL1 = this._railPoint(center, t1, -armWidth * 0.5, -armHeight * 0.5);
+      const TR1 = this._railPoint(center, t1,  armWidth * 0.5,  armHeight * 0.5);
+      const BR1 = this._railPoint(center, t1,  armWidth * 0.5, -armHeight * 0.5);
+
+      // perimeter cross-frame at t0 (square)
+      this.add(cylinderBetween(TL0, TR0, tubeRadius, roundSegments, this.metalMaterial));
+      this.add(cylinderBetween(TR0, BR0, tubeRadius, roundSegments, this.metalMaterial));
+      this.add(cylinderBetween(BR0, BL0, tubeRadius, roundSegments, this.metalMaterial));
+      this.add(cylinderBetween(BL0, TL0, tubeRadius, roundSegments, this.metalMaterial));
+
+      // diagonals (alternate pattern)
+      if (i % 2 === 0) {
+        this.add(cylinderBetween(TL0, BR1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
+        this.add(cylinderBetween(TR0, BL1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
+      } else {
+        this.add(cylinderBetween(BL0, TR1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
+        this.add(cylinderBetween(BR0, TL1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
+      }
+    }
+
+    // End frame at t = 1
+    const TLE = this._railPoint(center, 1, -armWidth * 0.5,  armHeight * 0.5);
+    const BLE = this._railPoint(center, 1, -armWidth * 0.5, -armHeight * 0.5);
+    const TRE = this._railPoint(center, 1,  armWidth * 0.5,  armHeight * 0.5);
+    const BRE = this._railPoint(center, 1,  armWidth * 0.5, -armHeight * 0.5);
+
+    this.add(cylinderBetween(TLE, TRE, tubeRadius, roundSegments, this.metalMaterial));
+    this.add(cylinderBetween(TRE, BRE, tubeRadius, roundSegments, this.metalMaterial));
+    this.add(cylinderBetween(BRE, BLE, tubeRadius, roundSegments, this.metalMaterial));
+    this.add(cylinderBetween(BLE, TLE, tubeRadius, roundSegments, this.metalMaterial));
+
+    // End joint at the far end center (optional)
+    if (hasEndJoint && jointRadius > 0) {
+      const endCenter = center.getPoint(1); // (length, ~0, 0) with curvature
+      const joint = new THREE.Mesh(
+        new THREE.SphereGeometry(jointRadius, Math.max(8, roundSegments), Math.max(6, Math.floor(roundSegments * 0.7))),
+        this.jointMaterial
       );
-      bolt.rotation.x = Math.PI/2; // point along Z
-      // place at the arm tip
-      const tip = path.getPoint(1);
-      bolt.position.copy(tip);
-      bolt.position.y += 0; // sits centered on rails
-      bolt.userData.isModel = false; // keep selection at root
-      this.add(bolt);
+      joint.position.copy(endCenter);
+      joint.castShadow = true;
+      joint.receiveShadow = true;
+      this.add(joint);
     }
   }
 
   updateParams(next) {
-    next = { ...this.userData.params, ...next };
-    const maxCurve = TrussFrameArm.getMaxCurve(next);
-    if (next.curveAmount > maxCurve) next.curveAmount = maxCurve;
-    if (next.curveAmount < -maxCurve) next.curveAmount = -maxCurve;
-    this.userData.params = next;
+    this.userData.params = { ...this.userData.params, ...next };
     this.build();
   }
 
   dispose() {
-    for (const c of this.children) if (c.geometry) c.geometry.dispose();
+    this.traverse((n) => {
+      if (n.isMesh) {
+        n.geometry?.dispose?.();
+        if (Array.isArray(n.material)) n.material.forEach(m => m?.dispose?.());
+        else n.material?.dispose?.();
+      }
+    });
     this.clear();
   }
 }
