@@ -60,6 +60,14 @@ function applyMerge() {
           const geo = mesh.geometry.clone();
           geo.applyMatrix4(mesh.matrixWorld);
 
+          // --- FIX: Normalize attributes to prevent merge failure ---
+          // Ensure uv2 exists if uv exists, as some geometries (Sphere)
+          // have it by default and others (Cube) don't.
+          if (geo.attributes.uv && !geo.attributes.uv2) {
+            geo.setAttribute('uv2', geo.attributes.uv); // Just copy uv to uv2
+          }
+          // --- END FIX ---
+
           let meshMaterials = [];
           if (Array.isArray(mesh.material)) {
             meshMaterials = mesh.material;
