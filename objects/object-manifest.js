@@ -1,7 +1,7 @@
 // File: objects/object-manifest.js
 import * as THREE from 'three';
 import TowerBase from './towerbase.js';
-import TowerBaseSculpted from './tower_sculpted.js';
+// import TowerBaseSculpted from './tower_sculpted.js'; // <-- REMOVED
 import DoubleDoor from './doubledoor.js';
 import WindowAsset from './window.js';
 import Floor from './floor.js';
@@ -17,9 +17,9 @@ import RoofLight from './rooflight.js';
 import FuelTank from './fueltank.js';
 import Gear from './gear.js';
 import Screen from './screen.js';
-import TowerBanded from './tower_banded.js';
-import WindowFrame from './window_frame.js';
-import WrapAroundWindow from './wrap_window.js'; // <-- NEW
+// import TowerBanded from './tower_banded.js'; // <-- REMOVED
+// import WindowFrame from './window_frame.js'; // <-- REMOVED
+// import WrapAroundWindow from './wrap_window.js'; // <-- REMOVED
 
 // --- ADDED DUMMY CLASS ---
 // This allows saving/loading of imported/merged objects as empty placeholders.
@@ -84,34 +84,36 @@ function linkControls(page, object, paramConfig) {
         // We re-calculate the dynamic 'max' value based on the *next* params
         if (key === 'cornerRadius') {
             if (type === 'TowerBase') maxVal = TowerBase.getMaxCornerRadius(next);
-            else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxCornerRadius(next);
+            // else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxCornerRadius(next); // <-- REMOVED
             else if (type === 'DoubleDoor') maxVal = DoubleDoor.getMaxCornerRadius(next);
             else if (type === 'Window') maxVal = WindowAsset.getMaxCornerRadius(next);
             else if (type === 'Floor') maxVal = Floor.getMaxCornerRadius(next);
             else if (type === 'Roof') maxVal = Roof.getMaxCornerRadius(next);
-            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next);
-            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next);
-            else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxCornerRadius(next); // <-- NEW
+            // else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next); // <-- REMOVED
+            // else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- REMOVED
+            // else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxCornerRadius(next); // <-- REMOVED
             // --- MODIFIED --- Constraint for Cube cornerRadius
             else if (type === 'Cube') {
               maxVal = Math.min(next.width, next.height, next.depth) / 2;
             }
+        } else if (key === 'innerCornerRadius' && type === 'Window') { // <-- NEW
+            maxVal = WindowAsset.getMaxInnerCornerRadius(next);
         } else if (key === 'edgeRoundness') {
              if (type === 'TowerBase') maxVal = TowerBase.getMaxEdgeRoundness(next);
-            else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxEdgeRoundness(next);
+            // else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxEdgeRoundness(next); // <-- REMOVED
             else if (type === 'DoubleDoor') maxVal = DoubleDoor.getMaxEdgeRoundness(next);
             else if (type === 'Window') maxVal = WindowAsset.getMaxEdgeRoundness(next);
             else if (type === 'Floor') maxVal = Floor.getMaxEdgeRoundness(next);
             else if (type === 'Roof') maxVal = Roof.getMaxEdgeRoundness(next);
-            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next);
-            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxEdgeRoundness(next);
-            else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxEdgeRoundness(next); // <-- NEW
+            // else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next); // <-- REMOVED
+            // else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxEdgeRoundness(next); // <-- REMOVED
+            // else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxEdgeRoundness(next); // <-- REMOVED
         } else if (key === 'doorWidth' && type === 'TowerBase') {
             maxVal = TowerBase.getMaxDoorWidth(next);
         } else if (key === 'doorWidthFront' && type === 'TowerBaseSculpted') {
-            maxVal = TowerBaseSculpted.getMaxDoorWidth(next);
+            // maxVal = TowerBaseSculpted.getMaxDoorWidth(next); // <-- REMOVED
         } else if (key === 'doorWidthSide' && type === 'TowerBaseSculpted') {
-            maxVal = TowerBaseSculpted.getMaxSideDoorWidth(next);
+            // maxVal = TowerBaseSculpted.getMaxSideDoorWidth(next); // <-- REMOVED
         } else if (key === 'wallThickness' && type === 'Pipe') {
             maxVal = Pipe.getMaxWall(next);
         }
@@ -240,100 +242,8 @@ export const OBJECT_DEFINITIONS = [
       }
     }
   },
-  {
-    type: 'TowerBanded',
-    label: 'Tower (Banded)',
-    ctor: TowerBanded,
-    defaultParams: { width: 10, depth: 10, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, band1Height: 1, band2Height: 3, band3Height: 1 },
-    initialY: (p) => (p.band1Height + p.band2Height + p.band3Height) / 2,
-    buildShapeTab: (object, page) => {
-      const p = object.userData.params;
-      const paramConfig = {
-        width:            { min: 4,   max: 80, step: 0.1, label: 'Width' },
-        depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
-        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
-        cornerRadius:     { min: 0,   max: TowerBanded.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-        edgeRoundness:    { min: 0,   max: TowerBanded.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        band1Height:      { min: 0.1, max: 10, step: 0.1, label: 'Bottom Band H' },
-        band2Height:      { min: 0.1, max: 10, step: 0.1, label: 'Gap Band H' },
-        band3Height:      { min: 0.1, max: 10, step: 0.1, label: 'Top Band H' }
-      };
-      buildTabFromConfig(object, page, paramConfig);
-    }
-  },
-  {
-    type: 'TowerBaseSculpted',
-    label: 'Tower (Sculpted)',
-    ctor: TowerBaseSculpted,
-    defaultParams: {
-        // Wall
-        width: 12,
-        depth: 12,
-        height: 8,
-        wallThickness: 1,
-        cornerRadius: 1.2,
-        cornerSmoothness: 16,
-        edgeRoundness: 0.3,
-        edgeSmoothness: 4,
-        doorWidthFront: 4,
-        doorWidthSide: 3,
-        // Plinth
-        plinthHeight: 0.8,
-        plinthOutset: 0.5,
-        plinthRoundness: 0.1,
-        plinthEdgeSmoothness: 2,
-        // Cornice
-        corniceHeight: 0.6,
-        corniceOutset: 0.4,
-        corniceRoundness: 0.1,
-        corniceEdgeSmoothness: 2,
-        // Buttresses
-        buttressCountFront: 2,
-        buttressWidth: 0.6,
-        buttressDepth: 0.4,
-        buttressRoundness: 0.1,
-        buttressEdgeSmoothness: 2,
-        sideColumnPos: 0.5,
-        sideColumnCurveHeight: 2.0,
-        sideColumnCurveAmount: 0.5,
-    },
-    initialY: (p) => (p.height / 2) + p.plinthHeight,
-    buildShapeTab: (object, page) => {
-      const p = object.userData.params;
-      const paramConfig = {
-        // Wall
-        height:           { min: 1,   max: 80, step: 0.1, label: 'Wall Height' },
-        width:            { min: 4,   max: 80, step: 0.1, label: 'Wall Width' },
-        depth:            { min: 4,   max: 80, step: 0.1, label: 'Wall Depth' },
-        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
-        cornerRadius:     { min: 0,   max: TowerBaseSculpted.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-        edgeRoundness:    { min: 0,   max: TowerBaseSculpted.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        doorWidthFront:   { min: 0,   max: TowerBaseSculpted.getMaxDoorWidth(p), step: 0.1, label: 'Front Door Width' },
-        doorWidthSide:    { min: 0,   max: TowerBaseSculpted.getMaxSideDoorWidth(p), step: 0.1, label: 'Side Door Width' },
-        // Plinth
-        plinthHeight:     { min: 0.1, max: 5,  step: 0.05, label: 'Plinth Height' },
-        plinthOutset:     { min: 0,   max: 5,  step: 0.05, label: 'Plinth Outset' },
-        plinthRoundness:  { min: 0,   max: 2,  step: 0.01, label: 'Plinth Roundness' },
-        // Cornice
-        corniceHeight:    { min: 0.1, max: 5,  step: 0.05, label: 'Cornice Height' },
-        corniceOutset:    { min: 0,   max: 5,  step: 0.05, label: 'Cornice Outset' },
-        corniceRoundness: { min: 0,   max: 2,  step: 0.01, label: 'Cornice Roundness' },
-        // Buttresses
-        buttressCountFront: { min: 0, max: 10, step: 1,    label: 'Front Columns' },
-        buttressWidth:    { min: 0.1, max: 3,  step: 0.05, label: 'Column Width' },
-        buttressDepth:    { min: 0.1, max: 3,  step: 0.05, label: 'Column Depth' },
-        buttressRoundness:{ min: 0,   max: 1,  step: 0.01, label: 'Column Roundness' },
-        sideColumnPos:    { min: 0,   max: 1,  step: 0.01, label: 'Side Column Pos' },
-        sideColumnCurveHeight: { min: 0, max: 10, step: 0.1, label: 'Col Curve Height' },
-        sideColumnCurveAmount: { min: 0, max: 2,  step: 0.05, label: 'Col Curve Amount' },
-      };
-      buildTabFromConfig(object, page, paramConfig);
-    }
-  },
+  // --- REMOVED TowerBanded ---
+  // --- REMOVED TowerBaseSculpted ---
   {
     type: 'DoubleDoor',
     label: 'Double Door',
@@ -364,21 +274,33 @@ export const OBJECT_DEFINITIONS = [
     type: 'Window',
     label: 'Window',
     ctor: WindowAsset,
-    defaultParams: { totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4, cornerRadius: 0.1, glassOpacity:0.3, glassRoughness:0.1 },
+    // --- MODIFIED: Added new defaults ---
+    defaultParams: { 
+      totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4, 
+      cornerRadius: 0.1, innerCornerRadius: 0.1,
+      vertPanes: 1, horizPanes: 1, mullionThickness: 0.1,
+      bendAngle: 0, bendStartY: 0.5,
+      glassOpacity:0.3, glassRoughness:0.1 
+    },
     initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
+      // --- MODIFIED: Updated param config ---
       const paramConfig = {
         height:           { min: 1,   max: 60, step: 0.1, label: 'Height' },
         totalWidth:       { min: 2,   max: 80, step: 0.1, label: 'Total Width' },
         depth:            { min: 0.02,max: 3,  step: 0.02, label: 'Depth' },
         frameThickness:   { min: 0.05,max: 2,  step: 0.05, label: 'Frame Thickness' },
-        cornerRadius:     { min: 0,   max: WindowAsset.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+        cornerRadius:     { min: 0,   max: WindowAsset.getMaxCornerRadius(p), step: 0.05, label: 'Outer Corner Radius' },
+        innerCornerRadius:{ min: 0,   max: WindowAsset.getMaxInnerCornerRadius(p), step: 0.05, label: 'Inner Corner Radius' },
         cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
         edgeRoundness:    { min: 0,   max: WindowAsset.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
         edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        hasBolts:         { type: 'checkbox', label: 'Bolts' },
-        hasBars:          { type: 'checkbox', label: 'Bars' },
+        vertPanes:        { min: 1,   max: 10, step: 1,   label: 'Vertical Panes' },
+        horizPanes:       { min: 1,   max: 10, step: 1,   label: 'Horizontal Panes' },
+        mullionThickness: { min: 0.01,max: 0.5,step: 0.01, label: 'Mullion Thickness' },
+        bendAngle:        { min: -180,max: 180,step: 1,   label: 'Bend Angle Â°' },
+        bendStartY:       { min: 0.0, max: 1.0,step: 0.01, label: 'Bend Start %' },
         glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
         glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
         glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass B' },
@@ -388,63 +310,8 @@ export const OBJECT_DEFINITIONS = [
       buildTabFromConfig(object, page, paramConfig);
     }
   },
-  {
-    type: 'WindowFrame',
-    label: 'Window (Tower Frame)',
-    ctor: WindowFrame,
-    defaultParams: { width: 10, depth: 10, height: 1, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, glassOpacity: 0.3, glassRoughness: 0.1 },
-    initialY: (p) => p.height / 2,
-    buildShapeTab: (object, page) => {
-      const p = object.userData.params;
-      const paramConfig = {
-        height:           { min: 0.1, max: 80, step: 0.1, label: 'Height (Thickness)' },
-        width:            { min: 4,   max: 80, step: 0.1, label: 'Width' },
-        depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
-        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Frame Thickness' },
-        cornerRadius:     { min: 0,   max: WindowFrame.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-        edgeRoundness:    { min: 0,   max: WindowFrame.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
-        glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
-        glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass B' },
-        glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
-        glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
-      };
-      buildTabFromConfig(object, page, paramConfig);
-    }
-  },
-  // --- NEW OBJECT 3 ---
-  {
-    type: 'WrapAroundWindow',
-    label: 'Window (Wrap-Around)',
-    ctor: WrapAroundWindow,
-    defaultParams: { width: 10, depth: 10, height: 3, towerWallThickness: 1, towerCornerRadius: 1.0, frameThickness: 0.2, cornerRadius: 0.05 },
-    initialY: (p) => p.height / 2,
-    buildShapeTab: (object, page) => {
-      const p = object.userData.params;
-      const paramConfig = {
-        // Sizing
-        width:            { min: 4,   max: 80, step: 0.1, label: 'Tower Width' },
-        depth:            { min: 4,   max: 80, step: 0.1, label: 'Tower Depth' },
-        height:           { min: 0.1, max: 80, step: 0.1, label: 'Height' },
-        towerWallThickness:{ min: 0.1, max: 5,  step: 0.05, label: 'Tower Wall Thick' },
-        towerCornerRadius:{ min: 0,   max: 40, step: 0.05, label: 'Tower Corner Rad' },
-        // Appearance
-        frameThickness:   { min: 0.05,max: 2,  step: 0.05, label: 'Frame Thickness' },
-        cornerRadius:     { min: 0,   max: 2,  step: 0.05, label: 'Frame Corner Rad' }, // Simplified max
-        edgeRoundness:    { min: 0,   max: 1,  step: 0.05, label: 'Frame Edge Round' }, // Simplified max
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
-        glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
-        glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass B' },
-        glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
-        glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
-      };
-      buildTabFromConfig(object, page, paramConfig);
-    }
-  },
-  // --- END NEW OBJECT 3 ---
+  // --- REMOVED WindowFrame ---
+  // --- REMOVED WrapAroundWindow ---
   {
     type: 'Floor',
     label: 'Floor',
@@ -492,10 +359,10 @@ export const OBJECT_DEFINITIONS = [
         wallThickness:   { min: 0.002, max: Pipe.getMaxWall(p), step: 0.01, label: 'Wall Thickness' },
         radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
         hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
-        shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle Â°' },
+        shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle ÃÂ°' },
         elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
         elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
-        elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane Â°' },
+        elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane ÃÂ°' },
         hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
         hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
         flangeRadius:    { min: 0.1, max: 20,  step: 0.05, label: 'Flange Radius' },
