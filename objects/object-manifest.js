@@ -18,7 +18,6 @@ import Gear from './gear.js';
 import Screen from './screen.js';
 
 // --- Reusable Slider Building Logic ---
-// ... (all helper functions are correct)
 function createSlider(page, object, key, cfg) {
   const p = object.userData.params;
   const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
@@ -64,7 +63,7 @@ function linkControls(page, object, paramConfig) {
     if (crSlider) {
       let maxCR = parseFloat(crSlider.max);
       if (type === 'TowerBase') maxCR = TowerBase.getMaxCornerRadius(next);
-      else if (type === 'TowerBaseSculpted') maxCR = TowerBaseSculpted.getMaxCornerRadius(next); // <-- MODIFIED
+      else if (type === 'TowerBaseSculpted') maxCR = TowerBaseSculpted.getMaxCornerRadius(next);
       else if (type === 'DoubleDoor') maxCR = DoubleDoor.getMaxCornerRadius(next);
       else if (type === 'Window') maxCR = WindowAsset.getMaxCornerRadius(next);
       else if (type === 'Floor') maxCR = Floor.getMaxCornerRadius(next);
@@ -76,7 +75,7 @@ function linkControls(page, object, paramConfig) {
     if (erSlider) {
       let maxER = parseFloat(erSlider.max);
       if (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
-      else if (type === 'TowerBaseSculpted') maxER = TowerBaseSculpted.getMaxEdgeRoundness(next); // <-- MODIFIED
+      else if (type === 'TowerBaseSculpted') maxER = TowerBaseSculpted.getMaxEdgeRoundness(next);
       else if (type === 'DoubleDoor') maxER = DoubleDoor.getMaxEdgeRoundness(next);
       else if (type === 'Window') maxER = WindowAsset.getMaxEdgeRoundness(next);
       else if (type === 'Floor') maxER = Floor.getMaxEdgeRoundness(next);
@@ -86,16 +85,18 @@ function linkControls(page, object, paramConfig) {
     }
     
     // --- Door Width Sliders ---
-    const dwSlider = page.querySelector('#doorWidthFront-slider'); // <-- RENAMED
-    if (dwSlider && (type === 'TowerBase' || type === 'TowerBaseSculpted')) { 
-      const maxDW = (type === 'TowerBase') ? TowerBase.getMaxDoorWidth(next) : TowerBaseSculpted.getMaxDoorWidth(next);
-      dwSlider.max = maxDW;
-      // Handle key difference
-      if (type === 'TowerBase') {
-          if (next.doorWidth > maxDW) next.doorWidth = maxDW;
-      } else {
-          if (next.doorWidthFront > maxDW) next.doorWidthFront = maxDW;
-      }
+    const dwSlider = page.querySelector('#doorWidth-slider'); // For original TowerBase
+    if (dwSlider && type === 'TowerBase') {
+        const maxDW = TowerBase.getMaxDoorWidth(next);
+        dwSlider.max = maxDW;
+        if (next.doorWidth > maxDW) next.doorWidth = maxDW;
+    }
+
+    const dwFrontSlider = page.querySelector('#doorWidthFront-slider'); // For Sculpted
+    if (dwFrontSlider && type === 'TowerBaseSculpted') { 
+      const maxDW = TowerBaseSculpted.getMaxDoorWidth(next);
+      dwFrontSlider.max = maxDW;
+      if (next.doorWidthFront > maxDW) next.doorWidthFront = maxDW;
     }
     
     // --- NEW: Side Door Width Slider ---
@@ -248,8 +249,15 @@ export const OBJECT_DEFINITIONS = [
     type: 'TowerBaseSculpted',
     label: 'Tower (Sculpted)',
     ctor: TowerBaseSculpted,
-    defaultParams: { /* Defaults are in the class constructor */ },
-    initialY: (p) => (p.height / 2 + (p.corniceHeight || 0.6)), // Place on ground
+    // --- FIX IS HERE ---
+    // Provide the default values that initialY needs.
+    // The class constructor will still provide all the *other* defaults.
+    defaultParams: {
+        height: 8,
+        corniceHeight: 0.6
+    },
+    initialY: (p) => (p.height / 2 + p.corniceHeight), // This will now work
+    // --- END FIX ---
     buildShapeTab: (object, page) => {
         const p = object.userData.params;
         const paramConfig = {
