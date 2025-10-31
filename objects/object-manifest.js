@@ -99,8 +99,7 @@ function linkControls(page, object, paramConfig) {
       if (next.doorWidthFront > maxDW) next.doorWidthFront = maxDW;
     }
     
-    // --- NEW: Side Door Width Slider ---
-    const dwSideSlider = page.querySelector('#doorWidthSide-slider');
+    const dwSideSlider = page.querySelector('#doorWidthSide-slider'); // For Sculpted
     if (dwSideSlider && type === 'TowerBaseSculpted') {
       const maxDWSide = TowerBaseSculpted.getMaxSideDoorWidth(next);
       dwSideSlider.max = maxDWSide;
@@ -230,34 +229,27 @@ export const OBJECT_DEFINITIONS = [
     defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
     initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
-       const p = object.userData.params;
-       const paramConfig = {
-        height:           { min: 1,   max: 80, step: 0.1, label: 'Height' },
-        width:            { min: 4,   max: 80, step: 0.1, label: 'Width' },
-        depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
-        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
-        cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, 
-        edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
-      };
-      buildTabFromConfig(object, page, paramConfig);
+       // --- THIS IS THE FIX ---
+       // It just re-uses the 'Tower (Door)' config, which is correct.
+       const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.label === 'Tower (Door)');
+       if (doorTowerDef) {
+         doorTowerDef.buildShapeTab(object, page);
+       }
+       // --- END FIX ---
     }
   },
   { // <-- THIS IS THE MODIFIED DEFINITION
     type: 'TowerBaseSculpted',
     label: 'Tower (Sculpted)',
     ctor: TowerBaseSculpted,
-    // --- FIX IS HERE ---
     // Provide the default values that initialY needs.
-    // The class constructor will still provide all the *other* defaults.
     defaultParams: {
         height: 8,
-        corniceHeight: 0.6
+        corniceHeight: 0.6,
+        // Also provide defaults for the dynamic 'max' value in buildShapeTab
+        plinthHeight: 0.8 
     },
     initialY: (p) => (p.height / 2 + p.corniceHeight), // This will now work
-    // --- END FIX ---
     buildShapeTab: (object, page) => {
         const p = object.userData.params;
         const paramConfig = {
@@ -288,7 +280,10 @@ export const OBJECT_DEFINITIONS = [
             buttressDepth:    { min: 0.1, max: 4,  step: 0.05, label: 'Column Depth (Outset)' },
             buttressRoundness:{ min: 0,   max: 2,  step: 0.01, label: 'Column Roundness' },
             sideColumnPos:    { min: 0,   max: 1,  step: 0.01, label: 'Side Column Position' },
-            sideColumnCurveHeight: { min: 0.1, max: (p.height+p.plinthHeight+p.corniceHeight), step: 0.1, label: 'Side Col. Curve Height' },
+            // --- THIS IS THE FIX ---
+            // Added (p.plinthHeight || 0) and (p.corniceHeight || 0) to prevent errors
+            // if p is not fully populated when the tab is first built.
+            sideColumnCurveHeight: { min: 0.1, max: ((p.height || 8) + (p.plinthHeight || 0) + (p.corniceHeight || 0)), step: 0.1, label: 'Side Col. Curve Height' },
             sideColumnCurveAmount: { min: 0,   max: 3,  step: 0.05, label: 'Side Col. Curve Amount' },
         };
         buildTabFromConfig(object, page, paramConfig);
