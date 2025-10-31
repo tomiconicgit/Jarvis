@@ -1,6 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  >
+  <title>Mobile 3D Tower Modeler</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root { --toolbar-h: 52px; }
+    html, body {
+      margin: 0; padding: 0; overflow: hidden;
+      height: 100%; width: 100%; background: #111;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    #canvas-container { position: fixed; inset: 0; z-index: 1; }
+    canvas { display: block; width: 100%; height: 100%; }
+    * { -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+
+    #loading-screen {
+      position: fixed; inset: 0; background: #1a1a1a; color: #fff;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 1.5rem; z-index: 1000; transition: opacity 0.5s ease;
+    }
+
+    .ui-panel {
+      position: fixed; background: rgba(30,30,30,0.90);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px; z-index: 12;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transition: transform 0.25s ease-out, opacity 0.2s ease-out, visibility 0.2s;
+    }
+
+    /* Mobile bottom-sheet default */
+    .bottom-sheet {
+      left: 12px; right: 12px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      transform: translateY(100%); opacity: 0; visibility: hidden;
+    }
+
+    /* Desktop left-drawer pattern (used in addition to bottom-sheet) */
+    .left-drawer {
+      left: 12px;
+      top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 12px);
+      width: 360px;
+      transform: translateX(-120%); opacity: 0; visibility: hidden;
+    }
+    body.desktop .left-drawer { bottom: auto; }
+    body.desktop .left-drawer.show { transform: translateX(0); opacity: 1; visibility: visible; }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+      background: #4a5568; border-radius: 4px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 24px; height: 24px; background: #3b82f6;
+      border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 24px; height: 24px; background: #3b82f6;
+      border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+
+    #message-box {
+      position: fixed;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(40,40,40,0.96); color: #fff;
+      padding: 12px 16px; border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      z-index: 1001; opacity: 0; visibility: hidden;
+      transition: transform 0.18s ease-out, opacity 0.18s ease-out, visibility 0.18s;
+      text-align: center; font-size: 14px;
+    }
+    #message-box.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+
+    #app-toolbar-wrap {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+      padding-top: env(safe-area-inset-top, 0px);
+      background: rgba(20,20,20,0.92);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #app-toolbar { height: var(--toolbar-h); }
+    .tool-btn { min-width: 64px; height: 36px; font-size: 14px; }
+
+    /* Props panel: mobile bottom-sheet; desktop right sidebar */
+    #props-panel {
+      left: 0; right: 0; bottom: 0;
+      border-top-left-radius: 12px; border-top-right-radius: 12px;
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+      height: 45vh; max-height: 45vh; z-index: 15;
+      transform: translateY(100%); opacity: 0; visibility: hidden;
+    }
+    body.desktop #props-panel {
+      right: 12px;
+      left: auto;
+      top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 12px);
+      bottom: 12px;
+      height: auto; max-height: calc(100vh - var(--toolbar-h) - 24px - env(safe-area-inset-top, 0px));
+      width: 380px;
+      transform: translateX(0) !important; opacity: 1 !important; visibility: visible !important;
+      border-radius: 12px;
+    }
+  </style>
+
+  <script src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
   <script type="importmap">
   {
     "imports": {
@@ -16,6 +127,12 @@
   </script>
 </head>
 <body class="bg-gray-900 text-white">
+
+  <div id="canvas-container"></div>
+
+  <div id="loading-screen"><div>Loading 3D Environment...</div></div>
+
+  <div id="message-box"><p id="message-text">Ready</p></div>
 
   <div id="app-toolbar-wrap">
     <div id="app-toolbar" class="px-3 flex items-center gap-2">
@@ -35,5 +152,19 @@
   <div id="export-panel-placeholder"></div>
   <div id="props-panel-placeholder"></div>
 
-  </body>
+  <input id="picker-load-json" type="file" accept="application/json" class="hidden">
+  <input id="picker-import-glb" type="file" accept=".glb,model/gltf-binary" class="hidden">
+
+
+  <script>
+    const hideLoader = () => {
+      const ls = document.getElementById('loading-screen');
+      if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+    };
+    window.addEventListener('error', hideLoader);
+    window.addEventListener('unhandledrejection', hideLoader);
+  </script>
+
+  <script type="module" src="main.js"></script>
+</body>
 </html>
