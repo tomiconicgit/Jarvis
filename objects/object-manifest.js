@@ -17,6 +17,8 @@ import RoofLight from './rooflight.js';
 import FuelTank from './fueltank.js';
 import Gear from './gear.js';
 import Screen from './screen.js';
+import TowerBanded from './tower_banded.js'; // <-- NEW
+import WindowFrame from './window_frame.js'; // <-- NEW
 
 // --- ADDED DUMMY CLASS ---
 // This allows saving/loading of imported/merged objects as empty placeholders.
@@ -86,6 +88,8 @@ function linkControls(page, object, paramConfig) {
             else if (type === 'Window') maxVal = WindowAsset.getMaxCornerRadius(next);
             else if (type === 'Floor') maxVal = Floor.getMaxCornerRadius(next);
             else if (type === 'Roof') maxVal = Roof.getMaxCornerRadius(next);
+            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next); // <-- NEW
+            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- NEW
             // --- MODIFIED --- Constraint for Cube cornerRadius
             else if (type === 'Cube') {
               maxVal = Math.min(next.width, next.height, next.depth) / 2;
@@ -97,6 +101,8 @@ function linkControls(page, object, paramConfig) {
             else if (type === 'Window') maxVal = WindowAsset.getMaxEdgeRoundness(next);
             else if (type === 'Floor') maxVal = Floor.getMaxEdgeRoundness(next);
             else if (type === 'Roof') maxVal = Roof.getMaxEdgeRoundness(next);
+            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next); // <-- NEW
+            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxEdgeRoundness(next); // <-- NEW
         } else if (key === 'doorWidth' && type === 'TowerBase') {
             maxVal = TowerBase.getMaxDoorWidth(next);
         } else if (key === 'doorWidthFront' && type === 'TowerBaseSculpted') {
@@ -231,6 +237,31 @@ export const OBJECT_DEFINITIONS = [
       }
     }
   },
+  // --- NEW OBJECT 1 ---
+  {
+    type: 'TowerBanded',
+    label: 'Tower (Banded)',
+    ctor: TowerBanded,
+    defaultParams: { width: 10, depth: 10, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, band1Height: 1, band2Height: 3, band3Height: 1 },
+    initialY: (p) => (p.band1Height + p.band2Height + p.band3Height) / 2,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        width:            { min: 4,   max: 80, step: 0.1, label: 'Width' },
+        depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
+        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
+        cornerRadius:     { min: 0,   max: TowerBanded.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+        edgeRoundness:    { min: 0,   max: TowerBanded.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        band1Height:      { min: 0.1, max: 10, step: 0.1, label: 'Bottom Band H' },
+        band2Height:      { min: 0.1, max: 10, step: 0.1, label: 'Gap Band H' },
+        band3Height:      { min: 0.1, max: 10, step: 0.1, label: 'Top Band H' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  // --- END NEW OBJECT 1 ---
   {
     type: 'TowerBaseSculpted',
     label: 'Tower (Sculpted)',
@@ -356,6 +387,34 @@ export const OBJECT_DEFINITIONS = [
       buildTabFromConfig(object, page, paramConfig);
     }
   },
+  // --- NEW OBJECT 2 ---
+  {
+    type: 'WindowFrame',
+    label: 'Window (Tower Frame)',
+    ctor: WindowFrame,
+    defaultParams: { width: 10, depth: 10, height: 1, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, glassOpacity: 0.3, glassRoughness: 0.1 },
+    initialY: (p) => p.height / 2,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        height:           { min: 0.1, max: 80, step: 0.1, label: 'Height (Thickness)' },
+        width:            { min: 4,   max: 80, step: 0.1, label: 'Width' },
+        depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
+        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Frame Thickness' },
+        cornerRadius:     { min: 0,   max: WindowFrame.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+        edgeRoundness:    { min: 0,   max: WindowFrame.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
+        glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
+        glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass B' },
+        glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+        glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  // --- END NEW OBJECT 2 ---
   {
     type: 'Floor',
     label: 'Floor',
@@ -597,7 +656,7 @@ export const OBJECT_DEFINITIONS = [
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
         // --- NEW SLIDERS ---
-        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle °' },
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
         bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
         flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
         flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
@@ -616,15 +675,15 @@ export const OBJECT_DEFINITIONS = [
       const paramConfig = {
         radius: { min: 0.1, max: 50, step: 0.1, label: 'Radius' },
         segments: { min: 4, max: 64, step: 1, label: 'Segments' },
-        phiStart: { min: 0, max: 360, step: 1, label: 'Horiz. Start °' },
-        phiLength: { min: 0, max: 360, step: 1, label: 'Horiz. Length °' },
-        thetaStart: { min: 0, max: 180, step: 1, label: 'Vert. Start °' },
-        thetaLength: { min: 0, max: 180, step: 1, label: 'Vert. Length °' },
+        phiStart: { min: 0, max: 360, step: 1, label: 'Horiz. Start Â°' },
+        phiLength: { min: 0, max: 360, step: 1, label: 'Horiz. Length Â°' },
+        thetaStart: { min: 0, max: 180, step: 1, label: 'Vert. Start Â°' },
+        thetaLength: { min: 0, max: 180, step: 1, label: 'Vert. Length Â°' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
         // --- NEW SLIDERS ---
-        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle °' },
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
         bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
         flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
         flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
@@ -645,14 +704,14 @@ export const OBJECT_DEFINITIONS = [
         radiusBottom: { min: 0, max: 50, step: 0.1, label: 'Radius Bottom' },
         height: { min: 0.1, max: 50, step: 0.1, label: 'Height' },
         radialSegments: { min: 3, max: 64, step: 1, label: 'Radial Segments' },
-        thetaStart: { min: 0, max: 360, step: 1, label: 'Start Angle °' },
-        thetaLength: { min: 0, max: 360, step: 1, label: 'Arc Length °' },
+        thetaStart: { min: 0, max: 360, step: 1, label: 'Start Angle Â°' },
+        thetaLength: { min: 0, max: 360, step: 1, label: 'Arc Length Â°' },
         openEnded: { type: 'checkbox', label: 'Open Ended' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
         // --- NEW SLIDERS ---
-        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle °' },
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
         bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
         flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
         flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
