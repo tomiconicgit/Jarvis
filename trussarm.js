@@ -26,7 +26,7 @@ export default class TrussArm extends THREE.Group {
 
     const defaults = {
       length: 10,          // overall length along +X
-      armWidth: 2,         // distance between left/right rails (X offset is 0; this is ±X in local?)
+      armWidth: 2,         // distance between left/right rails (X offset is 0; this is Â±X in local?)
       armHeight: 2,        // distance between top/bottom rails
       tubeRadius: 0.12,    // pipe radius
       roundSegments: 12,   // radial segments for tubes/bolts
@@ -56,7 +56,7 @@ export default class TrussArm extends THREE.Group {
     return new THREE.QuadraticBezierCurve3(p0, p1, p2);
   }
 
-  /** For a “corner rail” we offset the centerline curve by (ox, oy). */
+  /** For a âcorner railâ we offset the centerline curve by (ox, oy). */
   _railPoint(curve, t, ox, oy) {
     const p = curve.getPoint(t);
     p.x += 0;      // centerline already along X
@@ -83,12 +83,12 @@ export default class TrussArm extends THREE.Group {
       hasEndJoint, jointRadius
     } = p;
 
-    const railRise = curve; // “rise” at midspan in Y for the centerline
+    const railRise = curve; // âriseâ at midspan in Y for the centerline
 
     const center = this._makeCenterCurve(length, railRise);
 
     // 4 longerons (corner rails) laid out on a rectangle in local YZ:
-    // offsets in Z: ±armWidth/2, offsets in Y: ±armHeight/2
+    // offsets in Z: Â±armWidth/2, offsets in Y: Â±armHeight/2
     const rails = [
       { ox:  armWidth * 0.5, oy:  armHeight * 0.5 }, // front-right (Z+ / Y+)
       { ox:  armWidth * 0.5, oy: -armHeight * 0.5 }, // front-right (Z+ / Y-)
@@ -134,18 +134,34 @@ export default class TrussArm extends THREE.Group {
       const BR1 = this._railPoint(center, t1,  armWidth * 0.5, -armHeight * 0.5);
 
       // perimeter cross-frame at t0 (square)
-      this.add(cylinderBetween(TL0, TR0, tubeRadius, roundSegments, this.metalMaterial));
-      this.add(cylinderBetween(TR0, BR0, tubeRadius, roundSegments, this.metalMaterial));
-      this.add(cylinderBetween(BR0, BL0, tubeRadius, roundSegments, this.metalMaterial));
-      this.add(cylinderBetween(BL0, TL0, tubeRadius, roundSegments, this.metalMaterial));
+      const cross1 = cylinderBetween(TL0, TR0, tubeRadius, roundSegments, this.metalMaterial);
+      cross1.name = 'Cross' + i + '_1';
+      this.add(cross1);
+      const cross2 = cylinderBetween(TR0, BR0, tubeRadius, roundSegments, this.metalMaterial);
+      cross2.name = 'Cross' + i + '_2';
+      this.add(cross2);
+      const cross3 = cylinderBetween(BR0, BL0, tubeRadius, roundSegments, this.metalMaterial);
+      cross3.name = 'Cross' + i + '_3';
+      this.add(cross3);
+      const cross4 = cylinderBetween(BL0, TL0, tubeRadius, roundSegments, this.metalMaterial);
+      cross4.name = 'Cross' + i + '_4';
+      this.add(cross4);
 
       // diagonals (alternate pattern)
       if (i % 2 === 0) {
-        this.add(cylinderBetween(TL0, BR1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
-        this.add(cylinderBetween(TR0, BL1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
+        const diag1 = cylinderBetween(TL0, BR1, tubeRadius * 0.9, roundSegments, this.metalMaterial);
+        diag1.name = 'Diag' + i + '_1';
+        this.add(diag1);
+        const diag2 = cylinderBetween(TR0, BL1, tubeRadius * 0.9, roundSegments, this.metalMaterial);
+        diag2.name = 'Diag' + i + '_2';
+        this.add(diag2);
       } else {
-        this.add(cylinderBetween(BL0, TR1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
-        this.add(cylinderBetween(BR0, TL1, tubeRadius * 0.9, roundSegments, this.metalMaterial));
+        const diag1 = cylinderBetween(BL0, TR1, tubeRadius * 0.9, roundSegments, this.metalMaterial);
+        diag1.name = 'Diag' + i + '_1';
+        this.add(diag1);
+        const diag2 = cylinderBetween(BR0, TL1, tubeRadius * 0.9, roundSegments, this.metalMaterial);
+        diag2.name = 'Diag' + i + '_2';
+        this.add(diag2);
       }
     }
 
@@ -155,10 +171,18 @@ export default class TrussArm extends THREE.Group {
     const TRE = this._railPoint(center, 1,  armWidth * 0.5,  armHeight * 0.5);
     const BRE = this._railPoint(center, 1,  armWidth * 0.5, -armHeight * 0.5);
 
-    this.add(cylinderBetween(TLE, TRE, tubeRadius, roundSegments, this.metalMaterial));
-    this.add(cylinderBetween(TRE, BRE, tubeRadius, roundSegments, this.metalMaterial));
-    this.add(cylinderBetween(BRE, BLE, tubeRadius, roundSegments, this.metalMaterial));
-    this.add(cylinderBetween(BLE, TLE, tubeRadius, roundSegments, this.metalMaterial));
+    const endCross1 = cylinderBetween(TLE, TRE, tubeRadius, roundSegments, this.metalMaterial);
+    endCross1.name = 'EndCross1';
+    this.add(endCross1);
+    const endCross2 = cylinderBetween(TRE, BRE, tubeRadius, roundSegments, this.metalMaterial);
+    endCross2.name = 'EndCross2';
+    this.add(endCross2);
+    const endCross3 = cylinderBetween(BRE, BLE, tubeRadius, roundSegments, this.metalMaterial);
+    endCross3.name = 'EndCross3';
+    this.add(endCross3);
+    const endCross4 = cylinderBetween(BLE, TLE, tubeRadius, roundSegments, this.metalMaterial);
+    endCross4.name = 'EndCross4';
+    this.add(endCross4);
 
     // End joint at the far end center (optional)
     if (hasEndJoint && jointRadius > 0) {
@@ -167,6 +191,7 @@ export default class TrussArm extends THREE.Group {
         new THREE.SphereGeometry(jointRadius, Math.max(8, roundSegments), Math.max(6, Math.floor(roundSegments * 0.7))),
         this.jointMaterial
       );
+      joint.name = 'EndJoint';
       joint.position.copy(endCenter);
       joint.castShadow = true;
       joint.receiveShadow = true;
