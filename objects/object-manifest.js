@@ -17,8 +17,9 @@ import RoofLight from './rooflight.js';
 import FuelTank from './fueltank.js';
 import Gear from './gear.js';
 import Screen from './screen.js';
-import TowerBanded from './tower_banded.js'; // <-- NEW
-import WindowFrame from './window_frame.js'; // <-- NEW
+import TowerBanded from './tower_banded.js';
+import WindowFrame from './window_frame.js';
+import WrapAroundWindow from './wrap_window.js'; // <-- NEW
 
 // --- ADDED DUMMY CLASS ---
 // This allows saving/loading of imported/merged objects as empty placeholders.
@@ -88,8 +89,9 @@ function linkControls(page, object, paramConfig) {
             else if (type === 'Window') maxVal = WindowAsset.getMaxCornerRadius(next);
             else if (type === 'Floor') maxVal = Floor.getMaxCornerRadius(next);
             else if (type === 'Roof') maxVal = Roof.getMaxCornerRadius(next);
-            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next); // <-- NEW
-            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- NEW
+            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next);
+            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next);
+            else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxCornerRadius(next); // <-- NEW
             // --- MODIFIED --- Constraint for Cube cornerRadius
             else if (type === 'Cube') {
               maxVal = Math.min(next.width, next.height, next.depth) / 2;
@@ -101,8 +103,9 @@ function linkControls(page, object, paramConfig) {
             else if (type === 'Window') maxVal = WindowAsset.getMaxEdgeRoundness(next);
             else if (type === 'Floor') maxVal = Floor.getMaxEdgeRoundness(next);
             else if (type === 'Roof') maxVal = Roof.getMaxEdgeRoundness(next);
-            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next); // <-- NEW
-            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxEdgeRoundness(next); // <-- NEW
+            else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next);
+            else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxEdgeRoundness(next);
+            else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxEdgeRoundness(next); // <-- NEW
         } else if (key === 'doorWidth' && type === 'TowerBase') {
             maxVal = TowerBase.getMaxDoorWidth(next);
         } else if (key === 'doorWidthFront' && type === 'TowerBaseSculpted') {
@@ -237,7 +240,6 @@ export const OBJECT_DEFINITIONS = [
       }
     }
   },
-  // --- NEW OBJECT 1 ---
   {
     type: 'TowerBanded',
     label: 'Tower (Banded)',
@@ -261,7 +263,6 @@ export const OBJECT_DEFINITIONS = [
       buildTabFromConfig(object, page, paramConfig);
     }
   },
-  // --- END NEW OBJECT 1 ---
   {
     type: 'TowerBaseSculpted',
     label: 'Tower (Sculpted)',
@@ -387,7 +388,6 @@ export const OBJECT_DEFINITIONS = [
       buildTabFromConfig(object, page, paramConfig);
     }
   },
-  // --- NEW OBJECT 2 ---
   {
     type: 'WindowFrame',
     label: 'Window (Tower Frame)',
@@ -414,7 +414,37 @@ export const OBJECT_DEFINITIONS = [
       buildTabFromConfig(object, page, paramConfig);
     }
   },
-  // --- END NEW OBJECT 2 ---
+  // --- NEW OBJECT 3 ---
+  {
+    type: 'WrapAroundWindow',
+    label: 'Window (Wrap-Around)',
+    ctor: WrapAroundWindow,
+    defaultParams: { width: 10, depth: 10, height: 3, towerWallThickness: 1, towerCornerRadius: 1.0, frameThickness: 0.2, cornerRadius: 0.05 },
+    initialY: (p) => p.height / 2,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        // Sizing
+        width:            { min: 4,   max: 80, step: 0.1, label: 'Tower Width' },
+        depth:            { min: 4,   max: 80, step: 0.1, label: 'Tower Depth' },
+        height:           { min: 0.1, max: 80, step: 0.1, label: 'Height' },
+        towerWallThickness:{ min: 0.1, max: 5,  step: 0.05, label: 'Tower Wall Thick' },
+        towerCornerRadius:{ min: 0,   max: 40, step: 0.05, label: 'Tower Corner Rad' },
+        // Appearance
+        frameThickness:   { min: 0.05,max: 2,  step: 0.05, label: 'Frame Thickness' },
+        cornerRadius:     { min: 0,   max: 2,  step: 0.05, label: 'Frame Corner Rad' }, // Simplified max
+        edgeRoundness:    { min: 0,   max: 1,  step: 0.05, label: 'Frame Edge Round' }, // Simplified max
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
+        glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
+        glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass B' },
+        glassOpacity:     { min: 0,   max: 1,  step: 0.01, label: 'Glass Opacity' },
+        glassRoughness:   { min: 0,   max: 1,  step: 0.01, label: 'Glass Roughness' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  // --- END NEW OBJECT 3 ---
   {
     type: 'Floor',
     label: 'Floor',
