@@ -11,7 +11,7 @@ import Sphere from './sphere.js';
 import Cylinder from './cylinder.js';
 
 // --- Reusable Slider Building Logic ---
-// We pull this out of the old buildShapeTab to be reusable
+// ... (all helper functions are correct)
 function createSlider(page, object, key, cfg) {
   const p = object.userData.params;
   const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
@@ -30,7 +30,6 @@ function createSlider(page, object, key, cfg) {
   `;
   page.appendChild(row);
 }
-
 function createCheckbox(page, object, key, cfg) {
   const p = object.userData.params;
   const row = document.createElement('div');
@@ -38,8 +37,6 @@ function createCheckbox(page, object, key, cfg) {
   row.innerHTML = `<input type="checkbox" id="${key}-toggle" ${p[key] ? 'checked':''}><label for="${key}-toggle" class="text-sm font-medium">${cfg.label}</label>`;
   page.appendChild(row);
 }
-
-// Generic handler to link sliders/checkboxes to updateParams
 function linkControls(page, object, paramConfig) {
   const updateModelParams = () => {
     let next = { ...object.userData.params };
@@ -55,7 +52,6 @@ function linkControls(page, object, paramConfig) {
     });
 
     // --- Re-run constraint logic ---
-    // This part is complex and needs to be object-specific
     const type = object.userData.type;
     const crSlider = page.querySelector('#cornerRadius-slider');
     if (crSlider) {
@@ -97,17 +93,17 @@ function linkControls(page, object, paramConfig) {
     // Update the model
     object.updateParams(next); // This will rebuild the object
 
-    // Refresh UI values from the (potentially constrained) 'next' object
+    // Refresh UI values
     Object.keys(paramConfig).forEach(key => {
       const cfg = paramConfig[key];
       if (cfg.type === 'checkbox') {
         const check = page.querySelector(`#${key}-toggle`);
-        if (check) check.checked = object.userData.params[key]; // Read back from object
+        if (check) check.checked = object.userData.params[key];
       } else {
         const slider = page.querySelector(`#${key}-slider`);
         const number = page.querySelector(`#${key}-value`);
         if (slider && number) {
-          const val = object.userData.params[key]; // Read back
+          const val = object.userData.params[key];
           const valFmt = (cfg.step >= 1) ? Math.round(val) : Number(val).toFixed(2);
           slider.value = val;
           number.value = valFmt;
@@ -159,8 +155,6 @@ function linkControls(page, object, paramConfig) {
     checkbox.addEventListener('change', updateModelParams);
   });
 }
-
-// Helper to build a shape tab from a config
 function buildTabFromConfig(object, page, paramConfig) {
   const wrap = document.createElement('div');
   wrap.className = 'space-y-4';
@@ -180,13 +174,13 @@ function buildTabFromConfig(object, page, paramConfig) {
 }
 // --- End Reusable Logic ---
 
-// This is your new "Plugin" registry.
 export const OBJECT_DEFINITIONS = [
   {
     type: 'TowerBase',
     label: 'Tower (Door)',
     ctor: TowerBase,
     defaultParams: { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidth: 4 },
+    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -208,8 +202,8 @@ export const OBJECT_DEFINITIONS = [
     label: 'Tower (Solid)',
     ctor: TowerBase,
     defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
+    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
-      // Find the "Tower (Door)" definition and reuse its builder
       const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.label === 'Tower (Door)');
       if (doorTowerDef) {
         doorTowerDef.buildShapeTab(object, page);
@@ -221,6 +215,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Double Door',
     ctor: DoubleDoor,
     defaultParams: { totalWidth: 8, height: 10, depth: 0.5, frameThickness: 0.5, cornerRadius: 0.2, glassOpacity:0.5, glassRoughness:0.2 },
+    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -246,6 +241,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Window',
     ctor: WindowAsset,
     defaultParams: { totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4, cornerRadius: 0.1, glassOpacity:0.3, glassRoughness:0.1 },
+    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -273,6 +269,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Floor',
     ctor: Floor,
     defaultParams: { width: 20, depth: 20, thickness: 0.5, colorR: 0.5, colorG: 0.5, colorB: 0.5 },
+    initialY: (p) => -p.thickness / 2, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -305,8 +302,10 @@ export const OBJECT_DEFINITIONS = [
     label: 'Pipe',
     ctor: Pipe,
     defaultParams: {}, // Uses built-in defaults
+    initialY: (p) => 1.0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
+      // --- FIX: Replaced Â° with ° ---
       const paramConfig = {
         length:          { min: 0.5, max: 80,   step: 0.1,  label: 'Length' },
         outerRadius:     { min: 0.02, max: 10,  step: 0.01, label: 'Outer Radius' },
@@ -335,6 +334,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Roof',
     ctor: Roof,
     defaultParams: {}, // Uses built-in defaults
+    initialY: (p) => 0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -372,6 +372,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Truss Arm',
     ctor: TrussArm,
     defaultParams: {}, // Uses built-in defaults
+    initialY: (p) => 0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -393,6 +394,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Cube',
     ctor: Cube,
     defaultParams: { width: 1, height: 1, depth: 1 },
+    initialY: (p) => 0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -411,6 +413,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Sphere',
     ctor: Sphere,
     defaultParams: { radius: 1 },
+    initialY: (p) => 0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -428,6 +431,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Cylinder',
     ctor: Cylinder,
     defaultParams: { radius: 0.5, height: 1 },
+    initialY: (p) => 0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
