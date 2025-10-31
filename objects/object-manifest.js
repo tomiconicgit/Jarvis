@@ -195,9 +195,9 @@ export const OBJECT_DEFINITIONS = [
         depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
         wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
         cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, // <-- RE-ADDED
         edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' }, // <-- RE-ADDED
         doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
       };
       buildTabFromConfig(object, page, paramConfig);
@@ -230,9 +230,9 @@ export const OBJECT_DEFINITIONS = [
         depth:            { min: 0.05,max: 5,  step: 0.05, label: 'Depth' },
         frameThickness:   { min: 0.05,max: 2,  step: 0.05, label: 'Frame Thickness' },
         cornerRadius:     { min: 0,   max: DoubleDoor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, // <-- RE-ADDED
         edgeRoundness:    { min: 0,   max: DoubleDoor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' }, // <-- RE-ADDED
         glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
         glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
         glassB:           { min: 0,   max: 1,  step: 0.01, label: 'Glass B' },
@@ -256,9 +256,9 @@ export const OBJECT_DEFINITIONS = [
         depth:            { min: 0.02,max: 3,  step: 0.02, label: 'Depth' },
         frameThickness:   { min: 0.05,max: 2,  step: 0.05, label: 'Frame Thickness' },
         cornerRadius:     { min: 0,   max: WindowAsset.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, // <-- RE-ADDED
         edgeRoundness:    { min: 0,   max: WindowAsset.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' }, // <-- RE-ADDED
         hasBolts:         { type: 'checkbox', label: 'Bolts' },
         hasBars:          { type: 'checkbox', label: 'Bars' },
         glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
@@ -287,7 +287,7 @@ export const OBJECT_DEFINITIONS = [
         colorB:           { min: 0,   max: 1,   step: 0.01, label: 'Color B' },
         cornerRadius:     { min: 0,   max: Floor.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
         edgeRoundness:    { min: 0,   max: Floor.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12,  step: 1,    label: 'Edge Smoothness' },
+        edgeSmoothness:   { min: 1,   max: 12,  step: 1,    label: 'Edge Smoothness' }, // <-- RE-ADDED
         bulgeHeight:      { min: 0,   max: 2,   step: 0.01, label: 'Roof Bulge Height' },
         bulgeExponent:    { min: 0.5, max: 6,   step: 0.1,  label: 'Bulge Exponent' },
         hasSkylight:      { type: 'checkbox', label: 'Skylight Hole' },
@@ -348,9 +348,9 @@ export const OBJECT_DEFINITIONS = [
         overhang:         { min: 0,  max: 5,   step: 0.05, label: 'Overhang' },
         thickness:        { min: 0.1,max: 5,   step: 0.05, label: 'Thickness' },
         cornerRadius:     { min: 0,  max: Roof.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,  max: 64,  step: 1,    label: 'Corner Smoothness' },
+        cornerSmoothness: { min: 8,  max: 64,  step: 1,    label: 'Corner Smoothness' }, // <-- RE-ADDED
         edgeRoundness:    { min: 0,  max: Roof.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,  max: 12,  step: 1,    label: 'Edge Smoothness' },
+        edgeSmoothness:   { min: 1,  max: 12,  step: 1,    label: 'Edge Smoothness' }, // <-- RE-ADDED
         archHeight:       { min: 0,  max: 5,   step: 0.05, label: 'Arch Height' },
         archX:            { type:'checkbox', label: 'Curve X' },
         archZ:            { type:'checkbox', label: 'Curve Z' },
@@ -556,4 +556,5 @@ export const BUILDERS = OBJECT_DEFINITIONS.reduce((map, def) => {
   }
   return map;
 }, {});
+
 
