@@ -1,13 +1,13 @@
 // File: ui/props-panel.js
 import * as THREE from 'three';
 import { OBJECT_DEFINITIONS } from '../objects/object-manifest.js';
-import { renderer, transformControls } from '../core/scene-manager.js';
+// --- FIX: Changed import to avoid circular dependency ---
+import * as SceneManager from '../core/scene-manager.js';
 
 // --- Texture Globals ---
 const textureLoader = new THREE.TextureLoader();
+// ... (rest of texture globals are all correct)
 const presetTextureCache = new Map();
-
-// PBR Preset Definitions
 const PRESET_TEXTURES = {
   'none': { name: 'None', preview: '', albedo: null, normal: null, roughness: null, metalness: null, ao: null, displacement: null, roughnessScalar: 0.8, metalnessScalar: 0.1 },
   'rustymetal': { name: 'Rusty Metal', preview: 'textures/rustymetal/rustymetal.png', albedo: 'textures/rustymetal/rustymetal_albedo.png', normal: 'textures/rustymetal/rustymetal_normal.png', roughness: 'textures/rustymetal/rustymetal_roughness.png', metalness: null, ao: 'textures/rustymetal/rustymetal_ao.png', displacement: 'textures/rustymetal/rustymetal_displacement.png', roughnessScalar: 1.0, metalnessScalar: 1.0 },
@@ -16,6 +16,7 @@ const PRESET_TEXTURES = {
 
 // --- Tab System ---
 function makeTabs(rootEl, tabsSpec) {
+  // ... (this function is correct)
   const header = document.createElement('div');
   header.className = 'flex gap-2 mb-3 sticky top-0 bg-[rgba(30,30,30,0.9)] pt-1 pb-2 z-10';
   const contentWrap = document.createElement('div');
@@ -55,6 +56,7 @@ function makeTabs(rootEl, tabsSpec) {
 
 // --- Texture Helper Functions ---
 function collectMaterialsFromObject(root) {
+  // ... (this function is correct)
   const set = new Set();
   root.traverse(n => {
     if (n.isMesh && n.material) {
@@ -69,6 +71,7 @@ function collectMaterialsFromObject(root) {
 }
 
 export function ensureTexState(object) {
+  // ... (this function is correct)
   if (!object.userData._texOverrides) object.userData._texOverrides = {
     map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
     aoMap: null, emissiveMap: null, displacementMap: null,
@@ -79,6 +82,7 @@ export function ensureTexState(object) {
 }
 
 function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
+  // ... (this function is correct)
   const apply = (tex) => {
     if (!tex) return;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -95,12 +99,14 @@ function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
 }
 
 function setMaterialScalar(materials, key, value) {
+  // ... (this function is correct)
   materials.forEach(m => {
     if (key in m) { m[key] = value; m.needsUpdate = true; }
   });
 }
 
 const MAP_SLOTS = {
+  // ... (this map is correct)
   albedo:   { prop: 'map',             color: true  },
   normal:   { prop: 'normalMap',       color: false },
   roughness:{ prop: 'roughnessMap',    color: false },
@@ -112,6 +118,7 @@ const MAP_SLOTS = {
 
 function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset = false }) {
   return new Promise((resolve, reject) => {
+    // ... (rest of function is correct)
     const slot = MAP_SLOTS[slotName];
     if (!slot) return reject(new Error('Unknown map slot'));
     const st = ensureTexState(object);
@@ -129,8 +136,9 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
         tex.repeat.set(uvScale, uvScale);
         tex.rotation = uvRotation;
         tex.needsUpdate = true;
-        if (typeof renderer?.capabilities?.getMaxAnisotropy === 'function') {
-          tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        // --- FIX: Use SceneManager.renderer ---
+        if (typeof SceneManager.renderer?.capabilities?.getMaxAnisotropy === 'function') {
+          tex.anisotropy = Math.min(8, SceneManager.renderer.capabilities.getMaxAnisotropy());
         }
         materials.forEach(m => { m[slot.prop] = tex; m.needsUpdate = true; });
 
@@ -163,12 +171,14 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
 }
 
 function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvRotation = 0 }) {
+  // ... (this function is correct)
   const url = URL.createObjectURL(file);
   return applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset: false })
     .finally(() => { URL.revokeObjectURL(url); });
 }
 
 function clearOverrideSlot(object, materials, slotName) {
+  // ... (this function is correct)
   const slot = MAP_SLOTS[slotName];
   const st = ensureTexState(object);
   const tex = st[slot.prop];
@@ -180,6 +190,7 @@ function clearOverrideSlot(object, materials, slotName) {
 }
 
 function clearAllOverrides(object, materials) {
+  // ... (this function is correct)
   const st = ensureTexState(object);
   for (const slotName of Object.keys(MAP_SLOTS)) {
     const slot = MAP_SLOTS[slotName];
@@ -196,6 +207,7 @@ function clearAllOverrides(object, materials) {
 }
 
 async function applyPreset(object, materials, presetKey, page) {
+  // ... (this function is correct)
   const preset = PRESET_TEXTURES[presetKey];
   if (!preset) return;
 
@@ -219,7 +231,6 @@ async function applyPreset(object, materials, presetKey, page) {
   setMaterialScalar(materials, 'roughness', preset.roughnessScalar);
   setMaterialScalar(materials, 'metalness', preset.metalnessScalar);
   
-  // Update UI
   const roughSlider = page.querySelector('#mat-rough-slider');
   const roughNumber = page.querySelector('#mat-rough-val');
   const metalSlider = page.querySelector('#mat-metal-slider');
@@ -234,6 +245,7 @@ async function applyPreset(object, materials, presetKey, page) {
 }
 
 async function applyAlbedoOverride(object, materials, albedoKey) {
+  // ... (this function is correct)
   const preset = PRESET_TEXTURES[albedoKey];
   if (!preset) return;
   const st = ensureTexState(object);
@@ -262,6 +274,7 @@ function buildTransformTab(object, page) {
       <input type="range" id="${id}-slider" min="${min}" max="${max}" step="${step}" value="${value}">
     </div>`;
 
+  // --- FIX: Replaced Â° with ° ---
   page.innerHTML = `
     <div class="grid grid-cols-3 gap-3">
       ${toRow('tx','Pos X', -100,100,0.1, object.position.x.toFixed(2))}
@@ -294,7 +307,8 @@ function buildTransformTab(object, page) {
       const val = parseFloat(slider.value);
       number.value = format(val);
       fn(val);
-      if (transformControls) transformControls.update();
+      // --- FIX: Use SceneManager.transformControls ---
+      if (SceneManager.transformControls) SceneManager.transformControls.update();
     });
     const updateFromNumber = () => {
       let val = parseFloat(number.value);
@@ -305,14 +319,15 @@ function buildTransformTab(object, page) {
       number.value = format(val);
       slider.value = val;
       fn(val);
-      if (transformControls) transformControls.update();
+      // --- FIX: Use SceneManager.transformControls ---
+      if (SceneManager.transformControls) SceneManager.transformControls.update();
     };
     number.addEventListener('change', updateFromNumber);
     number.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); updateFromNumber(); number.blur(); }
     });
   };
-
+  // ... (rest of link calls are correct)
   const formatDeg = v => v.toFixed(0);
   link('tx', v => object.position.x = v);
   link('ty', v => object.position.y = v);
@@ -330,21 +345,21 @@ function buildTransformTab(object, page) {
       page.querySelector(`#${id}-slider`).value = val;
       page.querySelector(`#${id}-val`).value = (id.startsWith('r') ? val.toFixed(0) : (id.startsWith('s') ? val.toFixed(2) : val.toFixed(2)));
     });
-    if (transformControls) transformControls.update();
+    // --- FIX: Use SceneManager.transformControls ---
+    if (SceneManager.transformControls) SceneManager.transformControls.update();
   };
-
+  // ... (rest of reset calls are correct)
   page.querySelector('#reset-pos').addEventListener('click', () => reset(['tx','ty','tz'], 0, v => object.position.set(v,v,v)));
   page.querySelector('#reset-rot').addEventListener('click', () => reset(['rx','ry','rz'], 0, v => object.rotation.set(v,v,v)));
   page.querySelector('#reset-scl').addEventListener('click', () => reset(['sx','sy','sz'], 1, v => object.scale.set(v,v,v)));
 }
 
 function buildShapeTab(object, page) {
+  // ... (this function is correct)
   const type = object.userData.type;
-  // Find the object's definition in the manifest
   const def = OBJECT_DEFINITIONS.find(d => d.type === type);
 
   if (def && def.buildShapeTab) {
-    // Call the function we defined in the manifest!
     def.buildShapeTab(object, page);
   } else {
     page.innerHTML = '<p class="text-gray-400">No shape parameters for this object.</p>';
@@ -352,6 +367,7 @@ function buildShapeTab(object, page) {
 }
 
 function buildTexturesTab(object, page) {
+  // ... (this function is correct, but I'll fix the typo)
   const mats = collectMaterialsFromObject(object);
   const rep = mats[0] || {};
   const st = ensureTexState(object);
@@ -361,6 +377,7 @@ function buildTexturesTab(object, page) {
   const rough = ('roughness' in rep) ? rep.roughness : preset.roughnessScalar;
   const metal = ('metalness' in rep) ? rep.metalness : preset.metalnessScalar;
 
+  // --- FIX: Replaced Â° with ° ---
   page.innerHTML = `
     <div class="space-y-4">
       <div>
@@ -426,7 +443,7 @@ function buildTexturesTab(object, page) {
       </div>
     </div>
   `;
-
+  // ... (rest of the function is correct)
   // --- Populate Presets ---
   const presetScroller = page.querySelector('#preset-scroller');
   for (const [key, preset] of Object.entries(PRESET_TEXTURES)) {
@@ -583,6 +600,7 @@ function buildTexturesTab(object, page) {
 
 // --- Main Panel Update Function ---
 export function updatePropsPanel(object) {
+  // ... (this function is correct)
   const propsContent = document.getElementById('props-content');
   if (!propsContent) return;
   propsContent.innerHTML = '';
