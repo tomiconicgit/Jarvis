@@ -621,7 +621,12 @@ export const OBJECT_DEFINITIONS = [
         thetaLength: { min: 0, max: 180, step: 1, label: 'Vert. Length Â°' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
-        colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' }
+        colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
+        // --- NEW SLIDERS ---
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
+        bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
+        flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
+        flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
       };
       buildTabFromConfig(object, page, paramConfig);
     }
@@ -644,7 +649,12 @@ export const OBJECT_DEFINITIONS = [
         openEnded: { type: 'checkbox', label: 'Open Ended' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
-        colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' }
+        colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
+        // --- NEW SLIDERS ---
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
+        bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
+        flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
+        flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
       };
       buildTabFromConfig(object, page, paramConfig);
     }
