@@ -53,7 +53,7 @@ function unifiedWindowGeometry(p, forceNoBevel = false) {
   const bevelEnabled = !forceNoBevel && (p.edgeRoundness || 0) > 0;
 
   const extrudeSettings = {
-    depth: p.depth,
+   depth: p.depth,
     steps: Math.max(1, Math.floor(p.edgeSmoothness || 1)),
     bevelEnabled,
     bevelSegments: Math.max(1, Math.floor(p.edgeSmoothness || 1)),
@@ -131,6 +131,7 @@ export default class WindowFrame extends THREE.Group {
 
     // Frame
     const frame = new THREE.Mesh(unifiedWindowGeometry(p), this.frameMaterial);
+    frame.name = 'Frame';
     frame.castShadow = true; frame.receiveShadow = true;
     this.add(frame);
 
@@ -138,6 +139,7 @@ export default class WindowFrame extends THREE.Group {
     const glassW = Math.max(0.01, p.totalWidth - 2 * p.frameThickness);
     const glassH = Math.max(0.01, p.height - 2 * p.frameThickness);
     const glass  = new THREE.Mesh(new THREE.PlaneGeometry(glassW, glassH), this.glassMaterial);
+    glass.name = 'Glass';
     glass.position.set(0, 0, 0);
     this.add(glass);
 
@@ -151,8 +153,9 @@ export default class WindowFrame extends THREE.Group {
         new THREE.Vector3( p.totalWidth/2 - 0.3, -p.height/2 + 0.3, 0),
         new THREE.Vector3( p.totalWidth/2 - 0.3,  p.height/2 - 0.3, 0)
       ];
-      positions.forEach(pos => {
+      positions.forEach((pos, i) => {
         const bolt = new THREE.Mesh(boltGeo, this.boltMaterial);
+        bolt.name = 'Bolt' + (i+1);
         bolt.position.copy(pos);
         this.add(bolt);
       });
@@ -164,6 +167,7 @@ export default class WindowFrame extends THREE.Group {
       const numBars = 3;
       for (let i = 1; i <= numBars; i++) {
         const bar = new THREE.Mesh(barGeo, this.barMaterial);
+        bar.name = 'Bar' + i;
         bar.position.set(0, -glassH/2 + (i * glassH / (numBars + 1)), 0.1);
         this.add(bar);
       }
