@@ -9,6 +9,10 @@ export default class Sphere extends THREE.Group {
     const defaults = {
       radius: 1,
       segments: 32,
+      phiStart: 0,
+      phiLength: 360,
+      thetaStart: 0,
+      thetaLength: 180,
       colorR: 0.8, colorG: 0.8, colorB: 0.8
     };
 
@@ -26,7 +30,15 @@ export default class Sphere extends THREE.Group {
   build() {
     this.clear();
     const p = this.userData.params;
-    const geo = new THREE.SphereGeometry(p.radius, p.segments, p.segments);
+    const geo = new THREE.SphereGeometry(
+      p.radius,
+      Math.floor(p.segments),
+      Math.floor(p.segments),
+      THREE.MathUtils.degToRad(p.phiStart),
+      THREE.MathUtils.degToRad(p.phiLength),
+      THREE.MathUtils.degToRad(p.thetaStart),
+      THREE.MathUtils.degToRad(p.thetaLength)
+    );
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.name = 'SphereMesh';
     mesh.castShadow = true;
