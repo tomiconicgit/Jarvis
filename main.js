@@ -1,3 +1,4 @@
+// --- Imports ---
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -10,6 +11,7 @@ import Floor from './floor.js';
 import Pipe from './pipe.js';
 import Roof from './roof.js';
 import TrussArm from './trussarm.js';
+// Added new imports
 import Cube from './cube.js';
 import Sphere from './sphere.js';
 import Cylinder from './cylinder.js';
@@ -19,14 +21,16 @@ import { serializeModels, downloadBlob, loadFromJSON, exportGLB, importGLBFile }
 // --- Globals ---
 let scene, camera, renderer, orbitControls, transformControls;
 let raycaster, touchStartPos, currentSelection;
-let topModels = [];
+let allModels = [];
 
 // UI refs
 let loadingScreen, canvasContainer;
 let fileBtn, filePanel, closeFilePanel, fileSaveBtn, fileLoadBtn, fileExportBtn, fileImportBtn;
 let addBtn, addPanel, closeAddPanel;
 let propsPanel, closePropsPanel, propsContent;
-let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn, addTrussArmBtn, addCubeBtn, addSphereBtn, addCylinderBtn;
+let addTowerDoorBtn, addTowerSolidBtn, addDoubleDoorBtn, addWindowBtn, addFloorBtn, addPipeBtn;
+// Added new button refs
+let addTrussArmBtn, addCubeBtn, addSphereBtn, addCylinderBtn;
 let sceneBtn, scenePanel, closeScenePanel, sceneList;
 
 // Parenting UI
@@ -103,6 +107,7 @@ const BUILDERS = {
   'Pipe': Pipe,
   'Roof': Roof,
   'TrussArm': TrussArm,
+  // Added new builders
   'Cube': Cube,
   'Sphere': Sphere,
   'Cylinder': Cylinder
@@ -144,6 +149,7 @@ function init() {
   addWindowBtn    = document.getElementById('add-window-btn');
   addFloorBtn     = document.getElementById('add-floor-btn');
   addPipeBtn      = document.getElementById('add-pipe-btn');
+  // Added getElementById for new buttons
   addTrussArmBtn  = document.getElementById('add-trussarm-btn');
   addCubeBtn      = document.getElementById('add-cube-btn');
   addSphereBtn    = document.getElementById('add-sphere-btn');
@@ -305,10 +311,11 @@ function getTouchNDC(t) {
 function handleSingleTap(t) {
   const ndc = getTouchNDC(t);
   raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(topModels, true);
+  const hits = raycaster.intersectObjects(allModels, true);
   if (hits.length) {
     let obj = hits[0].object;
-    selectObject(obj);
+    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
+    selectObject(obj || hits[0].object);
   } else {
     deselectAll();
   }
@@ -317,7 +324,7 @@ function handleSingleTap(t) {
 function handleDoubleTap(t) {
   const ndc = getTouchNDC(t);
   raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(topModels, true);
+  const hits = raycaster.intersectObjects(allModels, true);
   if (hits.length) {
     const box = new THREE.Box3().setFromObject(hits[0].object);
     orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
@@ -365,7 +372,7 @@ function initUI() {
       const text = await f.text();
       const json = JSON.parse(text);
       // Pass ensureTexState as the final argument
-      loadFromJSON(json, BUILDERS, scene, topModels, (o) => {
+      loadFromJSON(json, BUILDERS, scene, allModels, (o) => {
         if (!o.userData.label) assignDefaultName(o);
       }, ensureTexState);
       refreshSceneList();
@@ -388,7 +395,7 @@ function initUI() {
   exportGo.addEventListener('click', () => {
     const name = (exportNameInput.value || 'Model.glb').trim();
     exportGLB(
-      { scene, modelsOnly: optOnlyModels.checked, binary: optBinary.checked, fileName: name, allModels: topModels },
+      { scene, modelsOnly: optOnlyModels.checked, binary: optBinary.checked, fileName: name, allModels },
       () => showTempMessage('Exported'),
       (e) => { console.error(e); showTempMessage('Export failed'); }
     );
@@ -400,7 +407,7 @@ function initUI() {
     const f = e.target.files?.[0];
     if (!f) return;
     try {
-      importGLBFile(f, scene, topModels, (o) => {
+      importGLBFile(f, scene, allModels, (o) => {
         assignDefaultName(o);
         refreshSceneList();
         selectObject(o);
@@ -441,7 +448,7 @@ function initUI() {
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
     assignDefaultName(tower);
-    scene.add(tower); topModels.push(tower);
+    scene.add(tower); allModels.push(tower);
     refreshSceneList(); selectObject(tower); hidePanel(addPanel);
   });
 
@@ -450,7 +457,7 @@ function initUI() {
     const tower = new TowerBase(params);
     tower.position.y = params.height / 2;
     assignDefaultName(tower);
-    scene.add(tower); topModels.push(tower);
+    scene.add(tower); allModels.push(tower);
     refreshSceneList(); selectObject(tower); hidePanel(addPanel);
   });
 
@@ -459,7 +466,7 @@ function initUI() {
     const doors = new DoubleDoor(params);
     doors.position.y = params.height / 2;
     assignDefaultName(doors);
-    scene.add(doors); topModels.push(doors);
+    scene.add(doors); allModels.push(doors);
     refreshSceneList(); selectObject(doors); hidePanel(addPanel);
   });
 
@@ -468,7 +475,7 @@ function initUI() {
     const win = new WindowAsset(params);
     win.position.y = params.height / 2;
     assignDefaultName(win);
-    scene.add(win); topModels.push(win);
+    scene.add(win); allModels.push(win);
     refreshSceneList(); selectObject(win); hidePanel(addPanel);
   });
 
@@ -477,43 +484,44 @@ function initUI() {
     const floor = new Floor(params);
     floor.position.y = -params.thickness / 2;
     assignDefaultName(floor);
-    scene.add(floor); topModels.push(floor);
+    scene.add(floor); allModels.push(floor);
     refreshSceneList(); selectObject(floor); hidePanel(addPanel);
   });
 
   addPipeBtn.addEventListener('click', () => {
-    const obj = new Pipe();
-    obj.position.y = 1;
-    assignDefaultName(obj);
-    scene.add(obj); topModels.push(obj);
-    refreshSceneList(); selectObject(obj); hidePanel(addPanel);
+    const p = new Pipe();
+    p.position.y = 1;
+    assignDefaultName(p);
+    scene.add(p); allModels.push(p);
+    refreshSceneList(); selectObject(p); hidePanel(addPanel);
   });
 
+  // Added listeners for new buttons
   addTrussArmBtn.addEventListener('click', () => {
     const obj = new TrussArm();
     assignDefaultName(obj);
-    scene.add(obj); topModels.push(obj);
+    scene.add(obj); allModels.push(obj);
     refreshSceneList(); selectObject(obj); hidePanel(addPanel);
   });
 
   addCubeBtn.addEventListener('click', () => {
     const obj = new Cube();
     assignDefaultName(obj);
-    scene.add(obj); topModels.push(obj);
+    scene.add(obj); allModels.push(obj);
     refreshSceneList(); selectObject(obj); hidePanel(addPanel);
   });
 
   addSphereBtn.addEventListener('click', () => {
     const obj = new Sphere();
     assignDefaultName(obj);
-    scene.add(obj); topModels.push(obj);
+    scene.add(obj); allModels.push(obj);
     refreshSceneList(); selectObject(obj); hidePanel(addPanel);
   });
 
   addCylinderBtn.addEventListener('click', () => {
     const obj = new Cylinder();
     assignDefaultName(obj);
-    scene.add(obj); topModels.push(obj);
+    scene.add(obj); allModels.push(obj);
     refreshSceneList(); selectObject(obj); hidePanel(addPanel);
   });
 }
@@ -532,28 +540,42 @@ function togglePanel(panel, toHide = []) {
 // -----------------------------
 function duplicateModel(src) {
   let copy;
-  if (src.isMesh) {
-    copy = src.clone();
-    copy.userData = { ...src.userData };
-    src.parent.add(copy);
-  } else {
+  const type = src.userData?.type || 'Object';
+  const params = { ...(src.userData?.params || {}) };
+
+  if (type === 'TowerBase')       copy = new TowerBase(params);
+  else if (type === 'DoubleDoor') copy = new DoubleDoor(params);
+  else if (type === 'Window')     copy = new WindowAsset(params);
+  else if (type === 'Floor')      copy = new Floor(params);
+  else if (type === 'Pipe')       copy = new Pipe(params);
+  else if (type === 'Roof')       copy = new Roof(params);
+  else if (type === 'TrussArm')   copy = new TrussArm(params);
+  // Added new types to duplicate
+  else if (type === 'Cube')       copy = new Cube(params);
+  else if (type === 'Sphere')     copy = new Sphere(params);
+  else if (type === 'Cylinder')   copy = new Cylinder(params);
+  else {
     copy = src.clone(true);
     copy.userData = { ...src.userData };
-    src.parent.add(copy);
   }
 
-  copy.position.add(new THREE.Vector3(1, 0, 1));
+  copy.position.copy(src.position).add(new THREE.Vector3(1, 0, 1));
+  copy.rotation.copy(src.rotation);
+  copy.scale.copy(src.scale);
+  copy.userData.isModel = true;
+  copy.userData.type = type || copy.userData.type || 'Object';
+  if (!copy.userData.params) copy.userData.params = params;
 
   assignDefaultName(copy);
-
-  if (src.userData.isModel) topModels.push(copy);
+  scene.add(copy);
+  allModels.push(copy);
   refreshSceneList();
   selectObject(copy);
 }
 
 function deleteModel(obj) {
-  const isTop = topModels.indexOf(obj);
-  if (isTop !== -1) topModels.splice(isTop, 1);
+  const idx = allModels.indexOf(obj);
+  if (idx !== -1) allModels.splice(idx, 1);
 
   if (currentSelection === obj) deselectAll();
 
@@ -567,7 +589,7 @@ function deleteModel(obj) {
     }
   });
 
-  obj.parent.remove(obj);
+  scene.remove(obj);
   refreshSceneList();
 }
 
@@ -576,24 +598,21 @@ function deleteModel(obj) {
 // -----------------------------
 function refreshSceneList() {
   sceneList.innerHTML = '';
-  if (!topModels.length) {
+  if (!allModels.length) {
     sceneList.innerHTML = '<p class="text-gray-400">No objects in scene.</p>';
     return;
   }
 
-  const buildTree = (parentEl, obj, depth = 0) => {
-    const name = obj.userData?.label || obj.userData?.type || obj.name || 'Mesh';
-    const hasChildren = obj.children.length > 0 && obj.isGroup;
-    const arrow = hasChildren ? '<span class="arrow mr-1 text-blue-400 cursor-pointer">â–º</span>' : '<span class="ml-4"></span>';
+  allModels.forEach((obj, idx) => {
+    const name = obj.userData?.label || obj.userData?.type || `Object ${idx + 1}`;
 
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-md px-3 py-2';
 
     const nameBtn = document.createElement('button');
     nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform';
-    nameBtn.innerHTML = `${'&nbsp;'.repeat(depth * 4)}${arrow}${name}`;
+    nameBtn.textContent = name;
     nameBtn.addEventListener('click', () => { selectObject(obj); hidePanel(scenePanel); });
-    row.appendChild(nameBtn);
 
     const actions = document.createElement('div');
     actions.className = 'flex items-center gap-2';
@@ -601,45 +620,34 @@ function refreshSceneList() {
     const dupBtn = document.createElement('button');
     dupBtn.className = 'p-2 rounded-md bg-gray-800 hover:bg-gray-900 active:scale-95 transition-transform';
     dupBtn.title = 'Duplicate';
-    dupBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <rect x="9" y="9" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect>
-      <rect x="5" y="5" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect>
-    </svg>`;
+    dupBtn.setAttribute('aria-label', 'Duplicate');
+    dupBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <rect x="9" y="9" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect>
+        <rect x="5" y="5" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect>
+      </svg>`;
     dupBtn.addEventListener('click', (e) => { e.stopPropagation(); duplicateModel(obj); });
 
     const delBtn = document.createElement('button');
     delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-95 transition-transform';
     delBtn.title = 'Delete';
-    delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <path d="M3 6h18" stroke-width="2" stroke-linecap="round"></path>
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"></path>
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path>
-      <path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path>
-    </svg>`;
+    delBtn.setAttribute('aria-label', 'Delete');
+    delBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M3 6h18" stroke-width="2" stroke-linecap="round"></path>
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"></path>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path>
+        <path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path>
+      </svg>`;
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(obj); });
 
     actions.appendChild(dupBtn);
     actions.appendChild(delBtn);
+
+    row.appendChild(nameBtn);
     row.appendChild(actions);
-    parentEl.appendChild(row);
-
-    if (hasChildren) {
-      const childContainer = document.createElement('div');
-      childContainer.style.display = 'none';
-      parentEl.appendChild(childContainer);
-
-      const arrowEl = nameBtn.querySelector('.arrow');
-      arrowEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const open = childContainer.style.display === 'none';
-        childContainer.style.display = open ? '' : 'none';
-        arrowEl.textContent = open ? 'â–¼' : 'â–º';
-      });
-      obj.children.forEach(child => buildTree(childContainer, child, depth + 1));
-    }
-  };
-
-  topModels.forEach(model => buildTree(sceneList, model));
+    sceneList.appendChild(row);
+  });
 }
 
 // -----------------------------
@@ -667,16 +675,16 @@ function showTempMessage(text) {
 // -----------------------------
 // Parenting
 // -----------------------------
-function findByUUID(uuid) { return topModels.find(o => o.uuid === uuid); }
+function findByUUID(uuid) { return allModels.find(o => o.uuid === uuid); }
 
 function refreshParentList() {
   parentList.innerHTML = '';
-  if (!topModels.length) {
+  if (!allModels.length) {
     parentList.innerHTML = '<p class="text-gray-400">No objects in scene.</p>';
     return;
   }
 
-  topModels.forEach((obj, idx) => {
+  allModels.forEach((obj, idx) => {
     const label = obj.userData?.label || obj.userData?.type || `Object ${idx+1}`;
     const row = document.createElement('div');
     row.className = 'flex items-center justify-between bg-gray-700 rounded-md px-3 py-2';
@@ -783,28 +791,18 @@ function makeTabs(rootEl, tabsSpec) {
   first.builder(first.page); first.built = true; first.page.style.display = '';
 }
 
-// Collect unique THREE.Materials under an object or from a single mesh; ensure uv2 for AO/displacement
+// Collect unique THREE.Materials under an object; ensure uv2 for AO/displacement
 function collectMaterialsFromObject(root) {
   const set = new Set();
-  if (root.isMesh) {
-    if (root.material) {
-      if (Array.isArray(root.material)) root.material.forEach(m => m && set.add(m));
-      else set.add(root.material);
-    }
-    if (root.geometry?.attributes?.uv && !root.geometry.attributes.uv2) {
-      root.geometry.setAttribute('uv2', root.geometry.attributes.uv);
-    }
-  } else {
-    root.traverse(n => {
-      if (n.isMesh && n.material) {
-        if (Array.isArray(n.material)) n.material.forEach(m => m && set.add(m));
-        else set.add(n.material);
-        if (n.geometry?.attributes?.uv && !n.geometry.attributes.uv2) {
-          n.geometry.setAttribute('uv2', n.geometry.attributes.uv);
-        }
+  root.traverse(n => {
+    if (n.isMesh && n.material) {
+      if (Array.isArray(n.material)) n.material.forEach(m => m && set.add(m));
+      else set.add(n.material);
+      if (n.geometry?.attributes?.uv && !n.geometry.attributes.uv2) {
+        n.geometry.setAttribute('uv2', n.geometry.attributes.uv);
       }
-    });
-  }
+    }
+  });
   return Array.from(set);
 }
 
@@ -1081,9 +1079,9 @@ function buildTransformTab(object, page) {
       ${toRow('tz','Pos Z', -100,100,0.1, object.position.z.toFixed(2))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
-      ${toRow('rx','Rot XÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
-      ${toRow('ry','Rot YÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
-      ${toRow('rz','Rot ZÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
+      ${toRow('rx','Rot X°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
+      ${toRow('ry','Rot Y°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
+      ${toRow('rz','Rot Z°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
       ${toRow('sx','Scale X', 0.01,20,0.01, object.scale.x.toFixed(2))}
@@ -1245,10 +1243,10 @@ function buildShapeTab(object, page) {
       radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
 
       hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
-      shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle Â°' },
+      shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle °' },
       elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
       elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
-      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane Â°' },
+      elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane °' },
 
       hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
       hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
@@ -1307,6 +1305,7 @@ function buildShapeTab(object, page) {
       hasEndJoint:   { type:'checkbox', label: 'End Joint' },
       jointRadius:   { min: 0, max: 2, step: 0.05, label: 'Joint Radius' }
     };
+  // Added new types to Shape tab
   } else if (type === 'Cube') {
     paramConfig = {
       width: { min: 0.1, max: 50, step: 0.1, label: 'Width' },
@@ -1405,7 +1404,7 @@ function buildShapeTab(object, page) {
     const erSlider = wrap.querySelector('#edgeRoundness-slider');
     if (erSlider) {
       let maxER = parseFloat(erSlider.max);
-      if (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
+      if      (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
       else if (type === 'DoubleDoor')maxER = DoubleDoor.getMaxEdgeRoundness(next);
       else if (type === 'Window')    maxER = WindowAsset.getMaxEdgeRoundness(next);
       else if (type === 'Floor')     maxER = Floor.getMaxEdgeRoundness(next);
@@ -1574,7 +1573,7 @@ function buildTexturesTab(object, page) {
           </div>
           <div class="space-y-1">
             <label class="text-sm font-medium flex justify-between items-center">
-              <span>UV Rotation Â°</span>
+              <span>UV Rotation °</span>
               <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}">
             </label>
             <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
@@ -1806,6 +1805,7 @@ function buildTexturesTab(object, page) {
     page.querySelector('#mat-metal-val').value = metalnessScalar.toFixed(2);
   });
 }
+
 
 // -----------------------------
 // Properties Panel (TABBED)
