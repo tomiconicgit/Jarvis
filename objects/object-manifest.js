@@ -1,4 +1,5 @@
 // File: objects/object-manifest.js
+import * as THREE from 'three'; // IMPORT THREE
 import TowerBase from './towerbase.js';
 import TowerBaseSculpted from './tower_sculpted.js'; // <-- IMPORT YOUR NEW CLASS
 import DoubleDoor from './doubledoor.js';
@@ -16,6 +17,19 @@ import RoofLight from './rooflight.js';
 import FuelTank from './fueltank.js';
 import Gear from './gear.js';
 import Screen from './screen.js';
+
+// --- ADDED DUMMY CLASS ---
+// This allows saving/loading of imported/merged objects as empty placeholders.
+// The .json format does not save geometry, only procedural parameters.
+class ImportedGLB extends THREE.Group {
+  constructor() {
+    super();
+    this.userData.isModel = true;
+    this.userData.type = 'ImportedGLB';
+  }
+}
+// --- END DUMMY CLASS ---
+
 
 // --- Reusable Slider Building Logic ---
 // (These are the helper functions you already had, unmodified)
@@ -628,6 +642,8 @@ export const BUILDERS = OBJECT_DEFINITIONS.reduce((map, def) => {
     map[def.type] = def.ctor;
   }
   return map;
-}, {});
-
-
+}, {
+  // --- MODIFIED ---
+  // Manually add the dummy loader for imported/merged objects
+  'ImportedGLB': ImportedGLB
+});
