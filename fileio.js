@@ -20,6 +20,8 @@ export function serializeModels(scene) {
           uvScale: s.uvScale,
           uvRotation: s.uvRotation,
           displacementScale: s.displacementScale,
+          activePreset: s.activePreset, // Added
+          activeAlbedo: s.activeAlbedo, // Added
           // We could also save which slots *had* textures, as a hint
           hasMap: !!s.map,
           hasNormalMap: !!s.normalMap,
@@ -36,7 +38,7 @@ export function serializeModels(scene) {
         type: o.userData.type,
         label: o.userData.label || null,
         params: o.userData.params || {},
-        texOverrides: serializableTexOverrides, // Added
+        texOverrides: serializableTexOverrides, // Updated
         transform: {
           position: [o.position.x, o.position.y, o.position.z],
           quaternion: [o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w],
@@ -50,7 +52,6 @@ export function serializeModels(scene) {
 }
 
 export function downloadBlob(blob, filename) {
-  // ... (no changes in this function)
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -84,7 +85,6 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
 
     // Apply TRS
     if (n.transform) {
-    // ... (no changes in this block)
       const p = n.transform.position || [0,0,0];
       const q = n.transform.quaternion || [0,0,0,1];
       const s = n.transform.scale || [1,1,1];
@@ -96,7 +96,6 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
   }
   // Second pass: parenting
   for (const n of json.nodes) {
-    // ... (no changes in this loop)
     const o = byId[n.id];
     if (!o) continue;
     const parent = n.parentId ? byId[n.parentId] : scene;
@@ -108,7 +107,6 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
 
 /** Export GLB of either models-only or whole scene (binary or GLTF) */
 export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 'Model.glb', allModels = [] }, onDone, onError) {
-  // ... (no changes in this function)
   const exporter = new GLTFExporter();
 
   let root = scene;
@@ -153,7 +151,6 @@ export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 
 
 /** Import a .glb and add as a single grouped object */
 export function importGLBFile(file, scene, allModels, onAfterAdd) {
-  // ... (no changes in this function)
   const loader = new GLTFLoader();
   const url = URL.createObjectURL(file);
   loader.parseAsync
