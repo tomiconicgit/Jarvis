@@ -1,5 +1,5 @@
 // File: objects/object-manifest.js
-import * as THREE from 'three'; // IMPORT THREE
+import * as THREE from 'three';
 import TowerBase from './towerbase.js';
 import TowerBaseSculpted from './tower_sculpted.js'; // <-- IMPORT YOUR NEW CLASS
 import DoubleDoor from './doubledoor.js';
@@ -106,6 +106,11 @@ function linkControls(page, object, paramConfig) {
             maxVal = Pipe.getMaxWall(next);
         }
         
+        // --- ADDED --- Constraint for Cube radius
+        else if (key === 'radius' && type === 'Cube') {
+            maxVal = Math.min(next.width, next.height, next.depth) / 2;
+        }
+
         slider.max = maxVal;
         if (next[key] > maxVal) next[key] = maxVal;
     });
@@ -582,7 +587,7 @@ export const OBJECT_DEFINITIONS = [
     type: 'Cube',
     label: 'Cube',
     ctor: Cube,
-    defaultParams: { width: 1, height: 1, depth: 1 },
+    defaultParams: { width: 1, height: 1, depth: 1, radius: 0.05, segments: 4 },
     initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
@@ -590,6 +595,8 @@ export const OBJECT_DEFINITIONS = [
         width: { min: 0.1, max: 50, step: 0.1, label: 'Width' },
         height: { min: 0.1, max: 50, step: 0.1, label: 'Height' },
         depth: { min: 0.1, max: 50, step: 0.1, label: 'Depth' },
+        radius: { min: 0, max: Math.min(p.width, p.height, p.depth) / 2, step: 0.01, label: 'Edge Radius' },
+        segments: { min: 1, max: 20, step: 1, label: 'Edge Segments' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' }
@@ -601,13 +608,17 @@ export const OBJECT_DEFINITIONS = [
     type: 'Sphere',
     label: 'Sphere',
     ctor: Sphere,
-    defaultParams: { radius: 1 },
+    defaultParams: { radius: 1, segments: 32, phiStart: 0, phiLength: 360, thetaStart: 0, thetaLength: 180 },
     initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
         radius: { min: 0.1, max: 50, step: 0.1, label: 'Radius' },
         segments: { min: 4, max: 64, step: 1, label: 'Segments' },
+        phiStart: { min: 0, max: 360, step: 1, label: 'Horiz. Start Â°' },
+        phiLength: { min: 0, max: 360, step: 1, label: 'Horiz. Length Â°' },
+        thetaStart: { min: 0, max: 180, step: 1, label: 'Vert. Start Â°' },
+        thetaLength: { min: 0, max: 180, step: 1, label: 'Vert. Length Â°' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' }
@@ -619,14 +630,18 @@ export const OBJECT_DEFINITIONS = [
     type: 'Cylinder',
     label: 'Cylinder',
     ctor: Cylinder,
-    defaultParams: { radius: 0.5, height: 1 },
+    defaultParams: { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 16, openEnded: false, thetaStart: 0, thetaLength: 360 },
     initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
-        radius: { min: 0.1, max: 50, step: 0.1, label: 'Radius' },
+        radiusTop: { min: 0, max: 50, step: 0.1, label: 'Radius Top' },
+        radiusBottom: { min: 0, max: 50, step: 0.1, label: 'Radius Bottom' },
         height: { min: 0.1, max: 50, step: 0.1, label: 'Height' },
         radialSegments: { min: 3, max: 64, step: 1, label: 'Radial Segments' },
+        thetaStart: { min: 0, max: 360, step: 1, label: 'Start Angle Â°' },
+        thetaLength: { min: 0, max: 360, step: 1, label: 'Arc Length Â°' },
+        openEnded: { type: 'checkbox', label: 'Open Ended' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' }
