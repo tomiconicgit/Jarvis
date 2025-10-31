@@ -128,7 +128,9 @@ export default class DoubleDoor extends THREE.Group {
 
     // Left leaf (frame)
     const left = new THREE.Group();
+    left.name = 'LeftLeaf';
     const leftFrame = new THREE.Mesh(unifiedDoorGeometry(p), this.frameMaterial);
+    leftFrame.name = 'LeftFrame';
     leftFrame.castShadow = true; leftFrame.receiveShadow = true;
     left.add(leftFrame);
 
@@ -136,6 +138,7 @@ export default class DoubleDoor extends THREE.Group {
     const glassW = Math.max(0.01, p.totalWidth / 2 - 2 * p.frameThickness);
     const glassH = Math.max(0.01, p.height - 2 * p.frameThickness);
     const leftGlass = new THREE.Mesh(new THREE.PlaneGeometry(glassW, glassH), this.glassMaterial);
+    leftGlass.name = 'LeftGlass';
     leftGlass.position.set(0, 0, 0); // centered in leaf local space
     leftGlass.castShadow = false; leftGlass.receiveShadow = false;
     left.add(leftGlass);
@@ -145,6 +148,9 @@ export default class DoubleDoor extends THREE.Group {
 
     // Right leaf
     const right = left.clone(true);
+    right.name = 'RightLeaf';
+    right.children[0].name = 'RightFrame';
+    right.children[1].name = 'RightGlass';
     right.position.x =  p.totalWidth / 4;
     this.add(right);
   }
