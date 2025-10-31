@@ -1,6 +1,6 @@
 // File: objects/object-manifest.js
 import TowerBase from './towerbase.js';
-import TowerBaseSculpted from './towerbase_sculpted.js'; // <-- NEW IMPORT ADDED
+import TowerBaseSculpted from './towerbase_sculpted.js'; // <-- IMPORT REMAINS
 import DoubleDoor from './doubledoor.js';
 import WindowAsset from './window.js';
 import Floor from './floor.js';
@@ -63,7 +63,8 @@ function linkControls(page, object, paramConfig) {
     const crSlider = page.querySelector('#cornerRadius-slider');
     if (crSlider) {
       let maxCR = parseFloat(crSlider.max);
-      if (type === 'TowerBase' || type === 'TowerBaseSculpted') maxCR = TowerBase.getMaxCornerRadius(next); // <-- MODIFIED
+      if (type === 'TowerBase') maxCR = TowerBase.getMaxCornerRadius(next);
+      else if (type === 'TowerBaseSculpted') maxCR = TowerBaseSculpted.getMaxCornerRadius(next); // <-- MODIFIED
       else if (type === 'DoubleDoor') maxCR = DoubleDoor.getMaxCornerRadius(next);
       else if (type === 'Window') maxCR = WindowAsset.getMaxCornerRadius(next);
       else if (type === 'Floor') maxCR = Floor.getMaxCornerRadius(next);
@@ -74,7 +75,8 @@ function linkControls(page, object, paramConfig) {
     const erSlider = page.querySelector('#edgeRoundness-slider');
     if (erSlider) {
       let maxER = parseFloat(erSlider.max);
-      if (type === 'TowerBase' || type === 'TowerBaseSculpted') maxER = TowerBase.getMaxEdgeRoundness(next); // <-- MODIFIED
+      if (type === 'TowerBase') maxER = TowerBase.getMaxEdgeRoundness(next);
+      else if (type === 'TowerBaseSculpted') maxER = TowerBaseSculpted.getMaxEdgeRoundness(next); // <-- MODIFIED
       else if (type === 'DoubleDoor') maxER = DoubleDoor.getMaxEdgeRoundness(next);
       else if (type === 'Window') maxER = WindowAsset.getMaxEdgeRoundness(next);
       else if (type === 'Floor') maxER = Floor.getMaxEdgeRoundness(next);
@@ -82,12 +84,23 @@ function linkControls(page, object, paramConfig) {
       erSlider.max = maxER;
       if (next.edgeRoundness > maxER) next.edgeRoundness = maxER;
     }
-    const dwSlider = page.querySelector('#doorWidth-slider');
-    if (dwSlider && (type === 'TowerBase' || type === 'TowerBaseSculpted')) { // <-- MODIFIED
-      const maxDW = TowerBase.getMaxDoorWidth(next);
+    
+    // --- Door Width Sliders ---
+    const dwSlider = page.querySelector('#doorWidthFront-slider'); // <-- RENAMED
+    if (dwSlider && (type === 'TowerBase' || type === 'TowerBaseSculpted')) { 
+      const maxDW = (type === 'TowerBase') ? TowerBase.getMaxDoorWidth(next) : TowerBaseSculpted.getMaxDoorWidth(next);
       dwSlider.max = maxDW;
-      if (next.doorWidth > maxDW) next.doorWidth = maxDW;
+      if (next.doorWidthFront > maxDW) next.doorWidthFront = maxDW;
     }
+    
+    // --- NEW: Side Door Width Slider ---
+    const dwSideSlider = page.querySelector('#doorWidthSide-slider');
+    if (dwSideSlider && type === 'TowerBaseSculpted') {
+      const maxDWSide = TowerBaseSculpted.getMaxSideDoorWidth(next);
+      dwSideSlider.max = maxDWSide;
+      if (next.doorWidthSide > maxDWSide) next.doorWidthSide = maxDWSide;
+    }
+
     if (type === 'Pipe') {
       const wtSlider = page.querySelector('#wallThickness-slider');
       if (wtSlider) {
@@ -196,10 +209,10 @@ export const OBJECT_DEFINITIONS = [
         depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
         wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
         cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, // <-- RE-ADDED
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, 
         edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' }, // <-- RE-ADDED
-        doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' } // This key must match param!
       };
       buildTabFromConfig(object, page, paramConfig);
     }
@@ -211,49 +224,72 @@ export const OBJECT_DEFINITIONS = [
     defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
     initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
-      const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.label === 'Tower (Door)');
-      if (doorTowerDef) {
-        doorTowerDef.buildShapeTab(object, page);
+      // Find the config for 'Tower (Door)' and reuse it
+      const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.type === 'TowerBase' && d.label === 'Tower (Door)');
+      if (doorTowerDef && doorTowerDef.buildShapeTab) {
+        // We need to remap 'doorWidth' to 'doorWidthFront' for the 'Tower (Door)' config
+        const originalParams = object.userData.params;
+        const mappedParams = { ...originalParams, doorWidth: originalParams.doorWidthFront };
+        const mappedObject = { ...object, userData: { ...object.userData, params: mappedParams } };
+        
+        doorTowerDef.buildShapeTab(mappedObject, page);
+        
+        // Find the 'Door Width' slider and rename it, or just use the config from TowerBaseSculpted
       }
+      // This is getting complex. It's better to just copy the config.
+       const p = object.userData.params;
+       const paramConfig = {
+        height:           { min: 1,   max: 80, step: 0.1, label: 'Height' },
+        width:            { min: 4,   max: 80, step: 0.1, label: 'Width' },
+        depth:            { min: 4,   max: 80, step: 0.1, label: 'Depth' },
+        wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
+        cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
+        cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' }, 
+        edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
+        edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
+        doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
     }
   },
-  { // <-- NEW OBJECT DEFINITION ADDED HERE
+  { // <-- THIS IS THE MODIFIED DEFINITION
     type: 'TowerBaseSculpted',
     label: 'Tower (Sculpted)',
     ctor: TowerBaseSculpted,
-    defaultParams: { 
-        width: 12, depth: 12, height: 8, wallThickness: 1, cornerRadius: 1.2, doorWidth: 4,
-        plinthHeight: 0.8, plinthOutset: 0.5, corniceHeight: 0.6, corniceOutset: 0.4,
-        buttressCountX: 2, buttressCountZ: 2, buttressWidth: 0.6, buttressDepth: 0.4
-    },
-    initialY: (p) => (p.height / 2 + p.corniceHeight), // Set initial Y to top of cornice
+    defaultParams: { /* Defaults are in the class constructor */ },
+    initialY: (p) => (p.height / 2 + (p.corniceHeight || 0.6)), // Place on ground
     buildShapeTab: (object, page) => {
         const p = object.userData.params;
         const paramConfig = {
-            // --- Main Wall (from TowerBase) ---
+            // --- Wall ---
             height:           { min: 1,   max: 80, step: 0.1, label: 'Wall Height' },
             width:            { min: 4,   max: 80, step: 0.1, label: 'Wall Width' },
             depth:            { min: 4,   max: 80, step: 0.1, label: 'Wall Depth' },
             wallThickness:    { min: 0.1, max: 5,  step: 0.05, label: 'Wall Thickness' },
-            cornerRadius:     { min: 0,   max: TowerBase.getMaxCornerRadius(p), step: 0.05, label: 'Corner Radius' },
-            cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
-            edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
-            edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-            doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' },
+            cornerRadius:     { min: 0,   max: TowerBaseSculpted.getMaxCornerRadius(p), step: 0.05, label: 'Wall Corner Radius' },
+            edgeRoundness:    { min: 0,   max: TowerBaseSculpted.getMaxEdgeRoundness(p), step: 0.05, label: 'Wall Edge Roundness' },
+            edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Wall Edge Smoothness' },
+            doorWidthFront:   { min: 0,   max: TowerBaseSculpted.getMaxDoorWidth(p), step: 0.1, label: 'Front Door Width' },
+            doorWidthSide:    { min: 0,   max: TowerBaseSculpted.getMaxSideDoorWidth(p), step: 0.1, label: 'Side Door Width' },
 
             // --- Plinth (Bottom) ---
             plinthHeight:     { min: 0.1, max: 5,  step: 0.05, label: 'Plinth Height' },
             plinthOutset:     { min: 0,   max: 5,  step: 0.05, label: 'Plinth Outset' },
+            plinthRoundness:  { min: 0,   max: 2,  step: 0.01, label: 'Plinth Roundness' },
 
             // --- Cornice (Top) ---
             corniceHeight:    { min: 0.1, max: 5,  step: 0.05, label: 'Cornice Height' },
             corniceOutset:    { min: 0,   max: 5,  step: 0.05, label: 'Cornice Outset' },
+            corniceRoundness: { min: 0,   max: 2,  step: 0.01, label: 'Cornice Roundness' },
 
             // --- Buttresses (Columns) ---
-            buttressCountX:   { min: 0,   max: 10, step: 1,    label: 'Columns (Front/Back)' },
-            buttressCountZ:   { min: 0,   max: 10, step: 1,    label: 'Columns (Left/Right)' },
+            buttressCountFront: { min: 0,   max: 10, step: 1,    label: 'Front Columns' },
             buttressWidth:    { min: 0.1, max: 4,  step: 0.05, label: 'Column Width' },
             buttressDepth:    { min: 0.1, max: 4,  step: 0.05, label: 'Column Depth (Outset)' },
+            buttressRoundness:{ min: 0,   max: 2,  step: 0.01, label: 'Column Roundness' },
+            sideColumnPos:    { min: 0,   max: 1,  step: 0.01, label: 'Side Column Position' },
+            sideColumnCurveHeight: { min: 0.1, max: (p.height+p.plinthHeight+p.corniceHeight), step: 0.1, label: 'Side Col. Curve Height' },
+            sideColumnCurveAmount: { min: 0,   max: 3,  step: 0.05, label: 'Side Col. Curve Amount' },
         };
         buildTabFromConfig(object, page, paramConfig);
     }
