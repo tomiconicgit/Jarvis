@@ -67,7 +67,6 @@ function createMeshEntry(mesh, container, indentLevel) {
   // --- END RENAMING ---
 
   const actions = document.createElement('div');
-  // ... (rest of the function is unchanged) ...
   actions.className = 'flex items-center gap-2';
 
   // Visibility (Hide/Show) Button
@@ -190,7 +189,6 @@ function createModelEntry(model, container, indentLevel) {
   }
 
   const actions = document.createElement('div');
-  // ... (rest of the function is unchanged) ...
   actions.className = 'flex items-center gap-2';
 
   // Duplicate Button
@@ -202,7 +200,9 @@ function createModelEntry(model, container, indentLevel) {
 
   // Delete Button
   const delBtn = document.createElement('button');
-  delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-9sh-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18" stroke-width="2" stroke-linecap="round"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path><path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path></svg>`;
+  delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-95 transition-transform';
+  delBtn.title = 'Delete Model';
+  delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18" stroke-width="2" stroke-linecap="round"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path><path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path></svg>`;
   delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(model); });
 
   actions.appendChild(dupBtn);
@@ -227,7 +227,6 @@ function createModelEntry(model, container, indentLevel) {
  * @param {THREE.Group} src - The root model to duplicate.
  */
 function duplicateModel(src) {
-  // ... (function is unchanged) ...
   let copy;
   const type = src.userData?.type || 'Object';
   const params = { ...(src.userData?.params || {}) };
@@ -266,7 +265,7 @@ function duplicateModel(src) {
  * Deletes a root model and all its children.
  * @param {THREE.Group} obj - The root model to delete.
  */
-export function deleteModel(obj) { // Ensure this is exported
+export function deleteModel(obj) { // EXPORTED
   const idx = allModels.indexOf(obj);
   if (idx !== -1) allModels.splice(idx, 1);
 
@@ -296,7 +295,6 @@ export function deleteModel(obj) { // Ensure this is exported
  * Main function to refresh the entire scene list UI.
  */
 export function refreshSceneList() {
-  // ... (function is unchanged) ...
   const sceneList = document.getElementById('scene-list');
   if (!sceneList) return;
 
@@ -314,7 +312,6 @@ export function refreshSceneList() {
 }
 
 export function initScenePanel() {
-  // ... (function is unchanged) ...
   const scenePanel = document.getElementById('scene-panel');
   if (!scenePanel) return;
   
