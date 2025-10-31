@@ -1,4 +1,3 @@
-// File: objects/towerbase_sculpted.js
 import * as THREE from 'three';
 
 // -----------------------------------------------------------------
@@ -30,10 +29,15 @@ function roundedRectPath(w, d, r) {
 
 /**
  * Creates the complete XZ shape for the tower walls, including three door gaps.
+ *
+ * --- FIX ---
+ * This function now accepts a 'constraints' object with pre-calculated max values
+ * instead of trying to call the static methods itself.
  */
-function createWallShape(p) {
+function createWallShape(p, constraints) {
     const eps = 0.01;
-    const crMax = TowerBaseSculpted.getMaxCornerRadius(p);
+    // Use constraints passed in
+    const { crMax, doorW_Front_Max, doorW_Side_Max } = constraints;
     const rr = Math.min(Math.max(0, p.cornerRadius || 0), crMax);
     
     const w = p.width, d = p.depth;
@@ -44,9 +48,9 @@ function createWallShape(p) {
     const ihw = iw / 2, ihd = id / 2;
     const ir = Math.max(0, rr - p.wallThickness);
 
-    // Clamp door widths
-    const doorW_Front = Math.min(p.doorWidthFront, TowerBaseSculpted.getMaxDoorWidth(p));
-    const doorW_Side  = Math.min(p.doorWidthSide, TowerBaseSculpted.getMaxSideDoorWidth(p));
+    // Clamp door widths using pre-calculated max values
+    const doorW_Front = Math.min(p.doorWidthFront, doorW_Front_Max);
+    const doorW_Side  = Math.min(p.doorWidthSide, doorW_Side_Max);
 
     const hasFrontDoor = doorW_Front > 0;
     const hasSideDoors = doorW_Side > 0;
@@ -296,7 +300,18 @@ export default class TowerBaseSculpted extends THREE.Group {
         const p = this.userData.params;
 
         // --- 1. Main Wall (Rebuilt from scratch) ---
-        const wallShape = createWallShape(p);
+        
+        // --- FIX ---
+        // Calculate constraints *inside* the class method
+        const constraints = {
+            crMax: TowerBaseSculpted.getMaxCornerRadius(p),
+            doorW_Front_Max: TowerBaseSculpted.getMaxDoorWidth(p),
+            doorW_Side_Max: TowerBaseSculpted.getMaxSideDoorWidth(p)
+        };
+        // Pass constraints to the *outside* helper function
+        const wallShape = createWallShape(p, constraints);
+        // --- End Fix ---
+
         const bevelEnabled = (p.edgeRoundness || 0) > 0;
         const extrudeSettings = {
             depth: p.height,
@@ -415,3 +430,4 @@ export default class TowerBaseSculpted extends THREE.Group {
         this.clear();
     }
 }
+
