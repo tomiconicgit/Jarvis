@@ -1,7 +1,7 @@
 // File: main.js
 import { loadUIPanels } from './ui/ui-loader.js';
 import { initScene, animate } from './core/scene-manager.js';
-import { initGlobalUI, initPanelToggles } from './ui/ui-panels.js';
+import { initGlobalUI, initPanelToggles, showTempMessage } from './ui/ui-panels.js'; // Import showTempMessage
 import { initAddPanel } from './ui/add-panel-manager.js';
 import { initFilePanel } from './ui/file-panel-manager.js';
 import { initScenePanel } from './ui/scene-panel-manager.js';
@@ -40,9 +40,8 @@ async function main() {
   }
 }
 
-// Handle global errors
-window.addEventListener('error', (e) => {
-  const msg = e?.error?.message || e.message || 'Unknown error';
+// --- FIXED: Added error handling logic ---
+function handleGlobalError(msg) {
   const box = document.getElementById('message-box');
   if (box) {
     document.getElementById('message-text').textContent = msg;
@@ -51,18 +50,17 @@ window.addEventListener('error', (e) => {
   }
   const ls = document.getElementById('loading-screen');
   if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+}
+
+window.addEventListener('error', (e) => {
+  const msg = e?.error?.message || e.message || 'Unknown error';
+  handleGlobalError(msg);
 });
 window.addEventListener('unhandledrejection', (e) => {
   const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
-  const box = document.getElementById('message-box');
-  if (box) {
-    document.getElementById('message-text').textContent = msg;
-    box.classList.add('show');
-    setTimeout(() => box.classList.remove('show'), 3500);
-  }
-  const ls = document.getElementById('loading-screen');
-  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+  handleGlobalError(msg);
 });
+// --- End Fix ---
 
 // Start the app
 main();
