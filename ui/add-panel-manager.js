@@ -29,11 +29,14 @@ export function initAddPanel() {
     if (!def) return;
 
     // 3. Add the object using the definition
-    const obj = new def.ctor(def.defaultParams || {});
+    const params = def.defaultParams || {};
+    const obj = new def.ctor(params);
     
-    if (def.defaultParams.height) {
-      obj.position.y = def.defaultParams.height / 2;
+    // --- FIX: Use the initialY function from the manifest ---
+    if (def.initialY) {
+      obj.position.y = def.initialY(params);
     }
+    // --- End Fix ---
 
     assignDefaultName(obj);
     scene.add(obj);
