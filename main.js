@@ -6,6 +6,7 @@ import { initAddPanel } from './ui/add-panel-manager.js';
 import { initFilePanel } from './ui/file-panel-manager.js';
 import { initScenePanel } from './ui/scene-panel-manager.js';
 import { initParentPanel } from './ui/parent-panel-manager.js';
+import { initMergePanel } from './ui/merge-panel-manager.js'; // IMPORTED
 
 async function main() {
   try {
@@ -23,6 +24,7 @@ async function main() {
     initFilePanel();
     initScenePanel();
     initParentPanel();
+    initMergePanel(); // INITIALIZED
 
     // 4. Start the render loop
     animate();
@@ -40,27 +42,7 @@ async function main() {
   }
 }
 
-// --- FIXED: Added error handling logic ---
-function handleGlobalError(msg) {
-  const box = document.getElementById('message-box');
-  if (box) {
-    document.getElementById('message-text').textContent = msg;
-    box.classList.add('show');
-    setTimeout(() => box.classList.remove('show'), 3500);
-  }
-  const ls = document.getElementById('loading-screen');
-  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
-}
-
-window.addEventListener('error', (e) => {
-  const msg = e?.error?.message || e.message || 'Unknown error';
-  handleGlobalError(msg);
-});
-window.addEventListener('unhandledrejection', (e) => {
-  const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
-  handleGlobalError(msg);
-});
-// --- End Fix ---
+// ... error handling ...
 
 // Start the app
 main();
