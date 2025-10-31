@@ -155,7 +155,7 @@ export default class Floor extends THREE.Group {
     extrude.rotateX(-Math.PI/2); // thickness now in Y
     extrude.computeVertexNormals();
 
-    // Optional bulge (roof camber) — push only top face up
+    // Optional bulge (roof camber) â push only top face up
     if ((p.bulgeHeight || 0) !== 0) {
       const pos = extrude.attributes.position;
       const hw = p.width / 2, hd = p.depth / 2;
@@ -182,6 +182,7 @@ export default class Floor extends THREE.Group {
     }
 
     const slab = new THREE.Mesh(extrude, this.slabMaterial);
+    slab.name = 'Slab';
     slab.castShadow = true;
     slab.receiveShadow = true;
     this.add(slab);
@@ -195,6 +196,7 @@ export default class Floor extends THREE.Group {
       const sz = Math.min(Math.max(p.skylightZ, bounds.minZ), bounds.maxZ);
 
       const glass = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), this.glassMaterial);
+      glass.name = 'Glass';
       glass.position.set(sx, p.thickness/2 + (p.glassOffset || 0.002), sz);
       glass.rotation.x = -Math.PI/2;
       this.add(glass);
