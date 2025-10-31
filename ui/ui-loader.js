@@ -6,6 +6,7 @@ const panels = [
   { id: 'add-panel-placeholder', path: 'ui/add-panel.html' },
   { id: 'scene-panel-placeholder', path: 'ui/scene-panel.html' },
   { id: 'parent-panel-placeholder', path: 'ui/parent-panel.html' },
+  { id: 'merge-panel-placeholder', path: 'ui/merge-panel.html' }, // ADDED
   { id: 'export-panel-placeholder', path: 'ui/export-panel.html' },
   { id: 'props-panel-placeholder', path: 'ui/props-panel.html' },
 ];
