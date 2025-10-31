@@ -42,7 +42,27 @@ async function main() {
   }
 }
 
-// ... error handling ...
+// --- FIXED: Added error handling logic ---
+function handleGlobalError(msg) {
+  const box = document.getElementById('message-box');
+  if (box) {
+    document.getElementById('message-text').textContent = msg;
+    box.classList.add('show');
+    setTimeout(() => box.classList.remove('show'), 3500);
+  }
+  const ls = document.getElementById('loading-screen');
+  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+}
+
+window.addEventListener('error', (e) => {
+  const msg = e?.error?.message || e.message || 'Unknown error';
+  handleGlobalError(msg);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
+  handleGlobalError(msg);
+});
+// --- End Fix ---
 
 // Start the app
 main();
