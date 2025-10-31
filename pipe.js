@@ -79,6 +79,7 @@ export default class Pipe extends THREE.Group {
       new THREE.CylinderGeometry(outerR, outerR, length, Math.max(12, p.radialSegments), 1, true),
       this.pipeMat
     );
+    straightOuter.name = 'StraightOuter';
     straightOuter.applyQuaternion(qMain);
     straightOuter.castShadow = straightOuter.receiveShadow = true;
     this.add(straightOuter);
@@ -90,6 +91,7 @@ export default class Pipe extends THREE.Group {
         new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true),
         straightInnerMat
       );
+      straightInner.name = 'StraightInner';
       straightInner.applyQuaternion(qMain);
       this.add(straightInner);
     }
@@ -122,6 +124,7 @@ export default class Pipe extends THREE.Group {
         new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false),
         this.pipeMat
       );
+      elbowOuter.name = 'ElbowOuter';
       // Rotate elbow plane about +X
       elbowOuter.rotateX(phi);
       this.add(elbowOuter);
@@ -133,29 +136,15 @@ export default class Pipe extends THREE.Group {
           new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), innerR, Math.max(8, p.radialSegments), false),
           innerMat
         );
+        elbowInner.name = 'ElbowInner';
         elbowInner.rotateX(phi);
         this.add(elbowInner);
-        // keep them together by grouping
-        const grp = new THREE.Group();
-        grp.add(elbowOuter); grp.add(elbowInner);
-        this.add(grp);
-        // and operate on grp instead of elbowOuter
-        this.remove(elbowOuter); this.remove(elbowInner);
-        elbowOuter.parent.remove(elbowOuter); // already moved
-        elbowInner.parent.remove(elbowInner);
-        this.add(grp);
-        // rename for placement
-        grp.name = 'ElbowGroup';
-        this._snapElbowGroupToStraight(grp, curve, phi, endPos);
-      } else {
-        elbowOuter.name = 'ElbowOuter';
-        this._snapElbowGroupToStraight(elbowOuter, curve, phi, endPos);
       }
 
       // End flange (aligned with elbow end tangent)
       if (p.hasFlangeEnd) {
         // compute world end position/tangent using the same rotation & placement we just applied
-        const elbowObj = this.getObjectByName('ElbowGroup') || this.getObjectByName('ElbowOuter');
+        const elbowObj = elbowOuter; // or group if inner
         const endLocal = curve.getPoint(1).clone().applyAxisAngle(new THREE.Vector3(1,0,0), phi);
         const tanLocal = curve.getTangent(1).clone().applyAxisAngle(new THREE.Vector3(1,0,0), phi);
 
@@ -166,16 +155,21 @@ export default class Pipe extends THREE.Group {
         tanWorld.applyQuaternion(elbowObj.getWorldQuaternion(new THREE.Quaternion())).normalize();
 
         const flangeEnd = this._makeFlange(endWorld, tanWorld, p, outerR);
+        flangeEnd.name = 'FlangeEnd';
         this.add(flangeEnd);
       }
     } else if (p.hasFlangeEnd) {
       // Straight-only end flange
-      this.add(this._makeFlange(endPos, endDir, p, outerR));
+      const flangeEnd = this._makeFlange(endPos, endDir, p, outerR);
+      flangeEnd.name = 'FlangeEnd';
+      this.add(flangeEnd);
     }
 
     // Start flange
     if (p.hasFlangeStart) {
-      this.add(this._makeFlange(new THREE.Vector3(-length / 2, 0, 0), new THREE.Vector3(-1, 0, 0), p, outerR));
+      const flangeStart = this._makeFlange(new THREE.Vector3(-length / 2, 0, 0), new THREE.Vector3(-1, 0, 0), p, outerR);
+      flangeStart.name = 'FlangeStart';
+      this.add(flangeStart);
     }
   }
 
