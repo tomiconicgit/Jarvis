@@ -1,6 +1,6 @@
 // File: objects/object-manifest.js
 import TowerBase from './towerbase.js';
-import TowerBaseSculpted from './tower_sculpted.js'; // <-- 1. IMPORT YOUR NEW CLASS
+import TowerBaseSculpted from './tower_sculpted.js'; // <-- IMPORT YOUR NEW CLASS
 import DoubleDoor from './doubledoor.js';
 import WindowAsset from './window.js';
 import Floor from './floor.js';
@@ -216,7 +216,7 @@ export const OBJECT_DEFINITIONS = [
       }
     }
   },
-  // --- 2. ADD YOUR NEW OBJECT DEFINITION HERE ---
+  // --- ADD YOUR NEW OBJECT DEFINITION HERE ---
   {
     type: 'TowerBaseSculpted',
     label: 'Tower (Sculpted)',
@@ -253,7 +253,7 @@ export const OBJECT_DEFINITIONS = [
         sideColumnCurveHeight: 2.0,
         sideColumnCurveAmount: 0.5,
     },
-    initialY: (p) => p.height / 2 + p.plinthHeight, // Places bottom of plinth at y=0
+    initialY: (p) => (p.height / 2) + p.plinthHeight, // Places bottom of plinth at y=plinthHeight/2 (so plinth bottom is at 0)
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -622,11 +622,12 @@ export const OBJECT_DEFINITIONS = [
   },
 ];
 
-// 3. This part automatically includes your new object, so it's correct
+// This part automatically includes your new object, so it's correct
 export const BUILDERS = OBJECT_DEFINITIONS.reduce((map, def) => {
   if (!map[def.type]) {
     map[def.type] = def.ctor;
   }
   return map;
 }, {});
+
 
