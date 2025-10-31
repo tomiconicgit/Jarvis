@@ -6,7 +6,7 @@ import { GLTFLoader }   from 'three/examples/jsm/loaders/GLTFLoader.js';
 export function serializeModels(scene) {
   const nodes = [];
   scene.traverse((o) => {
-    if (o.userData?.isModel && o.userData?.type) {
+    if (o.userData?.isModel || o.isMesh) {
       const t = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
       o.updateMatrixWorld(true);
       o.matrix.decompose(t, q, s);
@@ -35,7 +35,8 @@ export function serializeModels(scene) {
 
       nodes.push({
         id: o.uuid,
-        type: o.userData.type,
+        type: o.userData.type || 'MeshPart',
+        name: o.name || null,
         label: o.userData.label || null,
         params: o.userData.params || {},
         texOverrides: serializableTexOverrides, // Updated
@@ -44,7 +45,7 @@ export function serializeModels(scene) {
           quaternion: [o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w],
           scale: [o.scale.x, o.scale.y, o.scale.z]
         },
-        parentId: (o.parent && o.parent !== scene && o.parent.userData?.isModel) ? o.parent.uuid : null
+        parentId: (o.parent && o.parent !== scene) ? o.parent.uuid : null
       });
     }
   });
@@ -67,32 +68,36 @@ export function downloadBlob(blob, filename) {
 export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensureTexState) { // Added ensureTexState
   if (!json?.nodes) throw new Error('Invalid save file');
   const byId = {};
+  const meshParts = [];
   // First pass: create objects
   for (const n of json.nodes) {
-    const ctor = builders[n.type];
-    if (!ctor) continue; // skip unknown
-    const obj = new ctor(n.params || {});
-    obj.userData.isModel = true;
-    obj.userData.type = n.type;
-    if (n.label) obj.userData.label = n.label;
+    if (n.type in builders) {
+      const ctor = builders[n.type];
+      const obj = new ctor(n.params || {});
+      obj.userData.isModel = true;
+      obj.userData.type = n.type;
+      if (n.label) obj.userData.label = n.label;
 
-    // Restore texture override settings
-    if (n.texOverrides && ensureTexState) {
-      const state = ensureTexState(obj); // Get the default object
-      // Merge saved properties (uvScale, uvRotation, etc.)
-      Object.assign(state, n.texOverrides);
-    }
+      // Restore texture override settings
+      if (n.texOverrides && ensureTexState) {
+        const state = ensureTexState(obj); // Get the default object
+        // Merge saved properties (uvScale, uvRotation, etc.)
+        Object.assign(state, n.texOverrides);
+      }
 
-    // Apply TRS
-    if (n.transform) {
-      const p = n.transform.position || [0,0,0];
-      const q = n.transform.quaternion || [0,0,0,1];
-      const s = n.transform.scale || [1,1,1];
-      obj.position.set(p[0], p[1], p[2]);
-      obj.quaternion.set(q[0], q[1], q[2], q[3]);
-      obj.scale.set(s[0], s[1], s[2]);
+      // Apply TRS
+      if (n.transform) {
+        const p = n.transform.position || [0,0,0];
+        const q = n.transform.quaternion || [0,0,0,1];
+        const s = n.transform.scale || [1,1,1];
+        obj.position.set(p[0], p[1], p[2]);
+        obj.quaternion.set(q[0], q[1], q[2], q[3]);
+        obj.scale.set(s[0], s[1], s[2]);
+      }
+      byId[n.id] = obj;
+    } else if (n.type === 'MeshPart') {
+      meshParts.push(n);
     }
-    byId[n.id] = obj;
   }
   // Second pass: parenting
   for (const n of json.nodes) {
@@ -102,6 +107,18 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
     parent.add(o);
     allModels.push(o);
     onAfterAdd && onAfterAdd(o);
+  }
+  // Third pass: apply to mesh parts
+  for (const n of meshParts) {
+    const parent = n.parentId ? byId[n.parentId] : null;
+    if (parent && n.name) {
+      const child = parent.getObjectByName(n.name);
+      if (child && n.texOverrides && ensureTexState) {
+        const state = ensureTexState(child);
+        Object.assign(state, n.texOverrides);
+      }
+      // Apply transform if needed, but for parts, usually not
+    }
   }
 }
 
