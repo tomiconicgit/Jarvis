@@ -305,7 +305,6 @@ export const OBJECT_DEFINITIONS = [
     initialY: (p) => 1.0, // <-- FIX: Added initialY
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
-      // --- FIX: Replaced Â° with ° ---
       const paramConfig = {
         length:          { min: 0.5, max: 80,   step: 0.1,  label: 'Length' },
         outerRadius:     { min: 0.02, max: 10,  step: 0.01, label: 'Outer Radius' },
