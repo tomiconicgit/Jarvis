@@ -155,7 +155,7 @@ export default class Floor extends THREE.Group {
     extrude.rotateX(-Math.PI/2); // thickness now in Y
     extrude.computeVertexNormals();
 
-    // Optional bulge (roof camber) â push only top face up
+    // Optional bulge (roof camber) — push only top face up
     if ((p.bulgeHeight || 0) !== 0) {
       const pos = extrude.attributes.position;
       const hw = p.width / 2, hd = p.depth / 2;
