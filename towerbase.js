@@ -173,6 +173,7 @@ export default class TowerBase extends THREE.Group {
     const p = this.userData.params;
     let shellGeo = unifiedShellGeometry(p, false);
     const resultMesh = new THREE.Mesh(shellGeo, this.material);
+    resultMesh.name = 'Shell';
     resultMesh.castShadow = true;
     resultMesh.receiveShadow = true;
     this.add(resultMesh);
@@ -204,5 +205,3 @@ export default class TowerBase extends THREE.Group {
     this.clear();
   }
 }
-
-
