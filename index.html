@@ -8,7 +8,6 @@
   >
   <title>Mobile 3D Tower Modeler</title>
 
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
@@ -121,7 +120,7 @@
       "three/examples/jsm/controls/TransformControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/TransformControls.js",
       "three/examples/jsm/environments/RoomEnvironment.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/environments/RoomEnvironment.js",
       "three/examples/jsm/exporters/GLTFExporter.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/exporters/GLTFExporter.js",
-      "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"
+      "three/examples/jsm/loaders/GLTLoader.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js"
     }
   }
   </script>
@@ -143,108 +142,16 @@
     </div>
   </div>
 
-  <!-- FILE -->
-  <div id="file-panel" class="ui-panel bottom-sheet left-drawer p-3">
-    <h3 class="text-lg font-bold mb-3">File</h3>
-    <div class="space-y-2">
-      <button id="file-save"   class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-700">Save<span class="text-xs text-gray-300">.json</span></button>
-      <button id="file-load"   class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-700">Load<span class="text-xs text-gray-300">from .json</span></button>
-      <button id="file-export" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-700">Export<span class="text-xs text-gray-300">.glb</span></button>
-      <button id="file-import" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-700">Import<span class="text-xs text-gray-300">.glb</span></button>
-    </div>
-    <button id="close-file-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
-  </div>
+  <div id="file-panel-placeholder"></div>
+  <div id="add-panel-placeholder"></div>
+  <div id="scene-panel-placeholder"></div>
+  <div id="parent-panel-placeholder"></div>
+  <div id="export-panel-placeholder"></div>
+  <div id="props-panel-placeholder"></div>
 
-  <!-- Hidden pickers -->
   <input id="picker-load-json" type="file" accept="application/json" class="hidden">
   <input id="picker-import-glb" type="file" accept=".glb,model/gltf-binary" class="hidden">
 
-  <!-- ADD -->
-  <div id="add-panel" class="ui-panel bottom-sheet left-drawer p-4">
-    <h3 class="text-lg font-bold mb-4">Add Object</h3>
-    <div class="grid grid-cols-3 gap-4">
-      <button id="add-tower-door-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Tower Base (Door)</span>
-      </button>
-      <button id="add-tower-solid-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Tower Base (Solid)</span>
-      </button>
-      <button id="add-double-door-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Double Door</span>
-      </button>
-      <button id="add-window-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Window</span>
-      </button>
-      <button id="add-floor-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Floor</span>
-      </button>
-      <button id="add-pipe-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Pipe</span>
-      </button>
-      <button id="add-trussarm-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Truss Arm</span>
-      </button>
-      <button id="add-cube-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Cube</span>
-      </button>
-      <button id="add-sphere-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Sphere</span>
-      </button>
-      <button id="add-cylinder-btn" class="bg-gray-700 p-3 rounded-lg active:scale-90 transition-transform">
-        <span class="text-sm font-medium text-center">Cylinder</span>
-      </button>
-    </div>
-    <button id="close-add-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
-  </div>
-
-  <!-- SCENE -->
-  <div id="scene-panel" class="ui-panel bottom-sheet left-drawer p-4">
-    <h3 class="text-lg font-bold mb-3">Scene Objects</h3>
-    <div id="scene-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
-    <button id="close-scene-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
-  </div>
-
-  <!-- PARENT -->
-  <div id="parent-panel" class="ui-panel bottom-sheet left-drawer p-4">
-    <h3 class="text-lg font-bold mb-3">Parenting</h3>
-    <p class="text-sm text-gray-300 mb-3">Select one Main, then one or more Children. Apply to link them.</p>
-    <div id="parent-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
-    <div class="mt-4 flex justify-end gap-3">
-      <button id="parent-cancel" class="px-3 py-2 bg-gray-600 rounded-md">Cancel</button>
-      <button id="parent-apply" class="px-3 py-2 bg-blue-600 rounded-md font-semibold">Apply Parenting</button>
-    </div>
-    <button id="close-parent-panel" class="absolute top-2 right-2 w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
-  </div>
-
-  <!-- EXPORT -->
-  <div id="export-panel" class="ui-panel bottom-sheet left-drawer p-4">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-lg font-bold">Export GLB</h3>
-      <button id="export-close" class="w-8 h-8 bg-gray-700 rounded-full text-2xl leading-6">&times;</button>
-    </div>
-    <div class="space-y-3">
-      <label class="block text-sm">Model name
-        <input id="export-name" class="mt-1 w-full bg-gray-800 rounded-md p-2 outline-none" placeholder="MyModel.glb" value="Model.glb">
-      </label>
-      <div class="grid grid-cols-2 gap-3 text-sm">
-        <label class="flex items-center gap-2"><input id="opt-only-models" type="checkbox" checked> Only models (no grid/lights)</label>
-        <label class="flex items-center gap-2"><input id="opt-binary" type="checkbox" checked> Export binary (.glb)</label>
-      </div>
-    </div>
-    <div class="mt-4 flex justify-end gap-3">
-      <button id="export-cancel" class="px-3 py-2 bg-gray-600 rounded-md">Cancel</button>
-      <button id="export-go" class="px-3 py-2 bg-blue-600 rounded-md font-semibold">Export</button>
-    </div>
-  </div>
-
-  <!-- PROPERTIES -->
-  <div id="props-panel" class="ui-panel p-4">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-bold">Properties</h3>
-      <button id="close-props-panel" class="w-8 h-8 bg-gray-600 rounded-full flex justify-center items-center text-2xl font-bold">&times;</button>
-    </div>
-    <div id="props-content" class="space-y-4 overflow-y-auto max-h-[calc(45vh-4rem)] px-4 pb-2"></div>
-  </div>
 
   <script>
     const hideLoader = () => {
