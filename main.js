@@ -1,4 +1,3 @@
-// --- Imports ---
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -171,6 +170,7 @@ function init() {
   // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a2a2a);
+  // Push fog out so nothing within ~100 units gets fogged
   scene.fog = new THREE.Fog(0x2a2a2a, 1500, 10000);
 
   // Renderer
@@ -342,7 +342,7 @@ function deselectAll() {
 }
 
 // -----------------------------
- // UI
+// UI
 // -----------------------------
 function initUI() {
   // FILE dropdown (bottom sheet)
@@ -364,6 +364,7 @@ function initUI() {
     try {
       const text = await f.text();
       const json = JSON.parse(text);
+      // Pass ensureTexState as the final argument
       loadFromJSON(json, BUILDERS, scene, topModels, (o) => {
         if (!o.userData.label) assignDefaultName(o);
       }, ensureTexState);
@@ -642,9 +643,31 @@ function refreshSceneList() {
 }
 
 // -----------------------------
- // Parenting
+// Panels + Toast
 // -----------------------------
-function findByUUID(uuid) { return topModels.find(o => o.uuid === uuid); } // only top for parenting
+function showPanel(p) {
+  if (!p) return;
+  p.style.visibility = 'visible';
+  p.style.opacity = '1';
+  p.style.transform = 'translateY(0)';
+}
+function hidePanel(p) {
+  if (!p) return;
+  p.style.opacity = '0';
+  p.style.transform = 'translateY(100%)';
+  setTimeout(() => (p.style.visibility = 'hidden'), 240);
+}
+function showTempMessage(text) {
+  const box = document.getElementById('message-box');
+  document.getElementById('message-text').textContent = text;
+  box.classList.add('show');
+  setTimeout(() => box.classList.remove('show'), 1500);
+}
+
+// -----------------------------
+// Parenting
+// -----------------------------
+function findByUUID(uuid) { return topModels.find(o => o.uuid === uuid); }
 
 function refreshParentList() {
   parentList.innerHTML = '';
@@ -1740,6 +1763,7 @@ function buildTexturesTab(object, page) {
       const scale = parseFloat(page.querySelector('#uv-scale-slider').value);
       const rot   = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#uv-rot-slider').value));
       try {
+        // isPreset is false by default
         await uploadMapFromFile({ object, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
       } catch (err) {
         console.error('Texture upload failed:', err);
@@ -1789,7 +1813,7 @@ function buildTexturesTab(object, page) {
 function updatePropsPanel(object) {
   propsContent.innerHTML = '';
   if (!object) {
-    propsContent.innerHTML = '<p class="text-gray-400">No selection.</p';
+    propsContent.innerHTML = '<p class="text-gray-400">No selection.</p>';
     return;
   }
   makeTabs(propsContent, [
