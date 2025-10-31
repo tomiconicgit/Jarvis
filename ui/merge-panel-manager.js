@@ -1,5 +1,5 @@
 // File: ui/merge-panel-manager.js
-import *import * as THREE from 'three';
+import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { allModels, scene, findByUUID, assignDefaultName, selectObject, deselectAll } from '../core/scene-manager.js';
 import { hidePanel, showTempMessage, togglePanel } from './ui-panels.js';
