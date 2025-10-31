@@ -204,6 +204,7 @@ export default class Roof extends THREE.Group {
     // base slab
     const slabGeo = makeRoofGeometry(p);
     const slab = new THREE.Mesh(slabGeo, this.roofMat);
+    slab.name = 'Slab';
     slab.castShadow = true; slab.receiveShadow = true;
     this.add(slab);
 
@@ -215,6 +216,7 @@ export default class Roof extends THREE.Group {
       const sW = Math.max(0.1, Math.min(p.skylightWidth, Roof.getMaxSkylight(p).w));
       const sD = Math.max(0.1, Math.min(p.skylightDepth, Roof.getMaxSkylight(p).d));
       const glass = new THREE.Mesh(new THREE.PlaneGeometry(sW - 0.05, sD - 0.05), this.glassMat);
+      glass.name = 'Glass';
       // sit near the top; push slightly up to avoid z-fight
       const topY = new THREE.Box3().setFromObject(slab).max.y;
       glass.position.set(0, topY + 0.01, 0);
@@ -274,6 +276,7 @@ export default class Roof extends THREE.Group {
       const topY = slabBox.max.y;
       const vent = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.8),
         new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.6, metalness: 0.2 }));
+      vent.name = 'Vent';
       vent.position.set(- (effW / 4), topY + 0.3, 0);
       vent.castShadow = true;
       this.add(vent);
@@ -285,6 +288,7 @@ export default class Roof extends THREE.Group {
       const topY = slabBox.max.y;
       const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3, 16),
         new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.6 }));
+      mast.name = 'Antenna';
       mast.position.set(effW / 4, topY + 1.5, 0);
       mast.castShadow = true;
       this.add(mast);
