@@ -274,7 +274,6 @@ function buildTransformTab(object, page) {
       <input type="range" id="${id}-slider" min="${min}" max="${max}" step="${step}" value="${value}">
     </div>`;
 
-  // --- FIX: Replaced Â° with ° ---
   page.innerHTML = `
     <div class="grid grid-cols-3 gap-3">
       ${toRow('tx','Pos X', -100,100,0.1, object.position.x.toFixed(2))}
@@ -282,9 +281,9 @@ function buildTransformTab(object, page) {
       ${toRow('tz','Pos Z', -100,100,0.1, object.position.z.toFixed(2))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
-      ${toRow('rx','Rot X°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
-      ${toRow('ry','Rot Y°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
-      ${toRow('rz','Rot Z°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
+      ${toRow('rx','Rot X °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
+      ${toRow('ry','Rot Y °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
+      ${toRow('rz','Rot Z °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
       ${toRow('sx','Scale X', 0.01,20,0.01, object.scale.x.toFixed(2))}
@@ -377,7 +376,6 @@ function buildTexturesTab(object, page) {
   const rough = ('roughness' in rep) ? rep.roughness : preset.roughnessScalar;
   const metal = ('metalness' in rep) ? rep.metalness : preset.metalnessScalar;
 
-  // --- FIX: Replaced Â° with ° ---
   page.innerHTML = `
     <div class="space-y-4">
       <div>
