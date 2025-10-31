@@ -90,7 +90,12 @@ function linkControls(page, object, paramConfig) {
     if (dwSlider && (type === 'TowerBase' || type === 'TowerBaseSculpted')) { 
       const maxDW = (type === 'TowerBase') ? TowerBase.getMaxDoorWidth(next) : TowerBaseSculpted.getMaxDoorWidth(next);
       dwSlider.max = maxDW;
-      if (next.doorWidthFront > maxDW) next.doorWidthFront = maxDW;
+      // Handle key difference
+      if (type === 'TowerBase') {
+          if (next.doorWidth > maxDW) next.doorWidth = maxDW;
+      } else {
+          if (next.doorWidthFront > maxDW) next.doorWidthFront = maxDW;
+      }
     }
     
     // --- NEW: Side Door Width Slider ---
@@ -224,19 +229,6 @@ export const OBJECT_DEFINITIONS = [
     defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
     initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
-      // Find the config for 'Tower (Door)' and reuse it
-      const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.type === 'TowerBase' && d.label === 'Tower (Door)');
-      if (doorTowerDef && doorTowerDef.buildShapeTab) {
-        // We need to remap 'doorWidth' to 'doorWidthFront' for the 'Tower (Door)' config
-        const originalParams = object.userData.params;
-        const mappedParams = { ...originalParams, doorWidth: originalParams.doorWidthFront };
-        const mappedObject = { ...object, userData: { ...object.userData, params: mappedParams } };
-        
-        doorTowerDef.buildShapeTab(mappedObject, page);
-        
-        // Find the 'Door Width' slider and rename it, or just use the config from TowerBaseSculpted
-      }
-      // This is getting complex. It's better to just copy the config.
        const p = object.userData.params;
        const paramConfig = {
         height:           { min: 1,   max: 80, step: 0.1, label: 'Height' },
