@@ -1,22 +1,20 @@
 // File: ui/props-panel.js
 import * as THREE from 'three';
 import { OBJECT_DEFINITIONS } from '../objects/object-manifest.js';
-// --- FIX: Changed import to avoid circular dependency ---
 import * as SceneManager from '../core/scene-manager.js';
 
 // --- Texture Globals ---
 const textureLoader = new THREE.TextureLoader();
-// ... (rest of texture globals are all correct)
 const presetTextureCache = new Map();
 const PRESET_TEXTURES = {
   'none': { name: 'None', preview: '', albedo: null, normal: null, roughness: null, metalness: null, ao: null, displacement: null, roughnessScalar: 0.8, metalnessScalar: 0.1 },
   'rustymetal': { name: 'Rusty Metal', preview: 'textures/rustymetal/rustymetal.png', albedo: 'textures/rustymetal/rustymetal_albedo.png', normal: 'textures/rustymetal/rustymetal_normal.png', roughness: 'textures/rustymetal/rustymetal_roughness.png', metalness: null, ao: 'textures/rustymetal/rustymetal_ao.png', displacement: 'textures/rustymetal/rustymetal_displacement.png', roughnessScalar: 1.0, metalnessScalar: 1.0 },
   'road': { name: 'Road', preview: 'textures/road/road.png', albedo: 'textures/road/road_albedo.png', normal: 'textures/road/road_normal.png', roughness: 'textures/road/road_roughness.png', metalness: null, ao: null, displacement: 'textures/road/road_displacement.png', roughnessScalar: 1.0, metalnessScalar: 0.1 }
 };
+let currentTextureTarget = null; // Holds the object3D (root or mesh) being textured
 
 // --- Tab System ---
 function makeTabs(rootEl, tabsSpec) {
-  // ... (this function is correct)
   const header = document.createElement('div');
   header.className = 'flex gap-2 mb-3 sticky top-0 bg-[rgba(30,30,30,0.9)] pt-1 pb-2 z-10';
   const contentWrap = document.createElement('div');
@@ -55,13 +53,15 @@ function makeTabs(rootEl, tabsSpec) {
 }
 
 // --- Texture Helper Functions ---
+/** Collects materials from the given root object (which can be a Group or a Mesh) */
 function collectMaterialsFromObject(root) {
-  // ... (this function is correct)
   const set = new Set();
+  if (!root) return [];
   root.traverse(n => {
     if (n.isMesh && n.material) {
       if (Array.isArray(n.material)) n.material.forEach(m => m && set.add(m));
       else set.add(n.material);
+      // Ensure UV2 for AO maps etc.
       if (n.geometry?.attributes?.uv && !n.geometry.attributes.uv2) {
         n.geometry.setAttribute('uv2', n.geometry.attributes.uv);
       }
@@ -70,8 +70,9 @@ function collectMaterialsFromObject(root) {
   return Array.from(set);
 }
 
+/** Ensures the _texOverrides object exists on object.userData */
 export function ensureTexState(object) {
-  // ... (this function is correct)
+  if (!object) return {}; // Safety check
   if (!object.userData._texOverrides) object.userData._texOverrides = {
     map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
     aoMap: null, emissiveMap: null, displacementMap: null,
@@ -82,7 +83,6 @@ export function ensureTexState(object) {
 }
 
 function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
-  // ... (this function is correct)
   const apply = (tex) => {
     if (!tex) return;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -99,14 +99,12 @@ function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
 }
 
 function setMaterialScalar(materials, key, value) {
-  // ... (this function is correct)
   materials.forEach(m => {
     if (key in m) { m[key] = value; m.needsUpdate = true; }
   });
 }
 
 const MAP_SLOTS = {
-  // ... (this map is correct)
   albedo:   { prop: 'map',             color: true  },
   normal:   { prop: 'normalMap',       color: false },
   roughness:{ prop: 'roughnessMap',    color: false },
@@ -118,10 +116,9 @@ const MAP_SLOTS = {
 
 function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset = false }) {
   return new Promise((resolve, reject) => {
-    // ... (rest of function is correct)
     const slot = MAP_SLOTS[slotName];
     if (!slot) return reject(new Error('Unknown map slot'));
-    const st = ensureTexState(object);
+    const st = ensureTexState(object); // State is on the target object
 
     const applyTex = (tex) => {
       try {
@@ -136,7 +133,6 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
         tex.repeat.set(uvScale, uvScale);
         tex.rotation = uvRotation;
         tex.needsUpdate = true;
-        // --- FIX: Use SceneManager.renderer ---
         if (typeof SceneManager.renderer?.capabilities?.getMaxAnisotropy === 'function') {
           tex.anisotropy = Math.min(8, SceneManager.renderer.capabilities.getMaxAnisotropy());
         }
@@ -171,14 +167,12 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
 }
 
 function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvRotation = 0 }) {
-  // ... (this function is correct)
   const url = URL.createObjectURL(file);
   return applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset: false })
     .finally(() => { URL.revokeObjectURL(url); });
 }
 
 function clearOverrideSlot(object, materials, slotName) {
-  // ... (this function is correct)
   const slot = MAP_SLOTS[slotName];
   const st = ensureTexState(object);
   const tex = st[slot.prop];
@@ -190,7 +184,6 @@ function clearOverrideSlot(object, materials, slotName) {
 }
 
 function clearAllOverrides(object, materials) {
-  // ... (this function is correct)
   const st = ensureTexState(object);
   for (const slotName of Object.keys(MAP_SLOTS)) {
     const slot = MAP_SLOTS[slotName];
@@ -207,7 +200,6 @@ function clearAllOverrides(object, materials) {
 }
 
 async function applyPreset(object, materials, presetKey, page) {
-  // ... (this function is correct)
   const preset = PRESET_TEXTURES[presetKey];
   if (!preset) return;
 
@@ -231,6 +223,7 @@ async function applyPreset(object, materials, presetKey, page) {
   setMaterialScalar(materials, 'roughness', preset.roughnessScalar);
   setMaterialScalar(materials, 'metalness', preset.metalnessScalar);
   
+  // Re-find controls inside the 'page'
   const roughSlider = page.querySelector('#mat-rough-slider');
   const roughNumber = page.querySelector('#mat-rough-val');
   const metalSlider = page.querySelector('#mat-metal-slider');
@@ -245,7 +238,6 @@ async function applyPreset(object, materials, presetKey, page) {
 }
 
 async function applyAlbedoOverride(object, materials, albedoKey) {
-  // ... (this function is correct)
   const preset = PRESET_TEXTURES[albedoKey];
   if (!preset) return;
   const st = ensureTexState(object);
@@ -306,7 +298,6 @@ function buildTransformTab(object, page) {
       const val = parseFloat(slider.value);
       number.value = format(val);
       fn(val);
-      // --- FIX: Use SceneManager.transformControls ---
       if (SceneManager.transformControls) SceneManager.transformControls.update();
     });
     const updateFromNumber = () => {
@@ -318,7 +309,6 @@ function buildTransformTab(object, page) {
       number.value = format(val);
       slider.value = val;
       fn(val);
-      // --- FIX: Use SceneManager.transformControls ---
       if (SceneManager.transformControls) SceneManager.transformControls.update();
     };
     number.addEventListener('change', updateFromNumber);
@@ -326,7 +316,7 @@ function buildTransformTab(object, page) {
       if (e.key === 'Enter') { e.preventDefault(); updateFromNumber(); number.blur(); }
     });
   };
-  // ... (rest of link calls are correct)
+  
   const formatDeg = v => v.toFixed(0);
   link('tx', v => object.position.x = v);
   link('ty', v => object.position.y = v);
@@ -344,109 +334,198 @@ function buildTransformTab(object, page) {
       page.querySelector(`#${id}-slider`).value = val;
       page.querySelector(`#${id}-val`).value = (id.startsWith('r') ? val.toFixed(0) : (id.startsWith('s') ? val.toFixed(2) : val.toFixed(2)));
     });
-    // --- FIX: Use SceneManager.transformControls ---
     if (SceneManager.transformControls) SceneManager.transformControls.update();
   };
-  // ... (rest of reset calls are correct)
+  
   page.querySelector('#reset-pos').addEventListener('click', () => reset(['tx','ty','tz'], 0, v => object.position.set(v,v,v)));
   page.querySelector('#reset-rot').addEventListener('click', () => reset(['rx','ry','rz'], 0, v => object.rotation.set(v,v,v)));
   page.querySelector('#reset-scl').addEventListener('click', () => reset(['sx','sy','sz'], 1, v => object.scale.set(v,v,v)));
 }
 
 function buildShapeTab(object, page) {
-  // ... (this function is correct)
-  const type = object.userData.type;
+  // Find the root model
+  let rootModel = object;
+  while (rootModel.parent && !rootModel.userData.isModel) {
+    rootModel = rootModel.parent;
+  }
+
+  const type = rootModel.userData.type;
   const def = OBJECT_DEFINITIONS.find(d => d.type === type);
 
-  if (def && def.buildShapeTab) {
-    def.buildShapeTab(object, page);
+  // Only show shape params if the *root model* is selected
+  if (object === rootModel && def && def.buildShapeTab) {
+    def.buildShapeTab(rootModel, page);
   } else {
-    page.innerHTML = '<p class="text-gray-400">No shape parameters for this object.</p>';
+    page.innerHTML = '<p class="text-gray-400">Select the root object to edit shape parameters.</p>';
   }
 }
 
+/**
+ * Main function to build the Textures tab UI.
+ * @param {THREE.Object3D} object - The currently selected object (could be root or sub-mesh)
+ * @param {HTMLElement} page - The HTML element to build the UI into
+ */
 function buildTexturesTab(object, page) {
-  // ... (this function is correct, but I'll fix the typo)
-  const mats = collectMaterialsFromObject(object);
+  // 1. Find the root model of the selection
+  let rootModel = object;
+  if (rootModel.isMesh) {
+    rootModel.traverseAncestors((a) => {
+      if (a.userData.isModel) rootModel = a;
+    });
+  }
+  
+  // 2. Find all targetable meshes within the root model
+  const meshTargets = new Map();
+  rootModel.traverse(n => {
+    if (n.isMesh) {
+      meshTargets.set(n.uuid, n);
+    }
+  });
+
+  // 3. Build the static UI
+  page.innerHTML = `
+    <div>
+      <label class="text-sm font-medium">Texture Target
+        <select id="mesh-target-select" class="block mt-1 w-full bg-gray-800 rounded p-2 text-sm"></select>
+      </label>
+    </div>
+    <div id="texture-ui-content" class="space-y-4 mt-4">
+      <!-- Content will be injected here by refreshTextureUI -->
+    </div>
+  `;
+
+  const select = page.querySelector('#mesh-target-select');
+  const contentEl = page.querySelector('#texture-ui-content');
+
+  // 4. Populate the dropdown
+  const allMeshesOpt = document.createElement('option');
+  allMeshesOpt.value = rootModel.uuid;
+  allMeshesOpt.textContent = 'All Meshes (Main Object)';
+  select.appendChild(allMeshesOpt);
+
+  meshTargets.forEach((mesh, uuid) => {
+    const opt = document.createElement('option');
+    opt.value = uuid;
+    opt.textContent = `  • ${mesh.name || 'Unnamed Mesh'}`;
+    select.appendChild(opt);
+  });
+
+  // 5. Set the dropdown to the currently selected object
+  if (meshTargets.has(object.uuid)) {
+    select.value = object.uuid;
+  } else {
+    select.value = rootModel.uuid;
+  }
+  
+  // 6. Listener to change target
+  select.addEventListener('change', (e) => {
+    const targetId = e.target.value;
+    const newTarget = meshTargets.get(targetId) || rootModel;
+    currentTextureTarget = newTarget;
+    refreshTextureUI(newTarget, contentEl, rootModel);
+  });
+
+  // 7. Initial UI render
+  currentTextureTarget = meshTargets.get(object.uuid) || rootModel;
+  refreshTextureUI(currentTextureTarget, contentEl, rootModel);
+}
+
+/**
+ * Re-draws the dynamic part of the texture UI based on the target
+ * @param {THREE.Object3D} target - The object to apply textures to (root or sub-mesh)
+ * @param {HTMLElement} contentEl - The element to inject HTML into
+ * @param {THREE.Object3D} rootModel - The root model (for preset selection context)
+ */
+function refreshTextureUI(target, contentEl, rootModel) {
+  const mats = collectMaterialsFromObject(target);
+  if (mats.length === 0) {
+    contentEl.innerHTML = '<p class="text-gray-400">No materials found on this target.</p>';
+    return;
+  }
+  
   const rep = mats[0] || {};
-  const st = ensureTexState(object);
+  const st = ensureTexState(target); // Get state from the specific target
+  const rootState = ensureTexState(rootModel); // Get root state for context
+  
   const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
-  const presetKey = st.activePreset || 'none';
+  
+  // Use target's state, fallback to root's, then to default
+  const presetKey = st.activePreset || (target === rootModel ? 'none' : rootState.activePreset);
+  const albedoKey = st.activeAlbedo || (target === rootModel ? 'none' : rootState.activeAlbedo);
+  
   const preset = PRESET_TEXTURES[presetKey] || PRESET_TEXTURES['none'];
   const rough = ('roughness' in rep) ? rep.roughness : preset.roughnessScalar;
   const metal = ('metalness' in rep) ? rep.metalness : preset.metalnessScalar;
 
-  page.innerHTML = `
-    <div class="space-y-4">
-      <div>
-        <h4 class="text-sm font-bold mb-2">Preset Materials</h4>
-        <div id="preset-scroller" class="flex overflow-x-auto gap-2 p-2 bg-gray-900 rounded-lg"></div>
-      </div>
-      <div>
-        <label class="text-sm font-medium">Albedo (Color) Override
-          <select id="albedo-override-select" class="block mt-1 w-full bg-gray-800 rounded p-2 text-sm"></select>
-        </label>
-      </div>
-      <div class="mt-2 border-t border-white/10 pt-3">
-        <h4 class="text-sm font-bold mb-2">Material Properties</h4>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1">
-            <label class="text-sm font-medium flex justify-between items-center">
-              <span>Roughness</span>
-              <input type="number" id="mat-rough-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${rough.toFixed(2)}">
-            </label>
-            <input type="range" id="mat-rough-slider" min="0" max="1" step="0.01" value="${rough}">
-          </div>
-          <div class="space-y-1">
-            <label class="text-sm font-medium flex justify-between items-center">
-              <span>Metalness</span>
-              <input type="number" id="mat-metal-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${metal.toFixed(2)}">
-            </label>
-            <input type="range" id="mat-metal-slider" min="0" max="1" step="0.01" value="${metal}">
-          </div>
-        </div>
-      </div>
-      <div class="mt-2 border-t border-white/10 pt-3">
-        <h4 class="text-sm font-bold mb-2">Tiling & Displacement</h4>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="space-y-1">
-            <label class="text-sm font-medium flex justify-between items-center">
-              <span>UV Repeat</span>
-              <input type="number" id="uv-scale-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${st.uvScale.toFixed(1)}">
-            </label>
-            <input type="range" id="uv-scale-slider" min="0.1" max="50" step="0.1" value="${st.uvScale}">
-          </div>
-          <div class="space-y-1">
-            <label class="text-sm font-medium flex justify-between items-center">
-              <span>UV Rotation °</span>
-              <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}">
-            </label>
-            <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
-          </div>
-        </div>
-        <div class="mt-2 space-y-1">
+  contentEl.innerHTML = `
+    <div>
+      <h4 class="text-sm font-bold mb-2">Preset Materials</h4>
+      <div id="preset-scroller" class="flex overflow-x-auto gap-2 p-2 bg-gray-900 rounded-lg"></div>
+    </div>
+    <div>
+      <label class="text-sm font-medium">Albedo (Color) Override
+        <select id="albedo-override-select" class="block mt-1 w-full bg-gray-800 rounded p-2 text-sm"></select>
+      </label>
+    </div>
+    <div class="mt-2 border-t border-white/10 pt-3">
+      <h4 class="text-sm font-bold mb-2">Material Properties</h4>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1">
           <label class="text-sm font-medium flex justify-between items-center">
-            <span>Displacement Scale</span>
-            <input type="number" id="disp-scale-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${(st.displacementScale || 0).toFixed(2)}">
+            <span>Roughness</span>
+            <input type="number" id="mat-rough-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${rough.toFixed(2)}">
           </label>
-          <input type="range" id="disp-scale-slider" min="0" max="1" step="0.01" value="${st.displacementScale || 0}">
+          <input type="range" id="mat-rough-slider" min="0" max="1" step="0.01" value="${rough}">
         </div>
-      </div>
-      <div class="mt-3 border-t border-white/10 pt-3">
-        <h4 class="text-sm font-bold mb-2">Manual PBR Upload (Overrides Presets)</h4>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="pbr-grid"></div>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button id="clear-all-pbr" class="px-3 py-2 rounded bg-red-600 text-sm">Clear All Textures</button>
+        <div class="space-y-1">
+          <label class="text-sm font-medium flex justify-between items-center">
+            <span>Metalness</span>
+            <input type="number" id="mat-metal-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${metal.toFixed(2)}">
+          </label>
+          <input type="range" id="mat-metal-slider" min="0" max="1" step="0.01" value="${metal}">
         </div>
       </div>
     </div>
+    <div class="mt-2 border-t border-white/10 pt-3">
+      <h4 class="text-sm font-bold mb-2">Tiling & Displacement</h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="text-sm font-medium flex justify-between items-center">
+            <span>UV Repeat</span>
+            <input type="number" id="uv-scale-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${st.uvScale.toFixed(1)}">
+          </label>
+          <input type="range" id="uv-scale-slider" min="0.1" max="50" step="0.1" value="${st.uvScale}">
+        </div>
+        <div class="space-y-1">
+          <label class="text-sm font-medium flex justify-between items-center">
+            <span>UV Rotation °</span>
+            <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}">
+          </label>
+          <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
+        </div>
+      </div>
+      <div class="mt-2 space-y-1">
+        <label class="text-sm font-medium flex justify-between items-center">
+          <span>Displacement Scale</span>
+          <input type="number" id="disp-scale-val" class="${numberInputClasses}" min="0" max="1" step="0.01" value="${(st.displacementScale || 0).toFixed(2)}">
+        </label>
+        <input type="range" id="disp-scale-slider" min="0" max="1" step="0.01" value="${st.displacementScale || 0}">
+      </div>
+    </div>
+    <div class="mt-3 border-t border-white/10 pt-3">
+      <h4 class="text-sm font-bold mb-2">Manual PBR Upload (Overrides Presets)</h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="pbr-grid"></div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button id="clear-all-pbr" class="px-3 py-2 rounded bg-red-600 text-sm">Clear All Textures</button>
+      </div>
+    </div>
   `;
-  // ... (rest of the function is correct)
+
   // --- Populate Presets ---
-  const presetScroller = page.querySelector('#preset-scroller');
+  const presetScroller = contentEl.querySelector('#preset-scroller');
   for (const [key, preset] of Object.entries(PRESET_TEXTURES)) {
     const btn = document.createElement('button');
-    btn.className = `flex-shrink-0 w-24 h-24 p-1.5 rounded-lg bg-gray-700 flex flex-col items-center justify-center gap-1 border-2 ${st.activePreset === key ? 'border-blue-500' : 'border-transparent'}`;
+    btn.className = `flex-shrink-0 w-24 h-24 p-1.5 rounded-lg bg-gray-700 flex flex-col items-center justify-center gap-1 border-2 ${presetKey === key ? 'border-blue-500' : 'border-transparent'}`;
     btn.dataset.presetKey = key;
     btn.innerHTML = preset.preview ? `
       <img src="${preset.preview}" class="w-16 h-16 object-cover rounded-md pointer-events-none">
@@ -458,28 +537,28 @@ function buildTexturesTab(object, page) {
     btn.addEventListener('click', () => {
       presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
       btn.classList.add('border-blue-500');
-      applyPreset(object, mats, key, page);
+      applyPreset(target, mats, key, contentEl); // Pass contentEl as page
     });
     presetScroller.appendChild(btn);
   }
 
   // --- Populate Albedo Override ---
-  const albedoSelect = page.querySelector('#albedo-override-select');
+  const albedoSelect = contentEl.querySelector('#albedo-override-select');
   for (const [key, preset] of Object.entries(PRESET_TEXTURES)) {
     const opt = document.createElement('option');
     opt.value = key;
     opt.textContent = preset.name + (preset.albedo ? ' Albedo' : ' (None)');
-    if (key === st.activeAlbedo) opt.selected = true;
+    if (key === albedoKey) opt.selected = true;
     albedoSelect.appendChild(opt);
   }
   albedoSelect.addEventListener('change', (e) => {
-    applyAlbedoOverride(object, mats, e.target.value);
+    applyAlbedoOverride(target, mats, e.target.value);
   });
 
   // --- Link Sliders ---
   const linkSimple = (idBase, formatFn, updateFn) => {
-    const slider = page.querySelector(`#${idBase}-slider`);
-    const number = page.querySelector(`#${idBase}-val`);
+    const slider = contentEl.querySelector(`#${idBase}-slider`);
+    const number = contentEl.querySelector(`#${idBase}-val`);
     if (!slider || !number) return;
     let isManualEdit = false;
     slider.addEventListener('input', () => {
@@ -520,8 +599,8 @@ function buildTexturesTab(object, page) {
   linkSimple('mat-rough', formatF2, v => setMaterialScalar(mats, 'roughness', v));
   linkSimple('mat-metal', formatF2, v => setMaterialScalar(mats, 'metalness', v));
   const syncUV = () => {
-    const scale = parseFloat(page.querySelector('#uv-scale-slider').value);
-    const rotDeg = parseFloat(page.querySelector('#uv-rot-slider').value);
+    const scale = parseFloat(contentEl.querySelector('#uv-scale-slider').value);
+    const rotDeg = parseFloat(contentEl.querySelector('#uv-rot-slider').value);
     const rotRad = THREE.MathUtils.degToRad(rotDeg);
     st.uvScale = scale;
     st.uvRotation = rotRad;
@@ -535,7 +614,7 @@ function buildTexturesTab(object, page) {
   });
 
   // --- PBR Upload Rows ---
-  const pbrGrid = page.querySelector('#pbr-grid');
+  const pbrGrid = contentEl.querySelector('#pbr-grid');
   const makeUploadRow = (label, slotName) => {
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2 bg-gray-700 rounded px-2 py-2';
@@ -558,15 +637,15 @@ function buildTexturesTab(object, page) {
       st.activePreset = 'none'; st.activeAlbedo = 'none';
       presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
       albedoSelect.value = 'none';
-      const scale = parseFloat(page.querySelector('#uv-scale-slider').value);
-      const rot = THREE.MathUtils.degToRad(parseFloat(page.querySelector('#uv-rot-slider').value));
+      const scale = parseFloat(contentEl.querySelector('#uv-scale-slider').value);
+      const rot = THREE.MathUtils.degToRad(parseFloat(contentEl.querySelector('#uv-rot-slider').value));
       try {
-        await uploadMapFromFile({ object, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
+        await uploadMapFromFile({ object: target, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
       } catch (err) { console.error('Texture upload failed:', err); } 
       finally { inp.value = ''; }
     });
     clr.addEventListener('click', () => {
-      clearOverrideSlot(object, mats, slotName);
+      clearOverrideSlot(target, mats, slotName);
       st.activePreset = 'none'; st.activeAlbedo = 'none';
       presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
       albedoSelect.value = 'none';
@@ -581,24 +660,22 @@ function buildTexturesTab(object, page) {
   makeUploadRow('Height (Displacement)', 'height');
 
   // --- Clear All ---
-  page.querySelector('#clear-all-pbr').addEventListener('click', () => {
-    clearAllOverrides(object, mats);
+  contentEl.querySelector('#clear-all-pbr').addEventListener('click', () => {
+    clearAllOverrides(target, mats);
     st.activePreset = 'none'; st.activeAlbedo = 'none';
     presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
     presetScroller.querySelector('button[data-preset-key="none"]').classList.add('border-blue-500');
     albedoSelect.value = 'none';
     const { roughnessScalar, metalnessScalar } = PRESET_TEXTURES['none'];
-    page.querySelector('#mat-rough-slider').value = roughnessScalar;
-    page.querySelector('#mat-rough-val').value = roughnessScalar.toFixed(2);
-    page.querySelector('#mat-metal-slider').value = metalnessScalar;
-    page.querySelector('#mat-metal-val').value = metalnessScalar.toFixed(2);
+    contentEl.querySelector('#mat-rough-slider').value = roughnessScalar;
+    contentEl.querySelector('#mat-rough-val').value = roughnessScalar.toFixed(2);
+    contentEl.querySelector('#mat-metal-slider').value = metalnessScalar;
+    contentEl.querySelector('#mat-metal-val').value = metalnessScalar.toFixed(2);
   });
 }
 
-
 // --- Main Panel Update Function ---
 export function updatePropsPanel(object) {
-  // ... (this function is correct)
   const propsContent = document.getElementById('props-content');
   if (!propsContent) return;
   propsContent.innerHTML = '';
@@ -607,6 +684,9 @@ export function updatePropsPanel(object) {
     propsContent.innerHTML = '<p class="text-gray-400">No selection.</p>';
     return;
   }
+  
+  // Set the initial texture target
+  currentTextureTarget = object;
 
   makeTabs(propsContent, [
     { id: 'transform', label: 'Transform', build: (page) => buildTransformTab(object, page) },
@@ -614,3 +694,4 @@ export function updatePropsPanel(object) {
     { id: 'textures',  label: 'Textures',  build: (page) => buildTexturesTab(object, page) }
   ]);
 }
+
