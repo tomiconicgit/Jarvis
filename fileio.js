@@ -2,44 +2,42 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { GLTFLoader }   from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+/** Helper to serialize texture overrides */
+function getSerializableTexOverrides(o) {
+  let serializableTexOverrides = null;
+  if (o.userData._texOverrides) {
+    const s = o.userData._texOverrides;
+    serializableTexOverrides = {
+      uvScale: s.uvScale,
+      uvRotation: s.uvRotation,
+      displacementScale: s.displacementScale,
+      activePreset: s.activePreset,
+      activeAlbedo: s.activeAlbedo,
+      hasMap: !!s.map,
+      hasNormalMap: !!s.normalMap,
+      hasRoughnessMap: !!s.roughnessMap,
+      hasMetalnessMap: !!s.metalnessMap,
+      hasAoMap: !!s.aoMap,
+      hasEmissiveMap: !!s.emissiveMap,
+      hasDisplacementMap: !!s.displacementMap
+    };
+  }
+  return serializableTexOverrides;
+}
+
 /** Walk scene and collect user models with transforms + parenting */
 export function serializeModels(scene) {
   const nodes = [];
   scene.traverse((o) => {
-    if (o.userData?.isModel || o.isMesh) {
-      const t = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
-      o.updateMatrixWorld(true);
-      o.matrix.decompose(t, q, s);
-
-      // Create a serializable copy of texture overrides
-      let serializableTexOverrides = null;
-      if (o.userData._texOverrides) {
-        const s = o.userData._texOverrides;
-        serializableTexOverrides = {
-          // We can't save the texture objects, but we can save the settings.
-          uvScale: s.uvScale,
-          uvRotation: s.uvRotation,
-          displacementScale: s.displacementScale,
-          activePreset: s.activePreset, // Added
-          activeAlbedo: s.activeAlbedo, // Added
-          // We could also save which slots *had* textures, as a hint
-          hasMap: !!s.map,
-          hasNormalMap: !!s.normalMap,
-          hasRoughnessMap: !!s.roughnessMap,
-          hasMetalnessMap: !!s.metalnessMap,
-          hasAoMap: !!s.aoMap,
-          hasEmissiveMap: !!s.emissiveMap,
-          hasDisplacementMap: !!s.displacementMap
-        };
-      }
-
+    // We only serialize root models...
+    if (o.userData?.isModel) {
       nodes.push({
         id: o.uuid,
-        type: o.userData.type || 'MeshPart',
+        type: o.userData.type || 'ImportedGLB', // Default to ImportedGLB if type is missing
         name: o.name || null,
         label: o.userData.label || null,
         params: o.userData.params || {},
-        texOverrides: serializableTexOverrides, // Updated
+        texOverrides: getSerializableTexOverrides(o), // Main overrides
         transform: {
           position: [o.position.x, o.position.y, o.position.z],
           quaternion: [o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w],
@@ -47,9 +45,22 @@ export function serializeModels(scene) {
         },
         parentId: (o.parent && o.parent !== scene) ? o.parent.uuid : null
       });
+    } 
+    // ...and any sub-mesh that has its *own* overrides
+    else if (o.isMesh && o.parent && o.parent.userData?.isModel && o.userData._texOverrides) {
+      nodes.push({
+        id: o.uuid,
+        type: 'MeshOverride',
+        name: o.name || null, // Name is critical to find it again
+        label: null,
+        params: {},
+        texOverrides: getSerializableTexOverrides(o), // The sub-mesh's overrides
+        transform: null, // Transform is handled by parent
+        parentId: o.parent.uuid // Link to parent model
+      });
     }
   });
-  return { version: 1, nodes };
+  return { version: 2, nodes }; // Bumped version
 }
 
 export function downloadBlob(blob, filename) {
@@ -65,11 +76,12 @@ export function downloadBlob(blob, filename) {
 }
 
 /** Rebuild from JSON {version, nodes[]} with constructors map */
-export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensureTexState) { // Added ensureTexState
+export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensureTexState) {
   if (!json?.nodes) throw new Error('Invalid save file');
   const byId = {};
-  const meshParts = [];
-  // First pass: create objects
+  const meshOverrides = [];
+  
+  // First pass: create all root model objects
   for (const n of json.nodes) {
     if (n.type in builders) {
       const ctor = builders[n.type];
@@ -77,11 +89,12 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
       obj.userData.isModel = true;
       obj.userData.type = n.type;
       if (n.label) obj.userData.label = n.label;
+      if (n.name) obj.name = n.name;
+      obj.uuid = n.id; // Restore UUID
 
-      // Restore texture override settings
+      // Restore texture override settings for the main object
       if (n.texOverrides && ensureTexState) {
-        const state = ensureTexState(obj); // Get the default object
-        // Merge saved properties (uvScale, uvRotation, etc.)
+        const state = ensureTexState(obj);
         Object.assign(state, n.texOverrides);
       }
 
@@ -95,29 +108,33 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
         obj.scale.set(s[0], s[1], s[2]);
       }
       byId[n.id] = obj;
-    } else if (n.type === 'MeshPart') {
-      meshParts.push(n);
+    } else if (n.type === 'MeshOverride') {
+      meshOverrides.push(n);
     }
   }
-  // Second pass: parenting
+  
+  // Second pass: parenting for root models
   for (const n of json.nodes) {
     const o = byId[n.id];
-    if (!o) continue;
+    if (!o || n.type === 'MeshOverride') continue; // Only parent root models
+    
     const parent = n.parentId ? byId[n.parentId] : scene;
     parent.add(o);
     allModels.push(o);
     onAfterAdd && onAfterAdd(o);
   }
-  // Third pass: apply to mesh parts
-  for (const n of meshParts) {
+  
+  // Third pass: apply texture overrides to sub-meshes
+  for (const n of meshOverrides) {
     const parent = n.parentId ? byId[n.parentId] : null;
     if (parent && n.name) {
       const child = parent.getObjectByName(n.name);
       if (child && n.texOverrides && ensureTexState) {
-        const state = ensureTexState(child);
+        const state = ensureTexState(child); // Apply to the sub-mesh
         Object.assign(state, n.texOverrides);
+      } else {
+        console.warn('Could not find sub-mesh to apply override:', n.name);
       }
-      // Apply transform if needed, but for parts, usually not
     }
   }
 }
@@ -176,6 +193,14 @@ export function importGLBFile(file, scene, allModels, onAfterAdd) {
   loader.load(url, (g) => {
     const obj = g.scene || g.scenes?.[0];
     if (!obj) throw new Error('No scene in GLB');
+    
+    // Ensure all meshes get names for the new features
+    obj.traverse(n => {
+      if (n.isMesh && !n.name) {
+        n.name = n.uuid.substring(0, 8); // Simple unique name
+      }
+    });
+
     const wrap = new THREE.Group();
     wrap.name = file.name.replace(/\.(glb|gltf)$/i, '') || 'ImportedGLB';
     wrap.userData.isModel = true;
@@ -191,3 +216,4 @@ export function importGLBFile(file, scene, allModels, onAfterAdd) {
     throw e;
   });
 }
+
