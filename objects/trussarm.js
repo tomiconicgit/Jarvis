@@ -26,7 +26,7 @@ export default class TrussArm extends THREE.Group {
 
     const defaults = {
       length: 10,          // overall length along +X
-      armWidth: 2,         // distance between left/right rails (X offset is 0; this is Â±X in local?)
+      armWidth: 2,         // distance between left/right rails
       armHeight: 2,        // distance between top/bottom rails
       tubeRadius: 0.12,    // pipe radius
       roundSegments: 12,   // radial segments for tubes/bolts
@@ -56,7 +56,7 @@ export default class TrussArm extends THREE.Group {
     return new THREE.QuadraticBezierCurve3(p0, p1, p2);
   }
 
-  /** For a âcorner railâ we offset the centerline curve by (ox, oy). */
+  /** For a "corner rail" we offset the centerline curve by (ox, oy). */
   _railPoint(curve, t, ox, oy) {
     const p = curve.getPoint(t);
     p.x += 0;      // centerline already along X
@@ -83,12 +83,12 @@ export default class TrussArm extends THREE.Group {
       hasEndJoint, jointRadius
     } = p;
 
-    const railRise = curve; // âriseâ at midspan in Y for the centerline
+    const railRise = curve; // "rise" at midspan in Y for the centerline
 
     const center = this._makeCenterCurve(length, railRise);
 
     // 4 longerons (corner rails) laid out on a rectangle in local YZ:
-    // offsets in Z: Â±armWidth/2, offsets in Y: Â±armHeight/2
+    // offsets in Z: ±armWidth/2, offsets in Y: ±armHeight/2
     const rails = [
       { ox:  armWidth * 0.5, oy:  armHeight * 0.5 }, // front-right (Z+ / Y+)
       { ox:  armWidth * 0.5, oy: -armHeight * 0.5 }, // front-right (Z+ / Y-)
