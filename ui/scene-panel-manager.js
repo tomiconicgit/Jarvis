@@ -5,6 +5,51 @@ import { hidePanel } from './ui-panels.js';
 import { OBJECT_DEFINITIONS } from '../objects/object-manifest.js';
 
 /**
+ * Helper function to create the rename input field.
+ * @param {HTMLElement} span - The text span element to replace.
+ * @param {THREE.Object3D} obj - The object being renamed.
+ * @param {'model' | 'mesh'} type - The type of object.
+ */
+function promptRename(span, obj, type) {
+  const currentName = span.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentName;
+  input.className = 'bg-gray-900 text-white rounded p-0.5 text-sm font-normal';
+  input.style.width = '80%';
+  
+  const parent = span.parentElement;
+  parent.replaceChild(input, span);
+  input.focus();
+  input.select();
+  
+  const saveName = () => {
+      const newName = input.value.trim();
+      if (newName && newName !== currentName) {
+          if (type === 'model') {
+              obj.userData.label = newName; // Save to userData.label for models
+          } else {
+              obj.name = newName; // Save to .name for meshes
+          }
+          span.textContent = newName;
+      } else {
+          span.textContent = currentName;
+      }
+      parent.replaceChild(span, input);
+  };
+  
+  input.addEventListener('blur', saveName);
+  input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      else if (e.key === 'Escape') {
+          e.preventDefault();
+          span.textContent = currentName;
+          parent.replaceChild(span, input);
+      }
+  });
+}
+
+/**
  * Creates a visual row for a sub-mesh in the scene panel.
  * @param {THREE.Mesh} mesh - The mesh object.
  * @param {HTMLElement} container - The parent element to append to.
@@ -26,48 +71,19 @@ function createMeshEntry(mesh, container, indentLevel) {
     hidePanel(document.getElementById('scene-panel')); 
   });
 
-  // --- ADDED RENAMING ---
-  nameBtn.addEventListener('dblclick', (e) => {
-    e.stopPropagation();
-    const span = nameBtn.querySelector('.object-label');
-    if (!span) return;
-    
-    const currentName = span.textContent;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentName;
-    input.className = 'bg-gray-900 text-white rounded p-0.5 text-sm';
-    input.style.width = '80%';
-    
-    nameBtn.replaceChild(input, span);
-    input.focus();
-    input.select();
-    
-    const saveName = () => {
-        const newName = input.value.trim();
-        if (newName && newName !== currentName) {
-            mesh.name = newName; // Save to mesh.name
-            span.textContent = newName;
-        } else {
-            span.textContent = currentName;
-        }
-        nameBtn.replaceChild(span, input);
-    };
-    
-    input.addEventListener('blur', saveName);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-        else if (e.key === 'Escape') {
-            e.preventDefault();
-            span.textContent = currentName;
-            nameBtn.replaceChild(span, input);
-        }
-    });
-  });
-  // --- END RENAMING ---
-
   const actions = document.createElement('div');
   actions.className = 'flex items-center gap-2';
+
+  // --- ADDED RENAME BUTTON ---
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'p-2 rounded-md bg-gray-800 hover:bg-gray-900 active:scale-95 transition-transform';
+  renameBtn.title = 'Rename Mesh';
+  renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L15.232 5.232z" /></svg>`;
+  renameBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const span = nameBtn.querySelector('.object-label');
+    if (span) promptRename(span, mesh, 'mesh');
+  });
 
   // Visibility (Hide/Show) Button
   const visBtn = document.createElement('button');
@@ -100,6 +116,7 @@ function createMeshEntry(mesh, container, indentLevel) {
     refreshSceneList();
   });
 
+  actions.appendChild(renameBtn);
   actions.appendChild(visBtn);
   actions.appendChild(delBtn);
   row.appendChild(nameBtn);
@@ -139,46 +156,6 @@ function createModelEntry(model, container, indentLevel) {
     hidePanel(document.getElementById('scene-panel')); 
   });
   
-  // --- ADDED RENAMING ---
-  nameBtn.addEventListener('dblclick', (e) => {
-    e.stopPropagation();
-    const span = nameBtn.querySelector('.object-label');
-    if (!span) return;
-    
-    const currentName = span.textContent;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentName;
-    input.className = 'bg-gray-900 text-white rounded p-0.5 font-semibold text-sm';
-    input.style.width = '80%';
-    
-    nameBtn.replaceChild(input, span);
-    input.focus();
-    input.select();
-    
-    const saveName = () => {
-        const newName = input.value.trim();
-        if (newName && newName !== currentName) {
-            model.userData.label = newName; // Save to userData.label
-            span.textContent = newName;
-        } else {
-            span.textContent = currentName;
-        }
-        nameBtn.replaceChild(span, input);
-    };
-    
-    input.addEventListener('blur', saveName);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-        else if (e.key === 'Escape') {
-            e.preventDefault();
-            span.textContent = currentName;
-            nameBtn.replaceChild(span, input);
-        }
-    });
-  });
-  // --- END RENAMING ---
-
   if (hasChildren) {
     nameBtn.firstElementChild.addEventListener('click', (e) => {
       e.stopPropagation(); // Don't select when clicking arrow
@@ -190,6 +167,17 @@ function createModelEntry(model, container, indentLevel) {
 
   const actions = document.createElement('div');
   actions.className = 'flex items-center gap-2';
+
+  // --- ADDED RENAME BUTTON ---
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'p-2 rounded-md bg-gray-600 hover:bg-gray-500 active:scale-95 transition-transform';
+  renameBtn.title = 'Rename Object';
+  renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L15.232 5.232z" /></svg>`;
+  renameBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const span = nameBtn.querySelector('.object-label');
+    if (span) promptRename(span, model, 'model');
+  });
 
   // Duplicate Button
   const dupBtn = document.createElement('button');
@@ -205,6 +193,7 @@ function createModelEntry(model, container, indentLevel) {
   delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18" stroke-width="2" stroke-linecap="round"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path><path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path></svg>`;
   delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(model); });
 
+  actions.appendChild(renameBtn);
   actions.appendChild(dupBtn);
   actions.appendChild(delBtn);
   row.appendChild(nameBtn);
@@ -265,7 +254,7 @@ function duplicateModel(src) {
  * Deletes a root model and all its children.
  * @param {THREE.Group} obj - The root model to delete.
  */
-export function deleteModel(obj) { // EXPORTED
+export function deleteModel(obj) {
   const idx = allModels.indexOf(obj);
   if (idx !== -1) allModels.splice(idx, 1);
 
