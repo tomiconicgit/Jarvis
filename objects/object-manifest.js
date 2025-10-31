@@ -9,6 +9,12 @@ import TrussArm from './trussarm.js';
 import Cube from './cube.js';
 import Sphere from './sphere.js';
 import Cylinder from './cylinder.js';
+// --- NEW IMPORTS ---
+import FloodLight from './floodlight.js';
+import RoofLight from './rooflight.js';
+import FuelTank from './fueltank.js';
+import Gear from './gear.js';
+import Screen from './screen.js';
 
 // --- Reusable Slider Building Logic ---
 // ... (all helper functions are correct)
@@ -180,7 +186,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Tower (Door)',
     ctor: TowerBase,
     defaultParams: { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidth: 4 },
-    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
+    initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -202,7 +208,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Tower (Solid)',
     ctor: TowerBase,
     defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
-    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
+    initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.label === 'Tower (Door)');
       if (doorTowerDef) {
@@ -215,7 +221,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Double Door',
     ctor: DoubleDoor,
     defaultParams: { totalWidth: 8, height: 10, depth: 0.5, frameThickness: 0.5, cornerRadius: 0.2, glassOpacity:0.5, glassRoughness:0.2 },
-    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
+    initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -241,7 +247,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Window',
     ctor: WindowAsset,
     defaultParams: { totalWidth: 6, height: 8, depth: 0.3, frameThickness: 0.4, cornerRadius: 0.1, glassOpacity:0.3, glassRoughness:0.1 },
-    initialY: (p) => p.height / 2, // <-- FIX: Added initialY
+    initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -269,7 +275,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Floor',
     ctor: Floor,
     defaultParams: { width: 20, depth: 20, thickness: 0.5, colorR: 0.5, colorG: 0.5, colorB: 0.5 },
-    initialY: (p) => -p.thickness / 2, // <-- FIX: Added initialY
+    initialY: (p) => -p.thickness / 2,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -302,7 +308,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Pipe',
     ctor: Pipe,
     defaultParams: {}, // Uses built-in defaults
-    initialY: (p) => 1.0, // <-- FIX: Added initialY
+    initialY: (p) => 1.0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -333,7 +339,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Roof',
     ctor: Roof,
     defaultParams: {}, // Uses built-in defaults
-    initialY: (p) => 0, // <-- FIX: Added initialY
+    initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -371,7 +377,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Truss Arm',
     ctor: TrussArm,
     defaultParams: {}, // Uses built-in defaults
-    initialY: (p) => 0, // <-- FIX: Added initialY
+    initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -388,12 +394,109 @@ export const OBJECT_DEFINITIONS = [
       buildTabFromConfig(object, page, paramConfig);
     }
   },
+  // --- START NEW OBJECTS ---
+  {
+    type: 'FloodLight',
+    label: 'Flood Light',
+    ctor: FloodLight,
+    defaultParams: {},
+    initialY: (p) => (p.baseSize || 0.3) * 0.1,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        baseSize:   { min: 0.1, max: 2, step: 0.05, label: 'Base Size' },
+        stalkHeight: { min: 0.1, max: 2, step: 0.05, label: 'Stalk Height' },
+        yokeWidth: { min: 0.2, max: 3, step: 0.05, label: 'Yoke Width' },
+        lightHousingSize: { min: 0.2, max: 3, step: 0.05, label: 'Housing Size' },
+        lightHousingDepth: { min: 0.2, max: 3, step: 0.05, label: 'Housing Depth' },
+        lensRadius: { min: 0.05, max: 1.5, step: 0.01, label: 'Lens Radius' },
+        color: { min: 0, max: 16777215, step: 1, label: 'Housing Color' }, // Simplified
+        lensColor: { min: 0, max: 16777215, step: 1, label: 'Lens Color' } // Simplified
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  {
+    type: 'RoofLight',
+    label: 'Roof Light',
+    ctor: RoofLight,
+    defaultParams: {},
+    initialY: (p) => (p.height || 0.15) * 0.5,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        radius: { min: 0.05, max: 1, step: 0.01, label: 'Radius' },
+        height: { min: 0.05, max: 1, step: 0.01, label: 'Total Height' },
+        lensHeight: { min: 0.02, max: 0.9, step: 0.01, label: 'Lens Height' },
+        color: { min: 0, max: 16777215, step: 1, label: 'Base Color' },
+        lensColor: { min: 0, max: 16777215, step: 1, label: 'Lens Color' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  {
+    type: 'FuelTank',
+    label: 'Fuel Tank',
+    ctor: FuelTank,
+    defaultParams: {},
+    initialY: (p) => (p.height || 10) * 0.5,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        radius: { min: 1, max: 20, step: 0.1, label: 'Radius' },
+        height: { min: 2, max: 50, step: 0.1, label: 'Total Height' },
+        domeHeight: { min: 0.1, max: 10, step: 0.1, label: 'Dome Height' },
+        segments: { min: 8, max: 64, step: 1, label: 'Segments' },
+        color: { min: 0, max: 16777215, step: 1, label: 'Color' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  {
+    type: 'Gear',
+    label: 'Gear',
+    ctor: Gear,
+    defaultParams: {},
+    initialY: (p) => 0,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        radius: { min: 0.2, max: 10, step: 0.1, label: 'Outer Radius' },
+        height: { min: 0.1, max: 5, step: 0.05, label: 'Height' },
+        teeth: { min: 3, max: 60, step: 1, label: 'Teeth' },
+        toothHeight: { min: 0.05, max: 5, step: 0.05, label: 'Tooth Height' },
+        toothThickness: { min: 0.1, max: 0.9, step: 0.01, label: 'Tooth Width %' },
+        color: { min: 0, max: 16777215, step: 1, label: 'Color' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  {
+    type: 'Screen',
+    label: 'Screen',
+    ctor: Screen,
+    defaultParams: {},
+    initialY: (p) => (p.height || 1.2) * 0.5,
+    buildShapeTab: (object, page) => {
+      const p = object.userData.params;
+      const paramConfig = {
+        width: { min: 0.2, max: 10, step: 0.1, label: 'Width' },
+        height: { min: 0.2, max: 10, step: 0.1, label: 'Height' },
+        depth: { min: 0.02, max: 2, step: 0.01, label: 'Depth' },
+        bevel: { min: 0.01, max: 1, step: 0.01, label: 'Bevel Size' },
+        housingColor: { min: 0, max: 16777215, step: 1, label: 'Housing Color' },
+        screenColor: { min: 0, max: 16777215, step: 1, label: 'Screen Color' }
+      };
+      buildTabFromConfig(object, page, paramConfig);
+    }
+  },
+  // --- END NEW OBJECTS ---
   {
     type: 'Cube',
     label: 'Cube',
     ctor: Cube,
     defaultParams: { width: 1, height: 1, depth: 1 },
-    initialY: (p) => 0, // <-- FIX: Added initialY
+    initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -412,7 +515,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Sphere',
     ctor: Sphere,
     defaultParams: { radius: 1 },
-    initialY: (p) => 0, // <-- FIX: Added initialY
+    initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -430,7 +533,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Cylinder',
     ctor: Cylinder,
     defaultParams: { radius: 0.5, height: 1 },
-    initialY: (p) => 0, // <-- FIX: Added initialY
+    initialY: (p) => 0,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
       const paramConfig = {
@@ -453,3 +556,4 @@ export const BUILDERS = OBJECT_DEFINITIONS.reduce((map, def) => {
   }
   return map;
 }, {});
+
