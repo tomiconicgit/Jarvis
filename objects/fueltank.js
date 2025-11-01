@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export default class FuelTank extends THREE.Group {
   constructor(params = {}) {
@@ -26,14 +28,16 @@ export default class FuelTank extends THREE.Group {
 
     // Main Cylinder
     const cylHeight = p.height - p.domeHeight;
-    const cylGeo = new THREE.CylinderGeometry(p.radius, p.radius, cylHeight, p.segments);
+    // --- FIX: Merge vertices ---
+    const cylGeo = mergeVertices(new THREE.CylinderGeometry(p.radius, p.radius, cylHeight, p.segments));
     const cylinder = new THREE.Mesh(cylGeo, this.tankMat);
     cylinder.name = 'TankCylinder';
     cylinder.position.y = cylHeight * 0.5;
     this.add(cylinder);
 
     // Dome Top
-    const domeGeo = new THREE.SphereGeometry(p.radius, p.segments, p.segments, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    // --- FIX: Merge vertices ---
+    const domeGeo = mergeVertices(new THREE.SphereGeometry(p.radius, p.segments, p.segments, 0, Math.PI * 2, 0, Math.PI * 0.5));
     domeGeo.scale(1, p.domeHeight / p.radius, 1);
     const dome = new THREE.Mesh(domeGeo, this.tankMat);
     dome.name = 'TankDome';
@@ -55,4 +59,3 @@ export default class FuelTank extends THREE.Group {
     this.clear();
   }
 }
-
