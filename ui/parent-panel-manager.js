@@ -74,13 +74,15 @@ export function initParentPanel() {
   const parentPanel = document.getElementById('parent-panel');
   if (!parentPanel) return;
 
-  // Refresh list when panel is shown
-  document.getElementById('parent-btn').addEventListener('click', () => {
-    refreshParentList();
-  });
+  // --- THIS BLOCK WAS REMOVED AS IT CAUSED THE CRASH ---
+  // The 'parent-btn' no longer exists.
+  // This logic is now in 'tools-panel-manager.js'
 
   // Attach button listeners
   document.getElementById('close-parent-panel').addEventListener('click', () => hidePanel(parentPanel));
   document.getElementById('parent-cancel').addEventListener('click', () => hidePanel(parentPanel));
   document.getElementById('parent-apply').addEventListener('click', applyParenting);
 }
+
+// Export refreshParentList so the tools panel can call it
+export { refreshParentList };
