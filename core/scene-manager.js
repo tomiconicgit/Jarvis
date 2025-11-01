@@ -80,15 +80,12 @@ export function initScene() {
     if (currentSelection) updatePropsPanel(currentSelection);
   });
   
-  // This is the only line needed to add the gizmo itself
   scene.add(transformControls);
   
-  // This block was incorrect and has been removed
-  /*
-  if (typeof transformControls.getHelper === 'function') {
-    scene.add(transformControls.getHelper());
-  }
-  */
+  // --- FIX: Explicitly hide gizmo on start ---
+  transformControls.visible = false;
+  // --- END FIX ---
+
 
   // Raycast / touch
   raycaster = new THREE.Raycaster();
@@ -171,6 +168,11 @@ export function selectObject(o) {
   if (currentSelection === o) return;
   currentSelection = o;
   transformControls.attach(o);
+  
+  // --- FIX: Explicitly show gizmo on select ---
+  transformControls.visible = true;
+  // --- END FIX ---
+  
   updatePropsPanel(o);
   showPanel(document.getElementById('props-panel'));
   // Hide all other panels
@@ -185,6 +187,11 @@ export function selectObject(o) {
 
 export function deselectAll() {
   if (currentSelection) transformControls.detach();
+  
+  // --- FIX: Explicitly hide gizmo on deselect ---
+  transformControls.visible = false;
+  // --- END FIX ---
+
   currentSelection = null;
   hidePanel(document.getElementById('props-panel'));
 }
