@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // -------- helpers ----------
 function roundedRectPath(w, d, r) {
@@ -45,7 +47,7 @@ function makeRoofGeometry(p) {
   }
 
   const bevelEnabled = (p.edgeRoundness || 0) > 0;
-  const geo = new THREE.ExtrudeGeometry(shape, {
+  let geo = new THREE.ExtrudeGeometry(shape, {
     depth: p.thickness,
     steps: Math.max(1, Math.floor(p.edgeSmoothness || 1)),
     bevelEnabled,
@@ -54,6 +56,10 @@ function makeRoofGeometry(p) {
     bevelThickness: bevelEnabled ? clampEdgeRoundnessThickness(p) : 0,
     curveSegments: Math.max(8, Math.floor(p.cornerSmoothness || 16))
   });
+
+  // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+  geo = mergeVertices(geo);
+  // --- END FIX ---
 
   // orient to Y up
   geo.translate(0, 0, -p.thickness / 2);
