@@ -7,6 +7,8 @@ import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
+// --- NEW GIZMO IMPORTS ---
+import { showGizmo, hideGizmo } from '../ui/gizmo.js';
 
 // We are putting transformControls back here to keep everything in one file
 export let scene, camera, renderer, orbitControls; // REMOVED transformControls
@@ -163,6 +165,10 @@ export function selectObject(o) {
   currentSelection = o;
   // transformControls.attach(o); // REMOVED
   
+  // --- GIZMO ---
+  showGizmo && showGizmo(o);
+  // --- END GIZMO ---
+
   // --- BUG FIX ---
   // transformControls.visible = true; // REMOVED
   // --- END FIX ---
@@ -189,6 +195,10 @@ export function selectObject(o) {
 
 export function deselectAll() {
   // if (currentSelection) transformControls.detach(); // REMOVED
+  
+  // --- GIZMO ---
+  hideGizmo && hideGizmo();
+  // --- END GIZMO ---
   
   // --- BUG FIX ---
   // transformControls.visible = false; // REMOVED
