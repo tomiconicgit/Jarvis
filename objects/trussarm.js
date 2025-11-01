@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 function cylinderBetween(a, b, r, radialSegments, material) {
   const dir = new THREE.Vector3().subVectors(b, a);
   const len = dir.length();
   if (len <= 1e-6) return new THREE.Mesh(); // guard
-  const geo = new THREE.CylinderGeometry(r, r, len, Math.max(6, radialSegments));
+  // --- FIX: Merge vertices to prevent displacement map splitting ---
+  const geo = mergeVertices(new THREE.CylinderGeometry(r, r, len, Math.max(6, radialSegments)));
   // Cylinder default axis = +Y. Point it along dir.
   const mesh = new THREE.Mesh(geo, material);
   const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
@@ -88,7 +91,7 @@ export default class TrussArm extends THREE.Group {
     const center = this._makeCenterCurve(length, railRise);
 
     // 4 longerons (corner rails) laid out on a rectangle in local YZ:
-    // offsets in Z: ±armWidth/2, offsets in Y: ±armHeight/2
+    // offsets in Z: Â±armWidth/2, offsets in Y: Â±armHeight/2
     const rails = [
       { ox:  armWidth * 0.5, oy:  armHeight * 0.5 }, // front-right (Z+ / Y+)
       { ox:  armWidth * 0.5, oy: -armHeight * 0.5 }, // front-right (Z+ / Y-)
@@ -144,7 +147,7 @@ export default class TrussArm extends THREE.Group {
       cross3.name = 'Cross' + i + '_3';
       this.add(cross3);
       const cross4 = cylinderBetween(BL0, TL0, tubeRadius, roundSegments, this.metalMaterial);
-      cross4.name = 'Cross' + i + '_4';
+      cross4.name = 'Cross's' + i + '_4';
       this.add(cross4);
 
       // diagonals (alternate pattern)
@@ -188,7 +191,8 @@ export default class TrussArm extends THREE.Group {
     if (hasEndJoint && jointRadius > 0) {
       const endCenter = center.getPoint(1); // (length, ~0, 0) with curvature
       const joint = new THREE.Mesh(
-        new THREE.SphereGeometry(jointRadius, Math.max(8, roundSegments), Math.max(6, Math.floor(roundSegments * 0.7))),
+        // --- FIX: Merge vertices to prevent displacement map splitting ---
+        mergeVertices(new THREE.SphereGeometry(jointRadius, Math.max(8, roundSegments), Math.max(6, Math.floor(roundSegments * 0.7)))),
         this.jointMaterial
       );
       joint.name = 'EndJoint';
