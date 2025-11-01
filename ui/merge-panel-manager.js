@@ -14,7 +14,7 @@ function refreshMergeList() {
   
   mergeList.innerHTML = '';
   if (allModels.length < 2) {
-    mergeList.innerHTML = '<p class="text-gray-400">Need at least two objects to merge.</p>';
+    mergeList.innerHTML = '<p class="text-slate-400">Need at least two objects to merge.</p>';
     return;
   }
 
@@ -24,7 +24,7 @@ function refreshMergeList() {
 
     const label = obj.userData?.label || obj.userData?.type || `Object ${idx+1}`;
     const row = document.createElement('div');
-    row.className = 'flex items-center justify-between bg-gray-700 rounded-md px-3 py-2';
+    row.className = 'flex items-center justify-between bg-slate-700 rounded-md px-3 py-2';
     row.innerHTML = `
       <label class="flex items-center gap-3">
         <input type="checkbox" class="merge-child" value="${obj.uuid}" aria-label="merge-obj">
@@ -107,6 +107,34 @@ function applyMerge() {
 
     const mergedGeo = mergeGeometries(geometries, true); // true = use groups
     if (!mergedGeo) throw new Error('Merge resulted in empty geometry');
+
+    // --- NEW UV GENERATION ---
+    // Generate new UVs based on a top-down (X/Z) projection
+    // This makes textures apply "as one" across the merged surface.
+    mergedGeo.computeBoundingBox();
+    const box = mergedGeo.boundingBox;
+    const size = box.getSize(new THREE.Vector3());
+    const pos = mergedGeo.attributes.position;
+    const uvArray = new Float32Array(pos.count * 2);
+    
+    // Handle division by zero if the object is perfectly flat
+    const sizeX = size.x === 0 ? 1 : size.x;
+    const sizeZ = size.z === 0 ? 1 : size.z;
+
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+        
+        const u = (x - box.min.x) / sizeX;
+        const v = (z - box.min.z) / sizeZ;
+        
+        uvArray[i * 2] = u;
+        uvArray[i * 2 + 1] = v;
+    }
+    mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+    mergedGeo.setAttribute('uv2', new THREE.BufferAttribute(uvArray, 2)); // Also apply to uv2
+    mergedGeo.computeVertexNormals();
+    // --- END NEW UV GENERATION ---
 
     const mergedMesh = new THREE.Mesh(mergedGeo, materials);
     mergedMesh.name = 'MergedMesh';
