@@ -1,5 +1,7 @@
 // File: objects/sphere.js
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export default class Sphere extends THREE.Group {
   constructor(params = {}) {
@@ -36,7 +38,7 @@ export default class Sphere extends THREE.Group {
   build() {
     this.clear();
     const p = this.userData.params;
-    const geo = new THREE.SphereGeometry(
+    let geo = new THREE.SphereGeometry(
       p.radius,
       Math.floor(p.segments),
       Math.floor(p.segments),
@@ -45,6 +47,12 @@ export default class Sphere extends THREE.Group {
       THREE.MathUtils.degToRad(p.thetaStart),
       THREE.MathUtils.degToRad(p.thetaLength)
     );
+    
+    // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+    // This averages normals at seams/poles, making the geometry "water-tight"
+    geo = mergeVertices(geo);
+    geo.computeVertexNormals(); // Recompute normals after merging
+    // --- END FIX ---
     
     // --- NEW DEFORMER LOGIC ---
     if (p.bendAngle !== 0 || p.flareAmount !== 0) {
