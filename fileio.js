@@ -12,8 +12,8 @@ function getSerializableTexOverrides(o) {
       uvScaleY: s.uvScaleY || s.uvScale || 1, // Handle legacy uvScale
       uvRotation: s.uvRotation,
       displacementScale: s.displacementScale,
-      activePreset: s.activePreset,
-      activeAlbedo: s.activeAlbedo,
+      // activePreset: s.activePreset, // <-- REMOVED
+      // activeAlbedo: s.activeAlbedo, // <-- REMOVED
       hasMap: !!s.map,
       hasNormalMap: !!s.normalMap,
       hasRoughnessMap: !!s.roughnessMap,
