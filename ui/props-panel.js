@@ -221,9 +221,9 @@ function buildTransformTab(object, page) {
       ${toRow('tz','Pos Z', -100,100,0.1, object.position.z.toFixed(2))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
-      ${toRow('rx','Rot X ÃÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
-      ${toRow('ry','Rot Y ÃÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
-      ${toRow('rz','Rot Z ÃÂ°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
+      ${toRow('rx','Rot X °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
+      ${toRow('ry','Rot Y °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
+      ${toRow('rz','Rot Z °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
       ${toRow('sx','Scale X', 0.01,20,0.01, object.scale.x.toFixed(2))}
@@ -246,7 +246,7 @@ function buildTransformTab(object, page) {
       const val = parseFloat(slider.value);
       number.value = format(val);
       fn(val);
-      // if (SceneManager.transformControls) SceneManager.transformControls.update(); // REMOVED
+      if (SceneManager.transformControls) { SceneManager.transformControls.update(); } // RE-ENABLED
     });
     const updateFromNumber = () => {
       let val = parseFloat(number.value);
@@ -257,7 +257,7 @@ function buildTransformTab(object, page) {
       number.value = format(val);
       slider.value = val;
       fn(val);
-      // if (SceneManager.transformControls) SceneManager.transformControls.update(); // REMOVED
+      if (SceneManager.transformControls) { SceneManager.transformControls.update(); } // RE-ENABLED
     };
     number.addEventListener('change', updateFromNumber);
     number.addEventListener('keydown', e => {
@@ -282,7 +282,7 @@ function buildTransformTab(object, page) {
       page.querySelector(`#${id}-slider`).value = val;
       page.querySelector(`#${id}-val`).value = (id.startsWith('r') ? val.toFixed(0) : (id.startsWith('s') ? val.toFixed(2) : val.toFixed(2)));
     });
-    // if (SceneManager.transformControls) SceneManager.transformControls.update(); // REMOVED
+    if (SceneManager.transformControls) { SceneManager.transformControls.update(); } // RE-ENABLED
   };
   
   page.querySelector('#reset-pos').addEventListener('click', () => reset(['tx','ty','tz'], 0, v => object.position.set(v,v,v)));
@@ -353,7 +353,7 @@ function buildTexturesTab(object, page) {
   meshTargets.forEach((mesh, uuid) => {
     const opt = document.createElement('option');
     opt.value = uuid;
-    opt.textContent = `  Ã¢ÂÂ¢ ${mesh.name || 'Unnamed Mesh'}`;
+    opt.textContent = `  • ${mesh.name || 'Unnamed Mesh'}`;
     select.appendChild(opt);
   });
 
@@ -450,7 +450,7 @@ function refreshTextureUI(target, contentEl, rootModel) {
       </div>
       <div class="mt-2 space-y-1">
         <label class="text-sm font-medium flex justify-between items-center">
-          <span>UV Rotation ÃÂ°</span>
+          <span>UV Rotation °</span>
           <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(uvRotation || 0))}">
         </label>
         <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(uvRotation || 0)}">
