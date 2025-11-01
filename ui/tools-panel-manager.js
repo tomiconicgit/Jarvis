@@ -1,6 +1,7 @@
 // File: ui/tools-panel-manager.js
 import { hidePanel, togglePanel } from './ui-panels.js';
 import { updateDecimateStats } from './decimate-panel-manager.js';
+import { refreshParentList } from './parent-panel-manager.js'; // <-- NEW IMPORT
 
 export function initToolsPanel() {
   const toolsPanel = document.getElementById('tools-panel');
@@ -14,6 +15,7 @@ export function initToolsPanel() {
   });
 
   document.getElementById('tools-parent-btn').addEventListener('click', () => {
+    refreshParentList(); // <-- ADDED THIS LINE
     togglePanel(parentPanel); // This will hide toolsPanel and show parentPanel
   });
 
