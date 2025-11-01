@@ -1,4 +1,3 @@
-// File: objects/trussarm.js
 import * as THREE from 'three';
 // --- FIX: Import mergeVertices ---
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -7,8 +6,10 @@ function cylinderBetween(a, b, r, radialSegments, material) {
   const dir = new THREE.Vector3().subVectors(b, a);
   const len = dir.length();
   if (len <= 1e-6) return new THREE.Mesh(); // guard
-  // --- FIX: Merge vertices to prevent displacement map splitting ---
+  // --- FIX: Merge vertices AND recompute normals ---
   const geo = mergeVertices(new THREE.CylinderGeometry(r, r, len, Math.max(6, radialSegments)));
+  geo.computeVertexNormals(); // <-- THIS WAS MISSING
+  // --- END FIX ---
   // Cylinder default axis = +Y. Point it along dir.
   const mesh = new THREE.Mesh(geo, material);
   const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
@@ -147,11 +148,8 @@ export default class TrussArm extends THREE.Group {
       const cross3 = cylinderBetween(BR0, BL0, tubeRadius, roundSegments, this.metalMaterial);
       cross3.name = 'Cross' + i + '_3';
       this.add(cross3);
-      // --- SYNTAX ERROR FIX ---
-      // Changed 'Cross's' to 'Cross'
       const cross4 = cylinderBetween(BL0, TL0, tubeRadius, roundSegments, this.metalMaterial);
       cross4.name = 'Cross' + i + '_4';
-      // --- END FIX ---
       this.add(cross4);
 
       // diagonals (alternate pattern)
@@ -194,11 +192,11 @@ export default class TrussArm extends THREE.Group {
     // End joint at the far end center (optional)
     if (hasEndJoint && jointRadius > 0) {
       const endCenter = center.getPoint(1); // (length, ~0, 0) with curvature
-      const joint = new THREE.Mesh(
-        // --- FIX: Merge vertices to prevent displacement map splitting ---
-        mergeVertices(new THREE.SphereGeometry(jointRadius, Math.max(8, roundSegments), Math.max(6, Math.floor(roundSegments * 0.7)))),
-        this.jointMaterial
-      );
+      // --- FIX: Create geo, merge, compute normals, then create mesh ---
+      const jointGeo = mergeVertices(new THREE.SphereGeometry(jointRadius, Math.max(8, roundSegments), Math.max(6, Math.floor(roundSegments * 0.7))));
+      jointGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+      const joint = new THREE.Mesh(jointGeo, this.jointMaterial);
+      // --- END FIX ---
       joint.name = 'EndJoint';
       joint.position.copy(endCenter);
       joint.castShadow = true;
