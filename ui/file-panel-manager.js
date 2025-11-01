@@ -46,6 +46,7 @@ export function initFilePanel() {
   // File Export
   document.getElementById('file-export').addEventListener('click', () => {
     document.getElementById('export-name').value = 'Model.glb';
+    document.getElementById('opt-merge-all').checked = false; // Default to not merged
     togglePanel(exportPanel); // This will hide filePanel and show exportPanel
   });
   document.getElementById('export-close').addEventListener('click', () => hidePanel(exportPanel));
@@ -54,8 +55,17 @@ export function initFilePanel() {
     const name = (document.getElementById('export-name').value || 'Model.glb').trim();
     const optOnlyModels = document.getElementById('opt-only-models').checked;
     const optBinary = document.getElementById('opt-binary').checked;
+    const optMergeAll = document.getElementById('opt-merge-all').checked; // <-- NEW
+    
     exportGLB(
-      { scene, modelsOnly: optOnlyModels, binary: optBinary, fileName: name, allModels },
+      { 
+        scene, 
+        modelsOnly: optOnlyModels, 
+        binary: optBinary, 
+        fileName: name, 
+        allModels,
+        mergeAll: optMergeAll // <-- NEW
+      },
       () => showTempMessage('Exported'),
       (e) => { console.error(e); showTempMessage('Export failed'); }
     );
