@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // -----------------------------------------------------------------
 // ---------- GEOMETRY HELPERS (Private to this module) ------------
@@ -102,7 +104,12 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
     curveSegments: Math.max(8, Math.floor(p.cornerSmoothness || 16))
   };
 
-  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  let geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  
+  // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+  geo = mergeVertices(geo);
+  // --- END FIX ---
+  
   geo.translate(0, 0, -p.height / 2);
   geo.rotateX(-Math.PI / 2); // make Y up
   geo.computeVertexNormals();
