@@ -132,6 +132,9 @@
     }
   }
   </script>
+
+  <script type="module" src="debugger.js"></script>
+
 </head>
 <body class="bg-slate-900 text-white">
 
@@ -164,6 +167,7 @@
 
 
   <script>
+    // This function will still run, but debugger.js will also catch errors.
     const hideLoader = () => {
       const ls = document.getElementById('loading-screen');
       if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
