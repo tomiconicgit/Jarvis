@@ -1,6 +1,8 @@
 // File: objects/cube.js
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export default class Cube extends THREE.Group {
   constructor(params = {}) {
@@ -44,7 +46,12 @@ export default class Cube extends THREE.Group {
     
     // Note: The 'segments' param in RoundedBoxGeometry also tessellates
     // the flat faces, which is necessary for bend/flare to look good.
-    const geo = new RoundedBoxGeometry(p.width, p.height, p.depth, segments, radius);
+    let geo = new RoundedBoxGeometry(p.width, p.height, p.depth, segments, radius);
+    
+    // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+    geo = mergeVertices(geo);
+    geo.computeVertexNormals(); // Recompute normals after merging
+    // --- END FIX ---
     
     // --- NEW DEFORMER LOGIC ---
     if (p.bendAngle !== 0 || p.flareAmount !== 0) {
