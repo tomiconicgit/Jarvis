@@ -79,10 +79,16 @@ export function initScene() {
   transformControls.addEventListener('mouseUp', () => {
     if (currentSelection) updatePropsPanel(currentSelection);
   });
+  
+  // This is the only line needed to add the gizmo itself
   scene.add(transformControls);
+  
+  // This block was incorrect and has been removed
+  /*
   if (typeof transformControls.getHelper === 'function') {
     scene.add(transformControls.getHelper());
   }
+  */
 
   // Raycast / touch
   raycaster = new THREE.Raycaster();
