@@ -7,9 +7,10 @@
     <label class="block text-sm">Model name
       <input id="export-name" class="mt-1 w-full bg-slate-800 rounded-md p-2 outline-none" placeholder="MyModel.glb" value="Model.glb">
     </label>
-    <div class="grid grid-cols-2 gap-3 text-sm">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
       <label class="flex items-center gap-2"><input id="opt-only-models" type="checkbox" checked> Only models (no grid/lights)</label>
       <label class="flex items-center gap-2"><input id="opt-binary" type="checkbox" checked> Export binary (.glb)</label>
+      <label class="flex items-center gap-2 col-span-1 md:col-span-2"><input id="opt-merge-all" type="checkbox"> Merge all to one mesh</label>
     </div>
   </div>
   <div class="mt-4 flex justify-end gap-3">
