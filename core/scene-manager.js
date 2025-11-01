@@ -80,10 +80,9 @@ export function initScene() {
     if (currentSelection) updatePropsPanel(currentSelection);
   });
   
-  scene.add(transformControls);
-  
   // --- FIX: Explicitly hide gizmo on start ---
   transformControls.visible = false;
+  scene.add(transformControls);
   // --- END FIX ---
 
 
@@ -168,10 +167,9 @@ export function selectObject(o) {
   if (currentSelection === o) return;
   currentSelection = o;
   transformControls.attach(o);
-  
   // --- FIX: Explicitly show gizmo on select ---
   transformControls.visible = true;
-  // --- END FIX ---
+  // --- END FIX ---  
   
   updatePropsPanel(o);
   showPanel(document.getElementById('props-panel'));
@@ -187,10 +185,9 @@ export function selectObject(o) {
 
 export function deselectAll() {
   if (currentSelection) transformControls.detach();
-  
   // --- FIX: Explicitly hide gizmo on deselect ---
   transformControls.visible = false;
-  // --- END FIX ---
+  // --- END FIX ---  
 
   currentSelection = null;
   hidePanel(document.getElementById('props-panel'));
