@@ -29,16 +29,18 @@ export default class RoofLight extends THREE.Group {
 
     // Base
     const baseHeight = p.height - p.lensHeight;
-    // --- FIX: Merge vertices ---
+    // --- FIX: Merge vertices AND recompute normals ---
     const baseGeo = mergeVertices(new THREE.CylinderGeometry(p.radius, p.radius, baseHeight, 32));
+    baseGeo.computeVertexNormals(); // <-- THIS WAS MISSING
     const base = new THREE.Mesh(baseGeo, this.baseMat);
     base.name = 'Base';
     base.position.y = baseHeight * 0.5;
     this.add(base);
 
     // Lens
-    // --- FIX: Merge vertices ---
+    // --- FIX: Merge vertices AND recompute normals ---
     const lensGeo = mergeVertices(new THREE.CylinderGeometry(p.radius * 0.8, p.radius * 0.8, p.lensHeight, 32));
+    lensGeo.computeVertexNormals(); // <-- THIS WAS MISSING
     const lens = new THREE.Mesh(lensGeo, this.lensMat);
     lens.name = 'Lens';
     lens.position.y = baseHeight + p.lensHeight * 0.5;
