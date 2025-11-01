@@ -1,9 +1,7 @@
 // File: main.js
-
-import { Debugger } from './debugger.js';
+import { Debugger } from './debugger.js'; // <-- Keep the debugger
 import { loadUIPanels } from './ui/ui-loader.js';
-// Import 'scene' and 'orbitControls' directly from scene-manager
-import { initScene, animate, scene, camera, renderer, orbitControls } from './core/scene-manager.js';
+import { initScene, animate } from './core/scene-manager.js';
 import { initGlobalUI, initPanelToggles, showTempMessage } from './ui/ui-panels.js';
 import { initAddPanel } from './ui/add-panel-manager.js';
 import { initFilePanel } from './ui/file-panel-manager.js';
@@ -11,8 +9,7 @@ import { initScenePanel } from './ui/scene-panel-manager.js';
 import { initParentPanel } from './ui/parent-panel-manager.js';
 import { initToolsPanel } from './ui/tools-panel-manager.js';
 import { initDecimatePanel } from './ui/decimate-panel-manager.js';
-// --- ADD THIS IMPORT ---
-import { initGizmo } from './core/gizmo-manager.js'; 
+// --- GIZMO-MANAGER IMPORT IS REMOVED ---
 
 async function main() {
   try {
@@ -27,20 +24,17 @@ async function main() {
     initScene();
     Debugger.report('Scene Initialized', 'Three.js scene, camera, and renderer are ready.', 'main.js');
     
-    // --- ADD THIS CALL ---
-    // Pass the necessary components to the gizmo manager
-    initGizmo(camera, renderer.domElement, scene, orbitControls);
-    Debugger.report('Gizmo Initialized', 'TransformControls attached to gizmo-manager.', 'main.js');
+    // --- GIZMO INIT CALL IS REMOVED ---
     
     // 3. Initialize all our UI logic modules
-    initGlobalUI(); // For message box, close-props-panel
-    initPanelToggles(); // For File, Add, Scene, Parent buttons
-    initToolsPanel(); // --- NEW
+    initGlobalUI(); 
+    initPanelToggles(); 
+    initToolsPanel(); 
     initAddPanel();
     initFilePanel();
     initScenePanel();
     initParentPanel();
-    initDecimatePanel(); // --- NEW
+    initDecimatePanel(); 
     Debugger.report('UI Modules Initialized', 'All panel managers are attached.', 'main.js');
 
 
@@ -61,7 +55,27 @@ async function main() {
   }
 }
 
-// ... (rest of main.js) ...
+// --- FIXED: Added error handling logic ---
+function handleGlobalError(msg) {
+  const box = document.getElementById('message-box');
+  if (box) {
+    document.getElementById('message-text').textContent = msg;
+    box.classList.add('show');
+    setTimeout(() => box.classList.remove('show'), 3500);
+  }
+  const ls = document.getElementById('loading-screen');
+  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
+}
+
+window.addEventListener('error', (e) => {
+  const msg = e?.error?.message || e.message || 'Unknown error';
+  handleGlobalError(msg);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
+  handleGlobalError(msg);
+});
+// --- End Fix ---
 
 // Start the app
 main();
