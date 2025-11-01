@@ -80,10 +80,6 @@ export function initScene() {
   });
   scene.add(transformControls);
 
-  // --- BUG FIX ---
-  // The call to purgeXYZGizmos() was removed from here.
-  // --- END BUG FIX ---
-
   // Events
   window.addEventListener('resize', resizeRenderer);
   // Use pointer events on the actual canvas to fix iOS/Android/Desktop
@@ -133,13 +129,15 @@ function handleSingleTap(e) {
   raycaster.setFromCamera(ndc, camera);
 
   // If you tap the gizmo, let it handle the event
-  const gizmoChildren = transformControls ? transformControls.children : [];
+  // This robust check prevents the TypeError
+  const gizmoChildren = (transformControls && transformControls.children) ? transformControls.children : [];
   const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
   if (gizmoHits.length) return;
 
-  // Prefer explicit user models; fall back to whole scene if empty
-  const pickables = (allModels && allModels.length) ? allModels : scene.children;
-  const hits = raycaster.intersectObjects(pickables, true);
+  // --- FIX 2 ---
+  // Only intersect with user-added models, not the whole scene (which contains the ground/grid).
+  // This stops the gizmo from attaching to the ground.
+  const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
     let obj = hits[0].object;
@@ -154,8 +152,9 @@ function handleDoubleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  const pickables = (allModels && allModels.length) ? allModels : scene.children;
-  const hits = raycaster.intersectObjects(pickables, true);
+  // --- FIX 2 ---
+  // Only intersect with user-added models
+  const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
     // Focus camera target on the picked object’s bounds center
@@ -175,6 +174,9 @@ function ascendToModelRoot(o) {
 export function selectObject(o) {
   if (!o || currentSelection === o) return;
   currentSelection = o;
+  
+  // This line was causing the "script failed" error, but is now safe
+  // because we are no longer deleting the gizmo's children.
   transformControls.attach(o);
   transformControls.visible = true;
 
@@ -182,7 +184,8 @@ export function selectObject(o) {
 
   const props = document.getElementById('props-panel');
   if (props && showPanel) showPanel(props);
-  ['add-panel','scene-panel','parent-panel','file-panel','export-panel']
+  // Hide all other panels
+  ['add-panel','scene-panel','tools-panel','parent-panel','decimate-panel','file-panel','export-panel']
     .forEach(id => { const el = document.getElementById(id); el && hidePanel && hidePanel(el); });
 }
 
@@ -206,7 +209,3 @@ export function findByUUID(uuid) {
 }
 export function getBuilders() { return BUILDERS; }
 export function getEnsureTexState() { return ensureTexState; }
-
-// --- BUG FIX ---
-// The purgeXYZGizmos() function definition was removed from here.
-// --- END BUG FIX ---
