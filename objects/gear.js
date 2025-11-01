@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export default class Gear extends THREE.Group {
   constructor(params = {}) {
@@ -63,7 +65,15 @@ export default class Gear extends THREE.Group {
       bevelSegments: 1
     };
 
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    let geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    
+    // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+    // This averages normals at seams/edges, making the geometry "water-tight"
+    // but will remove sharp-shaded edges.
+    geo = mergeVertices(geo);
+    geo.computeVertexNormals(); // Recompute normals after merging
+    // --- END FIX ---
+    
     geo.translate(0, 0, -p.height * 0.5);
     geo.rotateX(Math.PI * 0.5); // Lay flat
     
@@ -86,4 +96,3 @@ export default class Gear extends THREE.Group {
     this.clear();
   }
 }
-
