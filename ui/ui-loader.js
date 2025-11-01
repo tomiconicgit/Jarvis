@@ -5,8 +5,9 @@ const panels = [
   { id: 'file-panel-placeholder', path: 'ui/file-panel.html' },
   { id: 'add-panel-placeholder', path: 'ui/add-panel.html' },
   { id: 'scene-panel-placeholder', path: 'ui/scene-panel.html' },
+  { id: 'tools-panel-placeholder', path: 'ui/tools-panel.html' }, // --- NEW
   { id: 'parent-panel-placeholder', path: 'ui/parent-panel.html' },
-  // { id: 'merge-panel-placeholder', path: 'ui/merge-panel.html' }, // REMOVED
+  { id: 'decimate-panel-placeholder', path: 'ui/decimate-panel.html' }, // --- NEW
   { id: 'export-panel-placeholder', path: 'ui/export-panel.html' },
   { id: 'props-panel-placeholder', path: 'ui/props-panel.html' },
 ];
