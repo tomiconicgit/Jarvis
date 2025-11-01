@@ -55,8 +55,8 @@ export function initPanelToggles() {
   document.getElementById('scene-btn').addEventListener('click', () => {
     togglePanel(document.getElementById('scene-panel'));
   });
-  document.getElementById('parent-btn').addEventListener('click', () => {
-    togglePanel(document.getElementById('parent-panel'));
+  document.getElementById('tools-btn').addEventListener('click', () => {
+    togglePanel(document.getElementById('tools-panel'));
   });
 }
 
