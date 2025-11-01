@@ -5,9 +5,7 @@ import { allModels, scene, findByUUID, assignDefaultName, selectObject, deselect
 import { hidePanel, showTempMessage, togglePanel } from './ui-panels.js';
 import { refreshSceneList, deleteModel } from './scene-panel-manager.js';
 
-/**
- * Refreshes the list of objects in the merge panel.
- */
+// ... (refreshMergeList function is unchanged) ...
 function refreshMergeList() {
   const mergeList = document.getElementById('merge-list');
   if (!mergeList) return;
@@ -53,20 +51,13 @@ function applyMerge() {
   const matMap = new Map(); // Map old material -> new material index
 
   try {
+    // --- PASS 1: Collect geometries and materials ---
     for (const model of selectedModels) {
       model.traverse(mesh => {
-        if (mesh.isMesh) {
+        if (mesh.isMesh && mesh.geometry?.attributes?.position) {
           mesh.updateWorldMatrix(true, true);
           const geo = mesh.geometry.clone();
           geo.applyMatrix4(mesh.matrixWorld);
-
-          // --- FIX: Normalize attributes to prevent merge failure ---
-          // Ensure uv2 exists if uv exists, as some geometries (Sphere)
-          // have it by default and others (Cube) don't.
-          if (geo.attributes.uv && !geo.attributes.uv2) {
-            geo.setAttribute('uv2', geo.attributes.uv); // Just copy uv to uv2
-          }
-          // --- END FIX ---
 
           let meshMaterials = [];
           if (Array.isArray(mesh.material)) {
@@ -76,7 +67,6 @@ function applyMerge() {
           }
 
           if (geo.groups.length > 0) {
-            // Handle existing groups (multi-material)
             for (const group of geo.groups) {
               const oldMat = meshMaterials[group.materialIndex];
               if (!matMap.has(oldMat)) {
@@ -86,7 +76,6 @@ function applyMerge() {
               group.materialIndex = matMap.get(oldMat);
             }
           } else {
-            // Single material for the geometry
             const oldMat = meshMaterials[0];
             if (!matMap.has(oldMat)) {
               matMap.set(oldMat, materials.length);
@@ -105,19 +94,41 @@ function applyMerge() {
       return;
     }
 
+    // --- PASS 2: Normalize attributes (THIS IS THE FIX) ---
+    // Check what attributes are present across all geometries
+    const hasUV = geometries.some(g => g.attributes.uv);
+    const hasNormal = geometries.some(g => g.attributes.normal);
+
+    for (const geo of geometries) {
+      const posCount = geo.attributes.position.count;
+
+      // Force UVs if any geometry has them
+      if (hasUV && !geo.attributes.uv) {
+        geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(posCount * 2), 2));
+      }
+
+      // Force Normals if any geometry has them
+      if (hasNormal && !geo.attributes.normal) {
+        geo.computeVertexNormals(); // Generate normals if missing
+      }
+
+      // Force UV2 if UV is present (for consistency)
+      if (geo.attributes.uv && !geo.attributes.uv2) {
+        geo.setAttribute('uv2', geo.attributes.uv.clone());
+      }
+    }
+    // --- END FIX ---
+
     const mergedGeo = mergeGeometries(geometries, true); // true = use groups
     if (!mergedGeo) throw new Error('Merge resulted in empty geometry');
 
     // --- NEW UV GENERATION ---
-    // Generate new UVs based on a top-down (X/Z) projection
-    // This makes textures apply "as one" across the merged surface.
     mergedGeo.computeBoundingBox();
     const box = mergedGeo.boundingBox;
     const size = box.getSize(new THREE.Vector3());
     const pos = mergedGeo.attributes.position;
     const uvArray = new Float32Array(pos.count * 2);
     
-    // Handle division by zero if the object is perfectly flat
     const sizeX = size.x === 0 ? 1 : size.x;
     const sizeZ = size.z === 0 ? 1 : size.z;
 
@@ -132,7 +143,7 @@ function applyMerge() {
         uvArray[i * 2 + 1] = v;
     }
     mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
-    mergedGeo.setAttribute('uv2', new THREE.BufferAttribute(uvArray, 2)); // Also apply to uv2
+    mergedGeo.setAttribute('uv2', new THREE.BufferAttribute(uvArray, 2)); 
     mergedGeo.computeVertexNormals();
     // --- END NEW UV GENERATION ---
 
@@ -141,21 +152,19 @@ function applyMerge() {
     mergedMesh.castShadow = true;
     mergedMesh.receiveShadow = true;
 
-    // Wrap in a Group to match the app's `isModel` standard
     const mergedGroup = new THREE.Group();
     mergedGroup.add(mergedMesh);
     mergedGroup.userData.isModel = true;
-    mergedGroup.userData.type = 'ImportedGLB'; // Treat as an imported object
+    mergedGroup.userData.type = 'ImportedGLB';
     assignDefaultName(mergedGroup);
 
     scene.add(mergedGroup);
     allModels.push(mergedGroup);
 
-    // Remove old models
     if (currentSelection && selectedModels.includes(currentSelection)) {
       deselectAll();
     }
-    selectedModels.forEach(model => deleteModel(model)); // deleteModel handles cleanup
+    selectedModels.forEach(model => deleteModel(model));
 
     refreshSceneList();
     selectObject(mergedGroup);
@@ -164,10 +173,11 @@ function applyMerge() {
 
   } catch (err) {
     console.error('Merge failed:', err);
-    showTempMessage('Merge failed');
+    showTempMessage('Merge failed: Check console'); // Changed message
   }
 }
 
+// ... (initMergePanel function is unchanged) ...
 export function initMergePanel() {
   const mergePanel = document.getElementById('merge-panel');
   if (!mergePanel) return;
