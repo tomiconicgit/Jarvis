@@ -1,17 +1,14 @@
 // File: core/scene-manager.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-// TransformControls import is removed
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
 
-// Import the new gizmo functions
-import { initGizmo, attachGizmo, detachGizmo, getGizmo } from './gizmo-manager.js';
-
-export let scene, camera, renderer, orbitControls; // transformControls export is removed
+export let scene, camera, renderer, orbitControls, transformControls;
 export let allModels = [];
 export let currentSelection = null;
 
@@ -72,18 +69,16 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
-  // --- GIZMO INITIALIZATION ---
-  // All gizmo logic is now handled by the new module
-  initGizmo(camera, renderer.domElement, scene, orbitControls);
-
-  // We add the 'mouseUp' listener here, where we have access to `currentSelection`
-  const gizmo = getGizmo();
-  if (gizmo) {
-    gizmo.addEventListener('mouseUp', () => {
-      if (currentSelection) updatePropsPanel(currentSelection);
-    });
-  }
-  // --- END GIZMO ---
+  transformControls = new TransformControls(camera, renderer.domElement);
+  transformControls.setMode('translate');
+  transformControls.visible = false; // Start hidden (This one is OK)
+  transformControls.addEventListener('dragging-changed', (e) => {
+    orbitControls.enabled = !e.value;
+  });
+  transformControls.addEventListener('mouseUp', () => {
+    if (currentSelection) updatePropsPanel(currentSelection);
+  });
+  scene.add(transformControls);
 
   // Events
   window.addEventListener('resize', resizeRenderer);
@@ -115,11 +110,9 @@ function getPointerNDC(evt) {
   };
 }
 function onPointerDown(e) {
-  // Don’t block TransformControls; only prevent default on touch end
   downPos.set(e.clientX, e.clientY);
 }
 function onPointerUp(e) {
-  // On mobile, allow gentle taps to select
   const end = new THREE.Vector2(e.clientX, e.clientY);
   if (downPos.distanceTo(end) < 10) {
     const now = performance.now();
@@ -133,21 +126,17 @@ function handleSingleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // If you tap the gizmo, let it handle the event
-  const gizmo = getGizmo();
-  const gizmoChildren = (gizmo && gizmo.children) ? gizmo.children : [];
+  // Check if tapping the gizmo itself
+  const gizmoChildren = (transformControls && transformControls.children) ? transformControls.children : [];
   const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
   if (gizmoHits.length) return;
 
-  // Always raycast against `allModels` only.
+  // Only raycast against user models
   const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
     let obj = hits[0].object;
-    // Ascend to the model root (the object with `isModel` flag)
-    while (obj && obj.parent && !obj.userData?.isModel) {
-        obj = obj.parent;
-    }
+    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
     selectObject(obj || hits[0].object);
   } else {
     deselectAll();
@@ -158,11 +147,10 @@ function handleDoubleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // Always raycast against `allModels` only.
+  // Only raycast against user models
   const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
-    // Focus camera target on the picked object’s bounds center
     const root = ascendToModelRoot(hits[0].object);
     const box = new THREE.Box3().setFromObject(root);
     orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
@@ -177,18 +165,20 @@ function ascendToModelRoot(o) {
 }
 
 export function selectObject(o) {
-  if (!o) return; // Guard against null/undefined
-  if (currentSelection === o) return;
+  if (!o || currentSelection === o) return;
   
-  // Safety check: Do not allow selecting the scene, ground, or grid.
+  // Safety check
   if (!o.userData?.isModel && o.type !== 'Mesh') {
     return; 
   }
   
   currentSelection = o;
+  transformControls.attach(o);
   
-  // Use the new gizmo function
-  attachGizmo(o);
+  // --- BUG FIX ---
+  // This line was removed. `attach()` handles visibility.
+  // transformControls.visible = true; 
+  // --- END FIX ---
 
   updatePropsPanel && updatePropsPanel(o);
 
@@ -211,10 +201,13 @@ export function selectObject(o) {
 }
 
 export function deselectAll() {
-  if (currentSelection) {
-    // Use the new gizmo function
-    detachGizmo();
-  }
+  if (currentSelection) transformControls.detach();
+  
+  // --- BUG FIX ---
+  // This line was removed. `detach()` handles visibility.
+  // transformControls.visible = false;
+  // --- END FIX ---
+  
   currentSelection = null;
 
   const props = document.getElementById('props-panel');
