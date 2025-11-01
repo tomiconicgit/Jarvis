@@ -1,3 +1,4 @@
+// File: objects/towerbase.js
 import * as THREE from 'three';
 // --- FIX: Import mergeVertices ---
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -56,7 +57,11 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
   const shape = new THREE.Shape();
 
   if (!hasDoor) {
-    shape.add(roundedRectPath(p.width, p.depth, cornerRadius));
+    // --- THIS WAS THE BUG (for solid tower) ---
+    // shape.add(roundedRectPath(p.width, p.depth, cornerRadius)); // <-- WRONG
+    const outer = roundedRectPath(p.width, p.depth, cornerRadius);
+    shape.curves = outer.curves; // <-- CORRECT FIX
+    // --- END FIX ---
     const inner = roundedRectPath(innerW, innerD, innerR);
     shape.holes.push(inner);
   } else {
@@ -70,27 +75,31 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
     const doorLeftX = -doorW / 2;
     const doorRightX = doorW / 2;
 
-    shape.moveTo(doorLeftX, hd);
-    shape.lineTo(-hw + rr, hd);
-    shape.absarc(-hw + rr, hd - rr, rr, Math.PI / 2, Math.PI, false);
-    shape.lineTo(-hw, -hd + rr);
-    shape.absarc(-hw + rr, -hd + rr, rr, Math.PI, 3 * Math.PI / 2, false);
-    shape.lineTo(hw - rr, -hd);
-    shape.absarc(hw - rr, -hd + rr, rr, -Math.PI / 2, 0, false);
-    shape.lineTo(hw, hd - rr);
-    shape.absarc(hw - rr, hd - rr, rr, 0, Math.PI / 2, false);
-    shape.lineTo(doorRightX, hd);
-    shape.lineTo(doorRightX, ihd);
-    shape.lineTo(ihw - ir, ihd);
-    shape.absarc(ihw - ir, ihd - ir, ir, Math.PI / 2, 0, true);
-    shape.lineTo(ihw, -ihd + ir);
-    shape.absarc(ihw - ir, -ihd + ir, ir, 0, -Math.PI / 2, true);
-    shape.lineTo(-ihw + ir, -ihd);
-    shape.absarc(-ihw + ir, -ihd + ir, ir, 3 * Math.PI / 2, Math.PI, true);
-    shape.lineTo(-ihw, ihd - ir);
-    shape.absarc(-ihw + ir, ihd - ir, ir, Math.PI, Math.PI / 2, true);
-    shape.lineTo(doorLeftX, ihd);
-    shape.lineTo(doorLeftX, hd);
+    // --- THIS WAS THE BUG (for door tower) ---
+    // The complex pathing was failing. This is a much simpler,
+    // correct way to define a C-shape for the extrusion.
+    // It creates the outer path, then adds the inner path as a hole.
+    // The "door" is just the gap between the two.
+    
+    // 1. Create the full outer path
+    const outerPath = roundedRectPath(p.width, p.depth, cornerRadius);
+    shape.curves = outerPath.curves;
+
+    // 2. Create the full inner path (as a hole)
+    const innerPath = roundedRectPath(innerW, innerD, innerR);
+    shape.holes.push(innerPath);
+
+    // 3. Create a "cutter" hole to make the doorway
+    // This is a thin rectangle that cuts through both inner and outer walls
+    const doorCutter = new THREE.Path();
+    const doorH = p.depth / 2; // Extrude from back to front
+    doorCutter.moveTo(doorLeftX, -doorH - eps);
+    doorCutter.lineTo(doorRightX, -doorH - eps);
+    doorCutter.lineTo(doorRightX, doorH + eps);
+    doorCutter.lineTo(doorLeftX, doorH + eps);
+    doorCutter.closePath();
+    shape.holes.push(doorCutter);
+    // --- END FIX ---
   }
 
   const bevelEnabled = !forceNoBevel && (p.edgeRoundness || 0) > 0;
