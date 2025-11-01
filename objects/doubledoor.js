@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- Geometry helpers ----------
 function roundedRectPath(w, h, r) {
@@ -62,7 +64,11 @@ function unifiedDoorGeometry(p, forceNoBevel = false) {
     curveSegments: Math.max(8, Math.floor(p.cornerSmoothness || 16))
   };
 
-  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  let geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+
+  // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+  geo = mergeVertices(geo);
+  // --- END FIX ---
 
   // Center on Z so it straddles z=0; DO NOT rotate (front-facing, Y is up).
   geo.translate(0, 0, -p.depth / 2);
