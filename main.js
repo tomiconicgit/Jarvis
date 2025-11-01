@@ -1,4 +1,5 @@
 // File: main.js
+import { Debugger } from './debugger.js'; // <-- ADDED DEBUGGER IMPORT
 import { loadUIPanels } from './ui/ui-loader.js';
 import { initScene, animate } from './core/scene-manager.js';
 import { initGlobalUI, initPanelToggles, showTempMessage } from './ui/ui-panels.js'; // Import showTempMessage
@@ -12,12 +13,16 @@ import { initDecimatePanel } from './ui/decimate-panel-manager.js';
 
 async function main() {
   try {
+    Debugger.report('main() started', 'Application main function running.', 'main.js'); // <-- ADDED
+
     // 1. Fetch and inject all HTML templates
     await loadUIPanels();
+    Debugger.report('UI Panels Loaded', 'All HTML templates injected.', 'main.js'); // <-- ADDED
 
     // 2. All HTML is loaded, now we can find buttons
     // and initialize the 3D scene.
     initScene();
+    Debugger.report('Scene Initialized', 'Three.js scene, camera, and renderer are ready.', 'main.js'); // <-- ADDED
     
     // 3. Initialize all our UI logic modules
     initGlobalUI(); // For message box, close-props-panel
@@ -28,6 +33,7 @@ async function main() {
     initScenePanel();
     initParentPanel();
     initDecimatePanel(); // --- NEW
+    Debugger.report('UI Modules Initialized', 'All panel managers are attached.', 'main.js'); // <-- ADDED
 
 
     // 4. Start the render loop
@@ -36,9 +42,10 @@ async function main() {
     // 5. Hide loading screen
     const ls = document.getElementById('loading-screen');
     if (ls) { ls.style.opacity = '0'; setTimeout(() => (ls.style.display = 'none'), 500); }
+    Debugger.report('App Initialized Successfully', 'Render loop started.', 'main.js'); // <-- ADDED
 
   } catch (err) {
-    console.error('Failed to initialize app:', err);
+    console.error('Failed to initialize app:', err); // Debugger.js will catch this
     const ls = document.getElementById('loading-screen');
     if (ls) {
       ls.innerHTML = `<div>Error: ${err.message}<br>Check console.</div>`;
@@ -47,6 +54,7 @@ async function main() {
 }
 
 // --- FIXED: Added error handling logic ---
+// Debugger.js will also catch these and add them to the UI
 function handleGlobalError(msg) {
   const box = document.getElementById('message-box');
   if (box) {
