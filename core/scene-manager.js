@@ -1,17 +1,17 @@
 // File: core/scene-manager.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-// import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'; // REMOVED
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'; // RE-ADDED
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
-// --- NEW GIZMO IMPORTS ---
-import { showGizmo, hideGizmo } from '../ui/gizmo.js';
+// --- GIZMO IMPORTS REMOVED ---
+// import { showGizmo, hideGizmo } from '../ui/gizmo.js';
 
-// We are putting transformControls back here to keep everything in one file
-export let scene, camera, renderer, orbitControls; // REMOVED transformControls
+// We are putting transformControls back here
+export let scene, camera, renderer, orbitControls, transformControls; // RE-ADDED transformControls
 export let allModels = [];
 export let currentSelection = null;
 
@@ -72,7 +72,14 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
-  // Re-initialize transformControls here - ENTIRE BLOCK REMOVED
+  // --- RE-ADD TRANSFORMCONTROLS ---
+  transformControls = new TransformControls(camera, renderer.domElement);
+  transformControls.visible = false;
+  transformControls.addEventListener('dragging-changed', (event) => {
+    orbitControls.enabled = !event.value;
+  });
+  scene.add(transformControls);
+  // --- END TRANSFORMCONTROLS ---
 
   // Events
   window.addEventListener('resize', resizeRenderer);
@@ -119,7 +126,16 @@ function handleSingleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // Robust check for gizmo hits - REMOVED
+  // --- ADDED GIZMO HIT CHECK ---
+  // If the transform gizmo is visible, check if we tapped it.
+  // If so, do nothing and let the gizmo handle it.
+  if (transformControls.visible) {
+    const gizmoHits = raycaster.intersectObjects(transformControls.children, true);
+    if (gizmoHits.length > 0) {
+      return; // Tapped on the gizmo, don't deselect.
+    }
+  }
+  // --- END GIZMO HIT CHECK ---
   
   // **CRITICAL FIX**: Only raycast against `allModels`, not the whole scene.
   // This prevents you from selecting the ground or grid.
@@ -163,14 +179,14 @@ export function selectObject(o) {
   }
   
   currentSelection = o;
-  // transformControls.attach(o); // REMOVED
+  transformControls.attach(o); // RE-ADDED
   
   // --- GIZMO ---
-  showGizmo && showGizmo(o);
+  // showGizmo && showGizmo(o); // REMOVED
   // --- END GIZMO ---
-
+  
   // --- BUG FIX ---
-  // transformControls.visible = true; // REMOVED
+  transformControls.visible = true; // RE-ADDED
   // --- END FIX ---
 
   updatePropsPanel && updatePropsPanel(o);
@@ -194,14 +210,14 @@ export function selectObject(o) {
 }
 
 export function deselectAll() {
-  // if (currentSelection) transformControls.detach(); // REMOVED
+  if (currentSelection) transformControls.detach(); // RE-ADDED
   
   // --- GIZMO ---
-  hideGizmo && hideGizmo();
+  // hideGizmo && hideGizmo(); // REMOVED
   // --- END GIZMO ---
   
   // --- BUG FIX ---
-  // transformControls.visible = false; // REMOVED
+  transformControls.visible = false; // RE-ADDED
   // --- END FIX ---
   
   currentSelection = null;
