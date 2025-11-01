@@ -1,6 +1,9 @@
+// File: fileio.js
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { GLTFLoader }   from 'three/examples/jsm/loaders/GLTFLoader.js';
+// --- NEW IMPORT ---
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /** Helper to serialize texture overrides */
 function getSerializableTexOverrides(o) {
@@ -146,8 +149,89 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
   }
 }
 
+// --- NEW MERGE-ON-EXPORT FUNCTION ---
+function mergeAllModels(rootModels) {
+  const geometries = [];
+  const materials = [];
+  const matMap = new Map();
+
+  for (const model of rootModels) {
+    model.traverse(mesh => {
+      if (mesh.isMesh && mesh.geometry?.attributes?.position) {
+        mesh.updateWorldMatrix(true, true);
+        const geo = mesh.geometry.clone();
+        geo.applyMatrix4(mesh.matrixWorld);
+
+        let meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+        if (geo.groups.length > 0) {
+          for (const group of geo.groups) {
+            const oldMat = meshMaterials[group.materialIndex];
+            if (!matMap.has(oldMat)) {
+              matMap.set(oldMat, materials.length);
+              materials.push(oldMat);
+            }
+            group.materialIndex = matMap.get(oldMat);
+          }
+        } else {
+          const oldMat = meshMaterials[0];
+          if (!matMap.has(oldMat)) {
+            matMap.set(oldMat, materials.length);
+            materials.push(oldMat);
+          }
+          geo.clearGroups();
+          geo.addGroup(0, geo.attributes.position.count, matMap.get(oldMat));
+        }
+        geometries.push(geo);
+      }
+    });
+  }
+
+  if (geometries.length === 0) return null;
+
+  // Normalize attributes
+  const hasUV = geometries.some(g => g.attributes.uv);
+  const hasNormal = geometries.some(g => g.attributes.normal);
+  for (const geo of geometries) {
+    const posCount = geo.attributes.position.count;
+    if (hasUV && !geo.attributes.uv) {
+      geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(posCount * 2), 2));
+    }
+    if (hasNormal && !geo.attributes.normal) {
+      geo.computeVertexNormals();
+    }
+    if (geo.attributes.uv && !geo.attributes.uv2) {
+      geo.setAttribute('uv2', geo.attributes.uv.clone());
+    }
+  }
+
+  const mergedGeo = mergeGeometries(geometries, true);
+  if (!mergedGeo) return null;
+
+  // Generate new top-down UVs
+  mergedGeo.computeBoundingBox();
+  const box = mergedGeo.boundingBox;
+  const size = box.getSize(new THREE.Vector3());
+  const pos = mergedGeo.attributes.position;
+  const uvArray = new Float32Array(pos.count * 2);
+  const sizeX = size.x === 0 ? 1 : size.x;
+  const sizeZ = size.z === 0 ? 1 : size.z;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    uvArray[i * 2] = (x - box.min.x) / sizeX;
+    uvArray[i * 2 + 1] = (z - box.min.z) / sizeZ;
+  }
+  mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+  mergedGeo.setAttribute('uv2', new THREE.BufferAttribute(uvArray, 2));
+  mergedGeo.computeVertexNormals();
+
+  return new THREE.Mesh(mergedGeo, materials);
+}
+// --- END NEW FUNCTION ---
+
 /** Export GLB of either models-only or whole scene (binary or GLTF) */
-export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 'Model.glb', allModels = [] }, onDone, onError) {
+export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 'Model.glb', allModels = [], mergeAll = false }, onDone, onError) {
   const exporter = new GLTFExporter();
 
   let root = scene;
@@ -155,17 +239,33 @@ export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 
 
   if (modelsOnly) {
     // Build a clean root with top-level ancestors of user models
-    const modelSet = new Set(allModels);
     const roots = new Set();
     for (const m of allModels) {
       let a = m;
       while (a.parent && a.parent !== scene && a.parent.userData?.isModel) a = a.parent;
       roots.add(a);
     }
-    tempRoot = new THREE.Group();
-    tempRoot.name = 'ExportRoot';
-    roots.forEach(r => tempRoot.add(r.clone(true)));
-    root = tempRoot;
+    
+    // --- MODIFIED: Handle mergeAll option ---
+    if (mergeAll) {
+      const rootModels = Array.from(roots).map(r => r.clone(true));
+      const mergedMesh = mergeAllModels(rootModels);
+      if (mergedMesh) {
+        tempRoot = new THREE.Group();
+        tempRoot.name = 'ExportRoot_Merged';
+        tempRoot.add(mergedMesh);
+        root = tempRoot;
+      } else {
+        onError(new Error("Merging produced no geometry."));
+        return;
+      }
+    } else {
+      tempRoot = new THREE.Group();
+      tempRoot.name = 'ExportRoot_Standard';
+      roots.forEach(r => tempRoot.add(r.clone(true)));
+      root = tempRoot;
+    }
+    // --- END MODIFICATION ---
   }
 
   exporter.parse(
