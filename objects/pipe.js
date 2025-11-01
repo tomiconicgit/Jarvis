@@ -57,7 +57,7 @@ export default class Pipe extends THREE.Group {
       if (n.isMesh) {
         n.geometry && n.geometry.dispose();
         if (Array.isArray(n.material)) n.material.forEach(m => m && m.dispose && m.dispose());
-        else n.material && n.material.dispose && n.material.dispose();
+        else n.material && n.material.dispose && n.dispose();
       }
     });
     this.clear();
@@ -79,7 +79,7 @@ export default class Pipe extends THREE.Group {
 
     // --- FIX: Create geo, merge, compute normals, then create mesh ---
     const straightOuterGeo = mergeVertices(new THREE.CylinderGeometry(outerR, outerR, length, Math.max(12, p.radialSegments), 1, true));
-    straightOuterGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+    straightOuterGeo.computeVertexNormals(); // <-- CORRECTED
     const straightOuter = new THREE.Mesh(straightOuterGeo, this.pipeMat);
     // --- END FIX ---
     straightOuter.name = 'StraightOuter';
@@ -92,7 +92,7 @@ export default class Pipe extends THREE.Group {
       const straightInnerMat = this.pipeMat.clone(); straightInnerMat.side = THREE.BackSide;
       // --- FIX: Create geo, merge, compute normals, then create mesh ---
       const straightInnerGeo = mergeVertices(new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true));
-      straightInnerGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+      straightInnerGeo.computeVertexNormals(); // <-- CORRECTED
       const straightInner = new THREE.Mesh(straightInnerGeo, straightInnerMat);
       // --- END FIX ---
       straightInner.name = 'StraightInner';
@@ -126,7 +126,7 @@ export default class Pipe extends THREE.Group {
       // Outer elbow
       // --- FIX: Create geo, merge, compute normals, then create mesh ---
       const elbowOuterGeo = mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false));
-      elbowOuterGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+      elbowOuterGeo.computeVertexNormals(); // <-- CORRECTED
       const elbowOuter = new THREE.Mesh(elbowOuterGeo, this.pipeMat);
       // --- END FIX ---
       elbowOuter.name = 'ElbowOuter';
@@ -139,7 +139,7 @@ export default class Pipe extends THREE.Group {
         const innerMat = this.pipeMat.clone(); innerMat.side = THREE.BackSide;
         // --- FIX: Create geo, merge, compute normals, then create mesh ---
         const elbowInnerGeo = mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), innerR, Math.max(8, p.radialSegments), false));
-        elbowInnerGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+        elbowInnerGeo.computeVertexNormals(); // <-- CORRECTED
         const elbowInner = new THREE.Mesh(elbowInnerGeo, innerMat);
         // --- END FIX ---
         elbowInner.name = 'ElbowInner';
@@ -199,7 +199,7 @@ export default class Pipe extends THREE.Group {
 
     // --- FIX: Create geo, merge, compute normals, then create mesh ---
     const cylGeo = mergeVertices(new THREE.CylinderGeometry(p.flangeRadius, p.flangeRadius, p.flangeThickness, Math.max(24, p.radialSegments)));
-    cylGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+    cylGeo.computeVertexNormals(); // <-- CORRECTED
     const cyl = new THREE.Mesh(cylGeo, this.flangeMat);
     // --- END FIX ---
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone().normalize());
@@ -220,7 +220,7 @@ export default class Pipe extends THREE.Group {
         const pos = u.clone().multiplyScalar(Math.cos(t) * ringR).add(v.clone().multiplyScalar(Math.sin(t) * ringR));
         // --- FIX: Create geo, merge, compute normals, then create mesh ---
         const boltGeo = mergeVertices(new THREE.CylinderGeometry(p.boltRadius, p.boltRadius, p.boltHeight, 12));
-        boltGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+        boltGeo.computeVertexNormals(); // <-- CORRECTED
         const bolt = new THREE.Mesh(boltGeo, this.boltMat);
         // --- END FIX ---
         const qb = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
