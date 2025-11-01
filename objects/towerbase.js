@@ -1,3 +1,4 @@
+// File: objects/towerbase.js
 import * as THREE from 'three';
 // --- FIX: Import mergeVertices ---
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -68,7 +69,6 @@ function unifiedShellGeometry(p, forceNoBevel = false) {
 
   } else {
     // --- RESTORED ORIGINAL DOOR LOGIC ---
-    // My previous "fix" was wrong and caused the bug you saw.
     // This is the original, correct logic that draws a single
     // complex C-shape path for the walls.
     const hw = p.width / 2;
