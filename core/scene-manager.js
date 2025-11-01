@@ -1,14 +1,17 @@
 // File: core/scene-manager.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+// TransformControls import is removed
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
 
-export let scene, camera, renderer, orbitControls, transformControls;
+// Import the new gizmo functions
+import { initGizmo, attachGizmo, detachGizmo, getGizmo } from './gizmo-manager.js';
+
+export let scene, camera, renderer, orbitControls; // transformControls export is removed
 export let allModels = [];
 export let currentSelection = null;
 
@@ -69,16 +72,18 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
-  transformControls = new TransformControls(camera, renderer.domElement);
-  transformControls.setMode('translate');
-  transformControls.visible = false; // start hidden
-  transformControls.addEventListener('dragging-changed', (e) => {
-    orbitControls.enabled = !e.value;
-  });
-  transformControls.addEventListener('mouseUp', () => {
-    if (currentSelection) updatePropsPanel(currentSelection);
-  });
-  scene.add(transformControls);
+  // --- GIZMO INITIALIZATION ---
+  // All gizmo logic is now handled by the new module
+  initGizmo(camera, renderer.domElement, scene, orbitControls);
+
+  // We add the 'mouseUp' listener here, where we have access to `currentSelection`
+  const gizmo = getGizmo();
+  if (gizmo) {
+    gizmo.addEventListener('mouseUp', () => {
+      if (currentSelection) updatePropsPanel(currentSelection);
+    });
+  }
+  // --- END GIZMO ---
 
   // Events
   window.addEventListener('resize', resizeRenderer);
@@ -129,16 +134,13 @@ function handleSingleTap(e) {
   raycaster.setFromCamera(ndc, camera);
 
   // If you tap the gizmo, let it handle the event
-  // This robust check prevents the TypeError
-  const gizmoChildren = (transformControls && transformControls.children) ? transformControls.children : [];
+  const gizmo = getGizmo();
+  const gizmoChildren = (gizmo && gizmo.children) ? gizmo.children : [];
   const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
   if (gizmoHits.length) return;
 
-  // --- THIS IS THE FIX ---
   // Always raycast against `allModels` only.
-  // This prevents selecting the ground, grid, or scene.
   const hits = raycaster.intersectObjects(allModels, true);
-  // --- END FIX ---
 
   if (hits.length) {
     let obj = hits[0].object;
@@ -156,10 +158,8 @@ function handleDoubleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // --- THIS IS THE FIX ---
   // Always raycast against `allModels` only.
   const hits = raycaster.intersectObjects(allModels, true);
-  // --- END FIX ---
 
   if (hits.length) {
     // Focus camera target on the picked object’s bounds center
@@ -180,24 +180,22 @@ export function selectObject(o) {
   if (!o) return; // Guard against null/undefined
   if (currentSelection === o) return;
   
-  // --- THIS IS A SAFETY CHECK ---
-  // Do not allow selecting the scene, ground, or grid.
+  // Safety check: Do not allow selecting the scene, ground, or grid.
   if (!o.userData?.isModel && o.type !== 'Mesh') {
-    // If it's not a model root OR a submesh, it's probably the scene.
     return; 
   }
-  // --- END SAFETY CHECK ---
   
   currentSelection = o;
-  transformControls.attach(o);
-  transformControls.visible = true;
+  
+  // Use the new gizmo function
+  attachGizmo(o);
 
   updatePropsPanel && updatePropsPanel(o);
 
   const props = document.getElementById('props-panel');
   if (props && showPanel) showPanel(props);
   
-  // --- UPDATED LIST OF PANELS TO HIDE ---
+  // Hide all other panels
   [
     'add-panel',
     'scene-panel',
@@ -213,8 +211,10 @@ export function selectObject(o) {
 }
 
 export function deselectAll() {
-  if (currentSelection) transformControls.detach();
-  transformControls.visible = false;
+  if (currentSelection) {
+    // Use the new gizmo function
+    detachGizmo();
+  }
   currentSelection = null;
 
   const props = document.getElementById('props-panel');
