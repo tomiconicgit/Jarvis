@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /** Launch-site Pipe (straight + optional elbow) with flanges/bolts */
 export default class Pipe extends THREE.Group {
@@ -76,7 +78,8 @@ export default class Pipe extends THREE.Group {
     );
 
     const straightOuter = new THREE.Mesh(
-      new THREE.CylinderGeometry(outerR, outerR, length, Math.max(12, p.radialSegments), 1, true),
+      // --- FIX: Merge vertices ---
+      mergeVertices(new THREE.CylinderGeometry(outerR, outerR, length, Math.max(12, p.radialSegments), 1, true)),
       this.pipeMat
     );
     straightOuter.name = 'StraightOuter';
@@ -88,7 +91,8 @@ export default class Pipe extends THREE.Group {
     if (innerR > 0.001) {
       const straightInnerMat = this.pipeMat.clone(); straightInnerMat.side = THREE.BackSide;
       const straightInner = new THREE.Mesh(
-        new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true),
+        // --- FIX: Merge vertices ---
+        mergeVertices(new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true)),
         straightInnerMat
       );
       straightInner.name = 'StraightInner';
@@ -121,7 +125,8 @@ export default class Pipe extends THREE.Group {
 
       // Outer elbow
       const elbowOuter = new THREE.Mesh(
-        new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false),
+        // --- FIX: Merge vertices ---
+        mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false)),
         this.pipeMat
       );
       elbowOuter.name = 'ElbowOuter';
@@ -133,7 +138,8 @@ export default class Pipe extends THREE.Group {
       if (innerR > 0.001) {
         const innerMat = this.pipeMat.clone(); innerMat.side = THREE.BackSide;
         const elbowInner = new THREE.Mesh(
-          new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), innerR, Math.max(8, p.radialSegments), false),
+          // --- FIX: Merge vertices ---
+          mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), innerR, Math.max(8, p.radialSegments), false)),
           innerMat
         );
         elbowInner.name = 'ElbowInner';
@@ -192,7 +198,8 @@ export default class Pipe extends THREE.Group {
     grp.position.copy(center);
 
     const cyl = new THREE.Mesh(
-      new THREE.CylinderGeometry(p.flangeRadius, p.flangeRadius, p.flangeThickness, Math.max(24, p.radialSegments)),
+      // --- FIX: Merge vertices ---
+      mergeVertices(new THREE.CylinderGeometry(p.flangeRadius, p.flangeRadius, p.flangeThickness, Math.max(24, p.radialSegments))),
       this.flangeMat
     );
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone().normalize());
@@ -212,7 +219,8 @@ export default class Pipe extends THREE.Group {
         const t = (i / p.boltCount) * Math.PI * 2;
         const pos = u.clone().multiplyScalar(Math.cos(t) * ringR).add(v.clone().multiplyScalar(Math.sin(t) * ringR));
         const bolt = new THREE.Mesh(
-          new THREE.CylinderGeometry(p.boltRadius, p.boltRadius, p.boltHeight, 12),
+          // --- FIX: Merge vertices ---
+          mergeVertices(new THREE.CylinderGeometry(p.boltRadius, p.boltRadius, p.boltHeight, 12)),
           this.boltMat
         );
         const qb = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
