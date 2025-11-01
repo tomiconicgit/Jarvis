@@ -1,7 +1,7 @@
 // File: core/scene-manager.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+// import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'; // REMOVED
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
@@ -9,7 +9,7 @@ import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
 
 // We are putting transformControls back here to keep everything in one file
-export let scene, camera, renderer, orbitControls, transformControls;
+export let scene, camera, renderer, orbitControls; // REMOVED transformControls
 export let allModels = [];
 export let currentSelection = null;
 
@@ -70,17 +70,7 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
-  // Re-initialize transformControls here
-  transformControls = new TransformControls(camera, renderer.domElement);
-  transformControls.setMode('translate');
-  transformControls.visible = false; // It's OK to set it to false *once* on init
-  transformControls.addEventListener('dragging-changed', (e) => {
-    orbitControls.enabled = !e.value;
-  });
-  transformControls.addEventListener('mouseUp', () => {
-    if (currentSelection) updatePropsPanel(currentSelection);
-  });
-  scene.add(transformControls);
+  // Re-initialize transformControls here - ENTIRE BLOCK REMOVED
 
   // Events
   window.addEventListener('resize', resizeRenderer);
@@ -127,11 +117,8 @@ function handleSingleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // Robust check for gizmo hits
-  const gizmoChildren = (transformControls && transformControls.children) ? transformControls.children : [];
-  const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
-  if (gizmoHits.length) return;
-
+  // Robust check for gizmo hits - REMOVED
+  
   // **CRITICAL FIX**: Only raycast against `allModels`, not the whole scene.
   // This prevents you from selecting the ground or grid.
   const hits = raycaster.intersectObjects(allModels, true);
@@ -174,11 +161,10 @@ export function selectObject(o) {
   }
   
   currentSelection = o;
-  transformControls.attach(o);
+  // transformControls.attach(o); // REMOVED
   
   // --- BUG FIX ---
-  // THIS LINE IS REQUIRED. .attach() does not handle visibility.
-  transformControls.visible = true;
+  // transformControls.visible = true; // REMOVED
   // --- END FIX ---
 
   updatePropsPanel && updatePropsPanel(o);
@@ -202,11 +188,10 @@ export function selectObject(o) {
 }
 
 export function deselectAll() {
-  if (currentSelection) transformControls.detach();
+  // if (currentSelection) transformControls.detach(); // REMOVED
   
   // --- BUG FIX ---
-  // THIS LINE IS REQUIRED. .detach() does not handle visibility.
-  transformControls.visible = false;
+  // transformControls.visible = false; // REMOVED
   // --- END FIX ---
   
   currentSelection = null;
