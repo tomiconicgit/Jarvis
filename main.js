@@ -6,7 +6,9 @@ import { initAddPanel } from './ui/add-panel-manager.js';
 import { initFilePanel } from './ui/file-panel-manager.js';
 import { initScenePanel } from './ui/scene-panel-manager.js';
 import { initParentPanel } from './ui/parent-panel-manager.js';
-// import { initMergePanel } from './ui/merge-panel-manager.js'; // REMOVED
+// --- NEW IMPORTS ---
+import { initToolsPanel } from './ui/tools-panel-manager.js';
+import { initDecimatePanel } from './ui/decimate-panel-manager.js';
 
 async function main() {
   try {
@@ -20,11 +22,13 @@ async function main() {
     // 3. Initialize all our UI logic modules
     initGlobalUI(); // For message box, close-props-panel
     initPanelToggles(); // For File, Add, Scene, Parent buttons
+    initToolsPanel(); // --- NEW
     initAddPanel();
     initFilePanel();
     initScenePanel();
     initParentPanel();
-    // initMergePanel(); // REMOVED
+    initDecimatePanel(); // --- NEW
+
 
     // 4. Start the render loop
     animate();
