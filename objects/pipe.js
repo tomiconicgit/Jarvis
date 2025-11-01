@@ -77,11 +77,11 @@ export default class Pipe extends THREE.Group {
       new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0)
     );
 
-    const straightOuter = new THREE.Mesh(
-      // --- FIX: Merge vertices ---
-      mergeVertices(new THREE.CylinderGeometry(outerR, outerR, length, Math.max(12, p.radialSegments), 1, true)),
-      this.pipeMat
-    );
+    // --- FIX: Create geo, merge, compute normals, then create mesh ---
+    const straightOuterGeo = mergeVertices(new THREE.CylinderGeometry(outerR, outerR, length, Math.max(12, p.radialSegments), 1, true));
+    straightOuterGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+    const straightOuter = new THREE.Mesh(straightOuterGeo, this.pipeMat);
+    // --- END FIX ---
     straightOuter.name = 'StraightOuter';
     straightOuter.applyQuaternion(qMain);
     straightOuter.castShadow = straightOuter.receiveShadow = true;
@@ -90,11 +90,11 @@ export default class Pipe extends THREE.Group {
     // inner skin for thickness
     if (innerR > 0.001) {
       const straightInnerMat = this.pipeMat.clone(); straightInnerMat.side = THREE.BackSide;
-      const straightInner = new THREE.Mesh(
-        // --- FIX: Merge vertices ---
-        mergeVertices(new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true)),
-        straightInnerMat
-      );
+      // --- FIX: Create geo, merge, compute normals, then create mesh ---
+      const straightInnerGeo = mergeVertices(new THREE.CylinderGeometry(innerR, innerR, length, Math.max(12, p.radialSegments), 1, true));
+      straightInnerGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+      const straightInner = new THREE.Mesh(straightInnerGeo, straightInnerMat);
+      // --- END FIX ---
       straightInner.name = 'StraightInner';
       straightInner.applyQuaternion(qMain);
       this.add(straightInner);
@@ -124,11 +124,11 @@ export default class Pipe extends THREE.Group {
       const curve = new ElbowCurve();
 
       // Outer elbow
-      const elbowOuter = new THREE.Mesh(
-        // --- FIX: Merge vertices ---
-        mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false)),
-        this.pipeMat
-      );
+      // --- FIX: Create geo, merge, compute normals, then create mesh ---
+      const elbowOuterGeo = mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), outerR, Math.max(8, p.radialSegments), false));
+      elbowOuterGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+      const elbowOuter = new THREE.Mesh(elbowOuterGeo, this.pipeMat);
+      // --- END FIX ---
       elbowOuter.name = 'ElbowOuter';
       // Rotate elbow plane about +X
       elbowOuter.rotateX(phi);
@@ -137,11 +137,11 @@ export default class Pipe extends THREE.Group {
       // Inner elbow (BackSide) so thickness shows on elbow too
       if (innerR > 0.001) {
         const innerMat = this.pipeMat.clone(); innerMat.side = THREE.BackSide;
-        const elbowInner = new THREE.Mesh(
-          // --- FIX: Merge vertices ---
-          mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), innerR, Math.max(8, p.radialSegments), false)),
-          innerMat
-        );
+        // --- FIX: Create geo, merge, compute normals, then create mesh ---
+        const elbowInnerGeo = mergeVertices(new THREE.TubeGeometry(curve, Math.max(8, p.elbowSegments), innerR, Math.max(8, p.radialSegments), false));
+        elbowInnerGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+        const elbowInner = new THREE.Mesh(elbowInnerGeo, innerMat);
+        // --- END FIX ---
         elbowInner.name = 'ElbowInner';
         elbowInner.rotateX(phi);
         this.add(elbowInner);
@@ -197,11 +197,11 @@ export default class Pipe extends THREE.Group {
     const grp = new THREE.Group();
     grp.position.copy(center);
 
-    const cyl = new THREE.Mesh(
-      // --- FIX: Merge vertices ---
-      mergeVertices(new THREE.CylinderGeometry(p.flangeRadius, p.flangeRadius, p.flangeThickness, Math.max(24, p.radialSegments))),
-      this.flangeMat
-    );
+    // --- FIX: Create geo, merge, compute normals, then create mesh ---
+    const cylGeo = mergeVertices(new THREE.CylinderGeometry(p.flangeRadius, p.flangeRadius, p.flangeThickness, Math.max(24, p.radialSegments)));
+    cylGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+    const cyl = new THREE.Mesh(cylGeo, this.flangeMat);
+    // --- END FIX ---
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone().normalize());
     cyl.quaternion.copy(q);
     cyl.position.copy(normal).setLength(p.flangeThickness * 0.5);
@@ -218,11 +218,11 @@ export default class Pipe extends THREE.Group {
       for (let i = 0; i < p.boltCount; i++) {
         const t = (i / p.boltCount) * Math.PI * 2;
         const pos = u.clone().multiplyScalar(Math.cos(t) * ringR).add(v.clone().multiplyScalar(Math.sin(t) * ringR));
-        const bolt = new THREE.Mesh(
-          // --- FIX: Merge vertices ---
-          mergeVertices(new THREE.CylinderGeometry(p.boltRadius, p.boltRadius, p.boltHeight, 12)),
-          this.boltMat
-        );
+        // --- FIX: Create geo, merge, compute normals, then create mesh ---
+        const boltGeo = mergeVertices(new THREE.CylinderGeometry(p.boltRadius, p.boltRadius, p.boltHeight, 12));
+        boltGeo.computeVertexNormals(); // <-- THIS WAS MISSING
+        const bolt = new THREE.Mesh(boltGeo, this.boltMat);
+        // --- END FIX ---
         const qb = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
         bolt.quaternion.copy(qb);
         bolt.position.copy(pos).add(n.clone().setLength(p.flangeThickness * 0.5 + p.boltHeight * 0.5));
