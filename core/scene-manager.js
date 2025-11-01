@@ -71,9 +71,10 @@ export function initScene() {
   orbitControls.maxDistance = 2000;
 
   // Re-initialize transformControls here
+  // NOTE: This makes core/gizmo-manager.js redundant as it's not imported.
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('translate');
-  transformControls.visible = false; // It's OK to set it to false *once* on init
+  transformControls.visible = false; // Start hidden
   transformControls.addEventListener('dragging-changed', (e) => {
     orbitControls.enabled = !e.value;
   });
@@ -177,8 +178,8 @@ export function selectObject(o) {
   transformControls.attach(o);
   
   // --- BUG FIX ---
-  // REMOVED: transformControls.visible = true;
-  // `attach()` handles this automatically.
+  // RESTORED: .attach() does NOT handle visibility.
+  transformControls.visible = true;
   // --- END FIX ---
 
   updatePropsPanel && updatePropsPanel(o);
@@ -205,8 +206,8 @@ export function deselectAll() {
   if (currentSelection) transformControls.detach();
   
   // --- BUG FIX ---
-  // REMOVED: transformControls.visible = false;
-  // `detach()` handles this automatically.
+  // RESTORED: .detach() does NOT handle visibility.
+  transformControls.visible = false;
   // --- END FIX ---
   
   currentSelection = null;
