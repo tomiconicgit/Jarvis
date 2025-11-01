@@ -6,20 +6,17 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
-import { ensureTexState } from '../ui/props-panel.js'; // Texture state logic moved to props-panel
+import { ensureTexState } from '../ui/props-panel.js';
 
 export let scene, camera, renderer, orbitControls, transformControls;
 export let allModels = [];
 export let currentSelection = null;
 
-let raycaster, downPos;
+const raycaster = new THREE.Raycaster();
+const downPos = new THREE.Vector2();
 let lastTapTime = 0;
-const TAP_MOVE_TOL = 10;         // px
 const DOUBLE_TAP_DELAY = 300;
 const nameCounts = {};
-
-function safeShow(id){ const el = document.getElementById(id); if (el) showPanel(el); }
-function safeHide(id){ const el = document.getElementById(id); if (el) hidePanel(el); }
 
 export function initScene() {
   const canvasContainer = document.getElementById('canvas-container');
@@ -35,21 +32,16 @@ export function initScene() {
   renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
-  // prevent browser gestures interfering with pointer events
-  renderer.domElement.style.touchAction = 'none';
 
-  // Env
+  // Environment
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
   scene.environment = envTex;
 
   // Camera
-  camera = new THREE.PerspectiveCamera(
-    50,
+  camera = new THREE.PerspectiveCamera(50,
     canvasContainer.clientWidth / canvasContainer.clientHeight,
-    0.05,
-    10000
-  );
+    0.05, 10000);
   camera.position.set(15, 20, 25);
 
   // Lights
@@ -79,30 +71,23 @@ export function initScene() {
 
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('translate');
+  transformControls.visible = false; // start hidden
   transformControls.addEventListener('dragging-changed', (e) => {
     orbitControls.enabled = !e.value;
   });
-  // Touch doesn’t reliably emit mouseUp; listen for objectChange instead
-  transformControls.addEventListener('objectChange', () => {
-    if (currentSelection) {
-      try { updatePropsPanel(currentSelection); } catch (err) { console.error(err); }
-    }
+  transformControls.addEventListener('mouseUp', () => {
+    if (currentSelection) updatePropsPanel(currentSelection);
   });
-
-  // Start hidden until something is selected
-  transformControls.visible = false;
   scene.add(transformControls);
 
-  // Raycast / pointer
-  raycaster = new THREE.Raycaster();
-  downPos = new THREE.Vector2();
+  // Kill any XYZ/ZYX axes gizmos if something added them
+  purgeXYZGizmos();
 
   // Events
   window.addEventListener('resize', resizeRenderer);
-
-  const el = renderer.domElement;
-  el.addEventListener('pointerdown', onPointerDown, { passive: false });
-  el.addEventListener('pointerup', onPointerUp);
+  // Use pointer events on the actual canvas to fix iOS/Android/Desktop
+  renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
+  renderer.domElement.addEventListener('pointerup', onPointerUp, { passive: false });
 }
 
 export function animate() {
@@ -119,43 +104,42 @@ function resizeRenderer() {
   renderer.setSize(c.clientWidth, c.clientHeight);
 }
 
+// ------- Picking helpers -------
 function getPointerNDC(evt) {
   const rect = renderer.domElement.getBoundingClientRect();
-  const x = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
-  const y = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
-  return new THREE.Vector2(x, y);
+  return {
+    x: ((evt.clientX - rect.left) / rect.width) * 2 - 1,
+    y: -((evt.clientY - rect.top) / rect.height) * 2 + 1
+  };
 }
-
 function onPointerDown(e) {
-  // only primary pointer
-  if (e.isPrimary === false) return;
+  // Don’t block TransformControls; only prevent default on touch end
   downPos.set(e.clientX, e.clientY);
 }
-
 function onPointerUp(e) {
-  if (e.isPrimary === false) return;
-
-  const up = new THREE.Vector2(e.clientX, e.clientY);
-  if (downPos.distanceTo(up) > TAP_MOVE_TOL) return; // it was a drag, not a tap
-
-  const now = Date.now();
-  if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-    handleDoubleTap(e);
-  } else {
-    handleSingleTap(e);
+  // On mobile, allow gentle taps to select
+  const end = new THREE.Vector2(e.clientX, e.clientY);
+  if (downPos.distanceTo(end) < 10) {
+    const now = performance.now();
+    if (now - lastTapTime < DOUBLE_TAP_DELAY) handleDoubleTap(e);
+    else handleSingleTap(e);
+    lastTapTime = now;
   }
-  lastTapTime = now;
 }
 
-function handleSingleTap(evt) {
-  const ndc = getPointerNDC(evt);
+function handleSingleTap(e) {
+  const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // if we tapped the gizmo, let it handle interaction
-  const gizmoHits = raycaster.intersectObjects(transformControls.children, true);
-  if (gizmoHits.length > 0) return;
+  // If you tap the gizmo, let it handle the event
+  const gizmoChildren = transformControls ? transformControls.children : [];
+  const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
+  if (gizmoHits.length) return;
 
-  const hits = raycaster.intersectObjects(allModels, true);
+  // Prefer explicit user models; fall back to whole scene if empty
+  const pickables = (allModels && allModels.length) ? allModels : scene.children;
+  const hits = raycaster.intersectObjects(pickables, true);
+
   if (hits.length) {
     let obj = hits[0].object;
     while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
@@ -165,40 +149,49 @@ function handleSingleTap(evt) {
   }
 }
 
-function handleDoubleTap(evt) {
-  const ndc = getPointerNDC(evt);
+function handleDoubleTap(e) {
+  const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(allModels, true);
+
+  const pickables = (allModels && allModels.length) ? allModels : scene.children;
+  const hits = raycaster.intersectObjects(pickables, true);
+
   if (hits.length) {
-    const box = new THREE.Box3().setFromObject(hits[0].object);
+    // Focus camera target on the picked object’s bounds center
+    const root = ascendToModelRoot(hits[0].object);
+    const box = new THREE.Box3().setFromObject(root);
     orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-    showTempMessage('Camera Focused');
+    showTempMessage && showTempMessage('Camera Focused');
   }
 }
 
-export function selectObject(o) {
-  if (!o || !o.isObject3D) return;
-  if (currentSelection === o) return;
+function ascendToModelRoot(o) {
+  let obj = o;
+  while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
+  return obj || o;
+}
 
+export function selectObject(o) {
+  if (!o || currentSelection === o) return;
   currentSelection = o;
   transformControls.attach(o);
   transformControls.visible = true;
 
-  try { updatePropsPanel(o); } catch (err) {
-    console.error('updatePropsPanel failed:', err);
-    showTempMessage('Could not build properties UI for this object');
-  }
+  updatePropsPanel && updatePropsPanel(o);
 
-  // Show props, hide others (null-safe)
-  safeShow('props-panel');
-  ['add-panel','scene-panel','parent-panel','file-panel','export-panel'].forEach(safeHide);
+  const props = document.getElementById('props-panel');
+  if (props && showPanel) showPanel(props);
+  ['add-panel','scene-panel','parent-panel','file-panel','export-panel']
+    .forEach(id => { const el = document.getElementById(id); el && hidePanel && hidePanel(el); });
 }
 
 export function deselectAll() {
   if (currentSelection) transformControls.detach();
   transformControls.visible = false;
   currentSelection = null;
-  safeHide('props-panel');
+
+  const props = document.getElementById('props-panel');
+  props && hidePanel && hidePanel(props);
 }
 
 export function assignDefaultName(obj) {
@@ -210,11 +203,16 @@ export function assignDefaultName(obj) {
 export function findByUUID(uuid) { 
   return allModels.find(o => o.uuid === uuid); 
 }
+export function getBuilders() { return BUILDERS; }
+export function getEnsureTexState() { return ensureTexState; }
 
-export function getBuilders() {
-  return BUILDERS;
-}
-
-export function getEnsureTexState() {
-  return ensureTexState;
+// Remove any accidental axes gizmos added elsewhere
+function purgeXYZGizmos() {
+  const toRemove = [];
+  scene.traverse(n => {
+    if (n && (n.type === 'AxesHelper' || n.name === 'XYZGizmo' || n.name === 'ZYXGizmo')) {
+      toRemove.push(n);
+    }
+  });
+  toRemove.forEach(n => n.parent && n.parent.remove(n));
 }
