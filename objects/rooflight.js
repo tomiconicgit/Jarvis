@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export default class RoofLight extends THREE.Group {
   constructor(params = {}) {
@@ -27,14 +29,16 @@ export default class RoofLight extends THREE.Group {
 
     // Base
     const baseHeight = p.height - p.lensHeight;
-    const baseGeo = new THREE.CylinderGeometry(p.radius, p.radius, baseHeight, 32);
+    // --- FIX: Merge vertices ---
+    const baseGeo = mergeVertices(new THREE.CylinderGeometry(p.radius, p.radius, baseHeight, 32));
     const base = new THREE.Mesh(baseGeo, this.baseMat);
     base.name = 'Base';
     base.position.y = baseHeight * 0.5;
     this.add(base);
 
     // Lens
-    const lensGeo = new THREE.CylinderGeometry(p.radius * 0.8, p.radius * 0.8, p.lensHeight, 32);
+    // --- FIX: Merge vertices ---
+    const lensGeo = mergeVertices(new THREE.CylinderGeometry(p.radius * 0.8, p.radius * 0.8, p.lensHeight, 32));
     const lens = new THREE.Mesh(lensGeo, this.lensMat);
     lens.name = 'Lens';
     lens.position.y = baseHeight + p.lensHeight * 0.5;
@@ -58,4 +62,3 @@ export default class RoofLight extends THREE.Group {
     this.clear();
   }
 }
-
