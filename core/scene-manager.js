@@ -80,8 +80,9 @@ export function initScene() {
   });
   scene.add(transformControls);
 
-  // Kill any XYZ/ZYX axes gizmos if something added them
-  purgeXYZGizmos();
+  // --- BUG FIX ---
+  // The call to purgeXYZGizmos() was removed from here.
+  // --- END BUG FIX ---
 
   // Events
   window.addEventListener('resize', resizeRenderer);
@@ -206,13 +207,6 @@ export function findByUUID(uuid) {
 export function getBuilders() { return BUILDERS; }
 export function getEnsureTexState() { return ensureTexState; }
 
-// Remove any accidental axes gizmos added elsewhere
-function purgeXYZGizmos() {
-  const toRemove = [];
-  scene.traverse(n => {
-    if (n && (n.type === 'AxesHelper' || n.name === 'XYZGizmo' || n.name === 'ZYXGizmo')) {
-      toRemove.push(n);
-    }
-  });
-  toRemove.forEach(n => n.parent && n.parent.remove(n));
-}
+// --- BUG FIX ---
+// The purgeXYZGizmos() function definition was removed from here.
+// --- END BUG FIX ---
