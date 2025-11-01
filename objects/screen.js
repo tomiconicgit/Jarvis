@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export default class Screen extends THREE.Group {
   constructor(params = {}) {
@@ -46,7 +48,12 @@ export default class Screen extends THREE.Group {
       bevelSize: 0.02,
       bevelSegments: 1
     };
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    let geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    
+    // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+    geo = mergeVertices(geo);
+    // --- END FIX ---
+    
     geo.translate(0, 0, -p.depth * 0.5);
     
     const housing = new THREE.Mesh(geo, this.housingMat);
@@ -78,4 +85,3 @@ export default class Screen extends THREE.Group {
     this.clear();
   }
 }
-
