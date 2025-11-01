@@ -134,14 +134,18 @@ function handleSingleTap(e) {
   const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
   if (gizmoHits.length) return;
 
-  // --- FIX 2 ---
-  // Only intersect with user-added models, not the whole scene (which contains the ground/grid).
-  // This stops the gizmo from attaching to the ground.
+  // --- THIS IS THE FIX ---
+  // Always raycast against `allModels` only.
+  // This prevents selecting the ground, grid, or scene.
   const hits = raycaster.intersectObjects(allModels, true);
+  // --- END FIX ---
 
   if (hits.length) {
     let obj = hits[0].object;
-    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
+    // Ascend to the model root (the object with `isModel` flag)
+    while (obj && obj.parent && !obj.userData?.isModel) {
+        obj = obj.parent;
+    }
     selectObject(obj || hits[0].object);
   } else {
     deselectAll();
@@ -152,9 +156,10 @@ function handleDoubleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // --- FIX 2 ---
-  // Only intersect with user-added models
+  // --- THIS IS THE FIX ---
+  // Always raycast against `allModels` only.
   const hits = raycaster.intersectObjects(allModels, true);
+  // --- END FIX ---
 
   if (hits.length) {
     // Focus camera target on the picked object’s bounds center
@@ -172,11 +177,18 @@ function ascendToModelRoot(o) {
 }
 
 export function selectObject(o) {
-  if (!o || currentSelection === o) return;
-  currentSelection = o;
+  if (!o) return; // Guard against null/undefined
+  if (currentSelection === o) return;
   
-  // This line was causing the "script failed" error, but is now safe
-  // because we are no longer deleting the gizmo's children.
+  // --- THIS IS A SAFETY CHECK ---
+  // Do not allow selecting the scene, ground, or grid.
+  if (!o.userData?.isModel && o.type !== 'Mesh') {
+    // If it's not a model root OR a submesh, it's probably the scene.
+    return; 
+  }
+  // --- END SAFETY CHECK ---
+  
+  currentSelection = o;
   transformControls.attach(o);
   transformControls.visible = true;
 
@@ -184,9 +196,20 @@ export function selectObject(o) {
 
   const props = document.getElementById('props-panel');
   if (props && showPanel) showPanel(props);
-  // Hide all other panels
-  ['add-panel','scene-panel','tools-panel','parent-panel','decimate-panel','file-panel','export-panel']
-    .forEach(id => { const el = document.getElementById(id); el && hidePanel && hidePanel(el); });
+  
+  // --- UPDATED LIST OF PANELS TO HIDE ---
+  [
+    'add-panel',
+    'scene-panel',
+    'tools-panel',
+    'parent-panel',
+    'decimate-panel',
+    'file-panel',
+    'export-panel'
+  ].forEach(id => { 
+      const el = document.getElementById(id); 
+      el && hidePanel && hidePanel(el); 
+  });
 }
 
 export function deselectAll() {
