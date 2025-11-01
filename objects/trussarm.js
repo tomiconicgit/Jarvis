@@ -1,3 +1,4 @@
+// File: objects/trussarm.js
 import * as THREE from 'three';
 // --- FIX: Import mergeVertices ---
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -91,7 +92,7 @@ export default class TrussArm extends THREE.Group {
     const center = this._makeCenterCurve(length, railRise);
 
     // 4 longerons (corner rails) laid out on a rectangle in local YZ:
-    // offsets in Z: Â±armWidth/2, offsets in Y: Â±armHeight/2
+    // offsets in Z: ±armWidth/2, offsets in Y: ±armHeight/2
     const rails = [
       { ox:  armWidth * 0.5, oy:  armHeight * 0.5 }, // front-right (Z+ / Y+)
       { ox:  armWidth * 0.5, oy: -armHeight * 0.5 }, // front-right (Z+ / Y-)
@@ -146,8 +147,11 @@ export default class TrussArm extends THREE.Group {
       const cross3 = cylinderBetween(BR0, BL0, tubeRadius, roundSegments, this.metalMaterial);
       cross3.name = 'Cross' + i + '_3';
       this.add(cross3);
+      // --- SYNTAX ERROR FIX ---
+      // Changed 'Cross's' to 'Cross'
       const cross4 = cylinderBetween(BL0, TL0, tubeRadius, roundSegments, this.metalMaterial);
-      cross4.name = 'Cross's' + i + '_4';
+      cross4.name = 'Cross' + i + '_4';
+      // --- END FIX ---
       this.add(cross4);
 
       // diagonals (alternate pattern)
