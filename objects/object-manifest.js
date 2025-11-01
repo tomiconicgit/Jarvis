@@ -37,7 +37,7 @@ class ImportedGLB extends THREE.Group {
 // --- Reusable Slider Building Logic ---
 function createSlider(page, object, key, cfg) {
   const p = object.userData.params;
-  const numberInputClasses = "w-20 text-right bg-gray-800 rounded px-2 py-0.5 text-sm";
+  const numberInputClasses = "w-20 text-right bg-slate-800 rounded px-2 py-0.5 text-sm";
   const value = (p[key] ?? cfg.min);
   const valueFmt = (cfg.step >= 1) ? Math.round(value) : Number(value).toFixed(2);
   
@@ -210,6 +210,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'TowerBase',
     label: 'Tower (Door)',
+    category: 'Architecture', // <-- NEW
     ctor: TowerBase,
     defaultParams: { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidth: 4 },
     initialY: (p) => p.height / 2,
@@ -232,6 +233,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'TowerBase',
     label: 'Tower (Solid)',
+    category: 'Architecture', // <-- NEW
     ctor: TowerBase,
     defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
     initialY: (p) => p.height / 2,
@@ -247,6 +249,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'DoubleDoor',
     label: 'Double Door',
+    category: 'Architecture', // <-- NEW
     ctor: DoubleDoor,
     defaultParams: { totalWidth: 8, height: 10, depth: 0.5, frameThickness: 0.5, cornerRadius: 0.2, glassOpacity:0.5, glassRoughness:0.2 },
     initialY: (p) => p.height / 2,
@@ -273,6 +276,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Window',
     label: 'Window',
+    category: 'Architecture', // <-- NEW
     ctor: WindowAsset,
     // --- MODIFIED: Added new defaults ---
     defaultParams: { 
@@ -315,6 +319,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Floor',
     label: 'Floor',
+    category: 'Architecture', // <-- NEW
     ctor: Floor,
     defaultParams: { width: 20, depth: 20, thickness: 0.5, colorR: 0.5, colorG: 0.5, colorB: 0.5 },
     initialY: (p) => -p.thickness / 2,
@@ -348,6 +353,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Pipe',
     label: 'Pipe',
+    category: 'Architecture', // <-- NEW
     ctor: Pipe,
     defaultParams: {}, // Uses built-in defaults
     initialY: (p) => 1.0,
@@ -379,6 +385,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Roof',
     label: 'Roof',
+    category: 'Architecture', // <-- NEW
     ctor: Roof,
     defaultParams: {}, // Uses built-in defaults
     initialY: (p) => 0,
@@ -417,6 +424,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'TrussArm',
     label: 'Truss Arm',
+    category: 'Architecture', // <-- NEW
     ctor: TrussArm,
     defaultParams: {}, // Uses built-in defaults
     initialY: (p) => 0,
@@ -440,6 +448,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'FloodLight',
     label: 'Flood Light',
+    category: 'Prefabs', // <-- NEW
     ctor: FloodLight,
     defaultParams: {},
     initialY: (p) => (p.baseSize || 0.3) * 0.1,
@@ -461,6 +470,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'RoofLight',
     label: 'Roof Light',
+    category: 'Prefabs', // <-- NEW
     ctor: RoofLight,
     defaultParams: {},
     initialY: (p) => (p.height || 0.15) * 0.5,
@@ -479,6 +489,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'FuelTank',
     label: 'Fuel Tank',
+    category: 'Prefabs', // <-- NEW
     ctor: FuelTank,
     defaultParams: {},
     initialY: (p) => (p.height || 10) * 0.5,
@@ -497,6 +508,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Gear',
     label: 'Gear',
+    category: 'Primitives', // <-- NEW
     ctor: Gear,
     defaultParams: {},
     initialY: (p) => 0,
@@ -516,6 +528,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Screen',
     label: 'Screen',
+    category: 'Prefabs', // <-- NEW
     ctor: Screen,
     defaultParams: {},
     initialY: (p) => (p.height || 1.2) * 0.5,
@@ -536,6 +549,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Cube',
     label: 'Cube',
+    category: 'Primitives', // <-- NEW
     ctor: Cube,
     defaultParams: { width: 1, height: 1, depth: 1, cornerRadius: 0.05, cornerSmoothness: 4 }, // Use renamed params
     initialY: (p) => 0,
@@ -564,6 +578,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Sphere',
     label: 'Sphere',
+    category: 'Primitives', // <-- NEW
     ctor: Sphere,
     defaultParams: { radius: 1, segments: 32, phiStart: 0, phiLength: 360, thetaStart: 0, thetaLength: 180 },
     initialY: (p) => 0,
@@ -591,6 +606,7 @@ export const OBJECT_DEFINITIONS = [
   {
     type: 'Cylinder',
     label: 'Cylinder',
+    category: 'Primitives', // <-- NEW
     ctor: Cylinder,
     defaultParams: { radiusTop: 0.5, radiusBottom: 0.5, height: 1, radialSegments: 16, openEnded: false, thetaStart: 0, thetaLength: 360 },
     initialY: (p) => 0,
