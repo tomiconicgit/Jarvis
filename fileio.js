@@ -8,7 +8,8 @@ function getSerializableTexOverrides(o) {
   if (o.userData._texOverrides) {
     const s = o.userData._texOverrides;
     serializableTexOverrides = {
-      uvScale: s.uvScale,
+      uvScaleX: s.uvScaleX || s.uvScale || 1, // Handle legacy uvScale
+      uvScaleY: s.uvScaleY || s.uvScale || 1, // Handle legacy uvScale
       uvRotation: s.uvRotation,
       displacementScale: s.displacementScale,
       activePreset: s.activePreset,
@@ -96,6 +97,9 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
       if (n.texOverrides && ensureTexState) {
         const state = ensureTexState(obj);
         Object.assign(state, n.texOverrides);
+        // --- FIX for legacy 'uvScale' ---
+        if (state.uvScale && !state.uvScaleX) state.uvScaleX = state.uvScale;
+        if (state.uvScale && !state.uvScaleY) state.uvScaleY = state.uvScale;
       }
 
       // Apply TRS
@@ -132,6 +136,9 @@ export function loadFromJSON(json, builders, scene, allModels, onAfterAdd, ensur
       if (child && n.texOverrides && ensureTexState) {
         const state = ensureTexState(child); // Apply to the sub-mesh
         Object.assign(state, n.texOverrides);
+        // --- FIX for legacy 'uvScale' ---
+        if (state.uvScale && !state.uvScaleX) state.uvScaleX = state.uvScale;
+        if (state.uvScale && !state.uvScaleY) state.uvScaleY = state.uvScale;
       } else {
         console.warn('Could not find sub-mesh to apply override:', n.name);
       }
@@ -216,4 +223,3 @@ export function importGLBFile(file, scene, allModels, onAfterAdd) {
     throw e;
   });
 }
-
