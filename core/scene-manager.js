@@ -141,6 +141,18 @@ function getTouchNDC(t) {
 function handleSingleTap(t) {
   const ndc = getTouchNDC(t);
   raycaster.setFromCamera(ndc, camera);
+
+  // --- ADDED ---
+  // First, check if we tapped the gizmo itself
+  // We check the gizmo's children because it's a THREE.Group
+  const gizmoHits = raycaster.intersectObjects(transformControls.children, true);
+  if (gizmoHits.length > 0) {
+    // We tapped the gizmo. Let the TransformControls handle it.
+    // Do not select or deselect anything.
+    return;
+  }
+  // --- END ADDED ---
+
   const hits = raycaster.intersectObjects(allModels, true);
   if (hits.length) {
     let obj = hits[0].object;
