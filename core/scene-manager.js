@@ -12,10 +12,14 @@ export let scene, camera, renderer, orbitControls, transformControls;
 export let allModels = [];
 export let currentSelection = null;
 
-let raycaster, touchStartPos;
+let raycaster, downPos;
 let lastTapTime = 0;
+const TAP_MOVE_TOL = 10;         // px
 const DOUBLE_TAP_DELAY = 300;
 const nameCounts = {};
+
+function safeShow(id){ const el = document.getElementById(id); if (el) showPanel(el); }
+function safeHide(id){ const el = document.getElementById(id); if (el) hidePanel(el); }
 
 export function initScene() {
   const canvasContainer = document.getElementById('canvas-container');
@@ -31,6 +35,8 @@ export function initScene() {
   renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
   renderer.shadowMap.enabled = true;
   canvasContainer.appendChild(renderer.domElement);
+  // prevent browser gestures interfering with pointer events
+  renderer.domElement.style.touchAction = 'none';
 
   // Env
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -76,24 +82,27 @@ export function initScene() {
   transformControls.addEventListener('dragging-changed', (e) => {
     orbitControls.enabled = !e.value;
   });
-  transformControls.addEventListener('mouseUp', () => {
-    if (currentSelection) updatePropsPanel(currentSelection);
+  // Touch doesn’t reliably emit mouseUp; listen for objectChange instead
+  transformControls.addEventListener('objectChange', () => {
+    if (currentSelection) {
+      try { updatePropsPanel(currentSelection); } catch (err) { console.error(err); }
+    }
   });
-  
-  // --- FIX: Explicitly hide gizmo on start ---
+
+  // Start hidden until something is selected
   transformControls.visible = false;
   scene.add(transformControls);
-  // --- END FIX ---
 
-
-  // Raycast / touch
+  // Raycast / pointer
   raycaster = new THREE.Raycaster();
-  touchStartPos = new THREE.Vector2();
+  downPos = new THREE.Vector2();
 
   // Events
   window.addEventListener('resize', resizeRenderer);
-  canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
-  canvasContainer.addEventListener('touchend', onTouchEnd);
+
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', onPointerDown, { passive: false });
+  el.addEventListener('pointerup', onPointerUp);
 }
 
 export function animate() {
@@ -110,48 +119,41 @@ function resizeRenderer() {
   renderer.setSize(c.clientWidth, c.clientHeight);
 }
 
-function onTouchStart(e) {
-  e.preventDefault();
-  if (e.touches.length === 1) {
-    const t = e.touches[0];
-    touchStartPos.set(t.clientX, t.clientY);
+function getPointerNDC(evt) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
+  return new THREE.Vector2(x, y);
+}
+
+function onPointerDown(e) {
+  // only primary pointer
+  if (e.isPrimary === false) return;
+  downPos.set(e.clientX, e.clientY);
+}
+
+function onPointerUp(e) {
+  if (e.isPrimary === false) return;
+
+  const up = new THREE.Vector2(e.clientX, e.clientY);
+  if (downPos.distanceTo(up) > TAP_MOVE_TOL) return; // it was a drag, not a tap
+
+  const now = Date.now();
+  if (now - lastTapTime < DOUBLE_TAP_DELAY) {
+    handleDoubleTap(e);
+  } else {
+    handleSingleTap(e);
   }
+  lastTapTime = now;
 }
 
-function onTouchEnd(e) {
-  if (e.changedTouches.length === 1) {
-    const t = e.changedTouches[0];
-    const endPos = new THREE.Vector2(t.clientX, t.clientY);
-    if (touchStartPos.distanceTo(endPos) < 10) {
-      const now = Date.now();
-      if (now - lastTapTime < DOUBLE_TAP_DELAY) handleDoubleTap(t);
-      else handleSingleTap(t);
-      lastTapTime = now;
-    }
-  }
-}
-
-function getTouchNDC(t) {
-  return {
-    x: (t.clientX / window.innerWidth) * 2 - 1,
-    y: -(t.clientY / window.innerHeight) * 2 + 1
-  };
-}
-
-function handleSingleTap(t) {
-  const ndc = getTouchNDC(t);
+function handleSingleTap(evt) {
+  const ndc = getPointerNDC(evt);
   raycaster.setFromCamera(ndc, camera);
 
-  // --- ADDED ---
-  // First, check if we tapped the gizmo itself
-  // We check the gizmo's children because it's a THREE.Group
+  // if we tapped the gizmo, let it handle interaction
   const gizmoHits = raycaster.intersectObjects(transformControls.children, true);
-  if (gizmoHits.length > 0) {
-    // We tapped the gizmo. Let the TransformControls handle it.
-    // Do not select or deselect anything.
-    return;
-  }
-  // --- END ADDED ---
+  if (gizmoHits.length > 0) return;
 
   const hits = raycaster.intersectObjects(allModels, true);
   if (hits.length) {
@@ -163,8 +165,8 @@ function handleSingleTap(t) {
   }
 }
 
-function handleDoubleTap(t) {
-  const ndc = getTouchNDC(t);
+function handleDoubleTap(evt) {
+  const ndc = getPointerNDC(evt);
   raycaster.setFromCamera(ndc, camera);
   const hits = raycaster.intersectObjects(allModels, true);
   if (hits.length) {
@@ -175,34 +177,28 @@ function handleDoubleTap(t) {
 }
 
 export function selectObject(o) {
-  if (!o) return;
+  if (!o || !o.isObject3D) return;
   if (currentSelection === o) return;
+
   currentSelection = o;
   transformControls.attach(o);
-  // --- FIX: Explicitly show gizmo on select ---
   transformControls.visible = true;
-  // --- END FIX ---  
-  
-  updatePropsPanel(o);
-  showPanel(document.getElementById('props-panel'));
-  // Hide all other panels
-  [
-    document.getElementById('add-panel'), 
-    document.getElementById('scene-panel'), 
-    document.getElementById('parent-panel'), 
-    document.getElementById('file-panel'), 
-    document.getElementById('export-panel')
-  ].forEach(hidePanel);
+
+  try { updatePropsPanel(o); } catch (err) {
+    console.error('updatePropsPanel failed:', err);
+    showTempMessage('Could not build properties UI for this object');
+  }
+
+  // Show props, hide others (null-safe)
+  safeShow('props-panel');
+  ['add-panel','scene-panel','parent-panel','file-panel','export-panel'].forEach(safeHide);
 }
 
 export function deselectAll() {
   if (currentSelection) transformControls.detach();
-  // --- FIX: Explicitly hide gizmo on deselect ---
   transformControls.visible = false;
-  // --- END FIX ---  
-
   currentSelection = null;
-  hidePanel(document.getElementById('props-panel'));
+  safeHide('props-panel');
 }
 
 export function assignDefaultName(obj) {
@@ -211,17 +207,14 @@ export function assignDefaultName(obj) {
   obj.userData.label = `${base} #${nameCounts[base]}`;
 }
 
-// Function to find an object by UUID (needed by parent-manager)
 export function findByUUID(uuid) { 
   return allModels.find(o => o.uuid === uuid); 
 }
 
-// Get the correct BUILDERS map for file loading
 export function getBuilders() {
   return BUILDERS;
 }
 
-// Get the texture state function for file loading
 export function getEnsureTexState() {
   return ensureTexState;
 }
