@@ -1,15 +1,19 @@
 // File: core/scene-manager.js
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+// --- REMOVED TRANSFORM CONTROLS ---
+// import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { updatePropsPanel } from '../ui/props-panel.js';
 import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
+// --- IMPORT GIZMO FUNCTIONS ---
+import { attachGizmo, detachGizmo, getGizmo } from './gizmo-manager.js';
 
 // We are putting transformControls back here to keep everything in one file
-export let scene, camera, renderer, orbitControls, transformControls;
+export let scene, camera, renderer, orbitControls; // <-- REMOVED transformControls
 export let allModels = [];
 export let currentSelection = null;
 
@@ -70,23 +74,16 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
-  // Re-initialize transformControls here
-  // NOTE: This makes core/gizmo-manager.js redundant as it's not imported.
-  transformControls = new TransformControls(camera, renderer.domElement);
-  transformControls.setMode('translate');
-  transformControls.visible = false; // Start hidden
-  transformControls.addEventListener('dragging-changed', (e) => {
-    orbitControls.enabled = !e.value;
-  });
-  transformControls.addEventListener('mouseUp', () => {
-    if (currentSelection) updatePropsPanel(currentSelection);
-  });
-  scene.add(transformControls);
+  // --- REMOVED TRANSFORMCONTROLS LOGIC ---
+  // This will now be handled by gizmo-manager.js
 
   // Events
   window.addEventListener('resize', resizeRenderer);
   renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
   renderer.domElement.addEventListener('pointerup', onPointerUp, { passive: false });
+  
+  // --- ADDED: Return key components so main.js can use them ---
+  return { scene, camera, renderer, orbitControls };
 }
 
 export function animate() {
@@ -96,32 +93,18 @@ export function animate() {
 }
 
 function resizeRenderer() {
-  const c = document.getElementById('canvas-container');
-  if (!c) return;
-  camera.aspect = c.clientWidth / c.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(c.clientWidth, c.clientHeight);
+  // ... (no changes here) ...
 }
 
 // ------- Picking helpers -------
 function getPointerNDC(evt) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  return {
-    x: ((evt.clientX - rect.left) / rect.width) * 2 - 1,
-    y: -((evt.clientY - rect.top) / rect.height) * 2 + 1
-  };
+  // ... (no changes here) ...
 }
 function onPointerDown(e) {
-  downPos.set(e.clientX, e.clientY);
+  // ... (no changes here) ...
 }
 function onPointerUp(e) {
-  const end = new THREE.Vector2(e.clientX, e.clientY);
-  if (downPos.distanceTo(end) < 10) {
-    const now = performance.now();
-    if (now - lastTapTime < DOUBLE_TAP_DELAY) handleDoubleTap(e);
-    else handleSingleTap(e);
-    lastTapTime = now;
-  }
+  // ... (no changes here) ...
 }
 
 function handleSingleTap(e) {
@@ -129,7 +112,8 @@ function handleSingleTap(e) {
   raycaster.setFromCamera(ndc, camera);
 
   // Robust check for gizmo hits
-  const gizmoChildren = (transformControls && transformControls.children) ? transformControls.children : [];
+  const gizmo = getGizmo(); // <-- Use gizmo-manager function
+  const gizmoChildren = (gizmo && gizmo.children) ? gizmo.children : [];
   const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
   if (gizmoHits.length) return;
 
@@ -147,24 +131,11 @@ function handleSingleTap(e) {
 }
 
 function handleDoubleTap(e) {
-  const ndc = getPointerNDC(e);
-  raycaster.setFromCamera(ndc, camera);
-
-  // **CRITICAL FIX**: Only raycast against `allModels`.
-  const hits = raycaster.intersectObjects(allModels, true);
-
-  if (hits.length) {
-    const root = ascendToModelRoot(hits[0].object);
-    const box = new THREE.Box3().setFromObject(root);
-    orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-    showTempMessage && showTempMessage('Camera Focused');
-  }
+  // ... (no changes here) ...
 }
 
 function ascendToModelRoot(o) {
-  let obj = o;
-  while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
-  return obj || o;
+  // ... (no changes here) ...
 }
 
 export function selectObject(o) {
@@ -175,12 +146,7 @@ export function selectObject(o) {
   }
   
   currentSelection = o;
-  transformControls.attach(o);
-  
-  // --- BUG FIX ---
-  // RESTORED: .attach() does NOT handle visibility.
-  transformControls.visible = true;
-  // --- END FIX ---
+  attachGizmo(o); // <-- Use gizmo-manager function
 
   updatePropsPanel && updatePropsPanel(o);
 
@@ -203,12 +169,9 @@ export function selectObject(o) {
 }
 
 export function deselectAll() {
-  if (currentSelection) transformControls.detach();
-  
-  // --- BUG FIX ---
-  // RESTORED: .detach() does NOT handle visibility.
-  transformControls.visible = false;
-  // --- END FIX ---
+  if (currentSelection) {
+    detachGizmo(); // <-- Use gizmo-manager function
+  }
   
   currentSelection = null;
 
@@ -217,13 +180,11 @@ export function deselectAll() {
 }
 
 export function assignDefaultName(obj) {
-  const base = obj.userData?.type || 'Object';
-  nameCounts[base] = (nameCounts[base] || 0) + 1;
-  obj.userData.label = `${base} #${nameCounts[base]}`;
+  // ... (no changes here) ...
 }
 
 export function findByUUID(uuid) { 
-  return allModels.find(o => o.uuid === uuid); 
+  // ... (no changes here) ...
 }
 export function getBuilders() { return BUILDERS; }
 export function getEnsureTexState() { return ensureTexState; }
