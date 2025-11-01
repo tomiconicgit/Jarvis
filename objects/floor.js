@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- Helpers ----------
 function roundedRectPath(w, d, r, ox = 0, oz = 0) {
@@ -140,7 +142,7 @@ export default class Floor extends THREE.Group {
     }
 
     const bevelEnabled = (p.edgeRoundness || 0) > 0;
-    const extrude = new THREE.ExtrudeGeometry(shape, {
+    let extrude = new THREE.ExtrudeGeometry(shape, {
       depth: p.thickness,
       steps: Math.max(1, Math.floor(p.edgeSmoothness || 1)),
       bevelEnabled,
@@ -150,12 +152,16 @@ export default class Floor extends THREE.Group {
       curveSegments: 24
     });
 
+    // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+    extrude = mergeVertices(extrude);
+    // --- END FIX ---
+
     // Center and rotate so Y is up
     extrude.translate(0, 0, -p.thickness/2);
     extrude.rotateX(-Math.PI/2); // thickness now in Y
     extrude.computeVertexNormals();
 
-    // Optional bulge (roof camber) — push only top face up
+    // Optional bulge (roof camber) â” push only top face up
     if ((p.bulgeHeight || 0) !== 0) {
       const pos = extrude.attributes.position;
       const hw = p.width / 2, hd = p.depth / 2;
