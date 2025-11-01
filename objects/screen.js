@@ -50,8 +50,9 @@ export default class Screen extends THREE.Group {
     };
     let geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
     
-    // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+    // --- FIX: Merge vertices AND recompute normals ---
     geo = mergeVertices(geo);
+    geo.computeVertexNormals(); // <-- THIS WAS MISSING
     // --- END FIX ---
     
     geo.translate(0, 0, -p.depth * 0.5);
