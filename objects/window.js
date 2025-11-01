@@ -1,5 +1,7 @@
 // File: objects/window.js
 import * as THREE from 'three';
+// --- FIX: Import mergeVertices ---
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- Geometry helpers ----------
 function roundedRectPath(w, h, r) {
@@ -69,7 +71,12 @@ function unifiedWindowGeometry(p, forceNoBevel = false) {
     curveSegments: Math.max(8, Math.floor(p.cornerSmoothness || 16))
   };
 
-  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  let geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  
+  // --- FIX: Merge vertices to prevent splitting with displacement maps ---
+  geo = mergeVertices(geo);
+  // --- END FIX ---
+  
   geo.translate(0, 0, -p.depth / 2);
   geo.computeVertexNormals();
   return geo;
@@ -176,7 +183,8 @@ export default class WindowFrame extends THREE.Group {
       const vSpacing = glassW / vPanes;
       for (let i = 1; i < vPanes; i++) {
         const x = -glassW / 2 + i * vSpacing;
-        const mGeo = new THREE.BoxGeometry(mThick, glassH, mDepth, 1, hSegs, 1);
+        // --- FIX: Merge vertices ---
+        const mGeo = mergeVertices(new THREE.BoxGeometry(mThick, glassH, mDepth, 1, hSegs, 1));
         const mullion = new THREE.Mesh(mGeo, this.barMaterial);
         mullion.name = `Mullion_V_${i}`;
         mullion.position.set(x, 0, 0);
@@ -189,7 +197,8 @@ export default class WindowFrame extends THREE.Group {
       const hSpacing = glassH / hPanes;
       for (let i = 1; i < hPanes; i++) {
         const y = -glassH / 2 + i * hSpacing;
-        const mGeo = new THREE.BoxGeometry(glassW, mThick, mDepth, 1, hSegs, 1);
+        // --- FIX: Merge vertices ---
+        const mGeo = mergeVertices(new THREE.BoxGeometry(glassW, mThick, mDepth, 1, hSegs, 1));
         const mullion = new THREE.Mesh(mGeo, this.barMaterial);
         mullion.name = `Mullion_H_${i}`;
         mullion.position.set(0, y, 0);
