@@ -6,7 +6,7 @@ import { initAddPanel } from './ui/add-panel-manager.js';
 import { initFilePanel } from './ui/file-panel-manager.js';
 import { initScenePanel } from './ui/scene-panel-manager.js';
 import { initParentPanel } from './ui/parent-panel-manager.js';
-import { initMergePanel } from './ui/merge-panel-manager.js'; // IMPORTED
+// import { initMergePanel } from './ui/merge-panel-manager.js'; // REMOVED
 
 async function main() {
   try {
@@ -24,7 +24,7 @@ async function main() {
     initFilePanel();
     initScenePanel();
     initParentPanel();
-    initMergePanel(); // INITIALIZED
+    // initMergePanel(); // REMOVED
 
     // 4. Start the render loop
     animate();
