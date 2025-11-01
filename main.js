@@ -9,8 +9,7 @@ import { initScenePanel } from './ui/scene-panel-manager.js';
 import { initParentPanel } from './ui/parent-panel-manager.js';
 import { initToolsPanel } from './ui/tools-panel-manager.js';
 import { initDecimatePanel } from './ui/decimate-panel-manager.js';
-// --- NEW GIZMO IMPORT ---
-import { initGizmo } from './ui/gizmo.js';
+// --- GIZMO-MANAGER IMPORT IS REMOVED ---
 
 async function main() {
   try {
@@ -25,8 +24,7 @@ async function main() {
     initScene();
     Debugger.report('Scene Initialized', 'Three.js scene, camera, and renderer are ready.', 'main.js');
     
-    // --- NEW GIZMO INIT ---
-    initGizmo();
+    // --- GIZMO INIT CALL IS REMOVED ---
     
     // 3. Initialize all our UI logic modules
     initGlobalUI(); 
@@ -56,8 +54,6 @@ async function main() {
     }
   }
 }
-
-// ... (rest of the file is unchanged) ...
 
 // --- FIXED: Added error handling logic ---
 function handleGlobalError(msg) {
