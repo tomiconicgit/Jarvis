@@ -76,17 +76,26 @@ export function ensureTexState(object) {
   if (!object.userData._texOverrides) object.userData._texOverrides = {
     map: null, normalMap: null, roughnessMap: null, metalnessMap: null,
     aoMap: null, emissiveMap: null, displacementMap: null,
-    uvScale: 1, uvRotation: 0, displacementScale: 0.0,
+    uvScaleX: 1, uvScaleY: 1, uvRotation: 0, displacementScale: 0.0,
     activePreset: 'none', activeAlbedo: 'none'
   };
+  // --- FIX for legacy 'uvScale' ---
+  if (object.userData._texOverrides.uvScale) {
+    if (!object.userData._texOverrides.uvScaleX) {
+        object.userData._texOverrides.uvScaleX = object.userData._texOverrides.uvScale;
+    }
+    if (!object.userData._texOverrides.uvScaleY) {
+        object.userData._texOverrides.uvScaleY = object.userData._texOverrides.uvScale;
+    }
+  }
   return object.userData._texOverrides;
 }
 
-function applyUVToAllMaps(materials, scale = 1, rotationRad = 0) {
+function applyUVToAllMaps(materials, scaleX = 1, scaleY = 1, rotationRad = 0) {
   const apply = (tex) => {
     if (!tex) return;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(scale, scale);
+    tex.repeat.set(scaleX, scaleY);
     tex.center.set(0.5, 0.5);
     tex.rotation = rotationRad;
     tex.needsUpdate = true;
@@ -114,7 +123,7 @@ const MAP_SLOTS = {
   height:   { prop: 'displacementMap', color: false }
 };
 
-function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset = false }) {
+function applyTextureFromURL({ object, materials, url, slotName, uvScaleX, uvScaleY, uvRotation, isPreset = false }) {
   return new Promise((resolve, reject) => {
     const slot = MAP_SLOTS[slotName];
     if (!slot) return reject(new Error('Unknown map slot'));
@@ -130,7 +139,7 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
 
         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
         tex.center.set(0.5, 0.5);
-        tex.repeat.set(uvScale, uvScale);
+        tex.repeat.set(uvScaleX, uvScaleY);
         tex.rotation = uvRotation;
         tex.needsUpdate = true;
         if (typeof SceneManager.renderer?.capabilities?.getMaxAnisotropy === 'function') {
@@ -143,7 +152,8 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
           oldTex.dispose?.();
         }
         st[slot.prop] = tex;
-        st.uvScale = uvScale;
+        st.uvScaleX = uvScaleX;
+        st.uvScaleY = uvScaleY;
         st.uvRotation = uvRotation;
         resolve(tex);
       } catch (e) { reject(e); }
@@ -166,9 +176,9 @@ function applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRota
   });
 }
 
-function uploadMapFromFile({ object, materials, file, slotName, uvScale = 1, uvRotation = 0 }) {
+function uploadMapFromFile({ object, materials, file, slotName, uvScaleX = 1, uvScaleY = 1, uvRotation = 0 }) {
   const url = URL.createObjectURL(file);
-  return applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset: false })
+  return applyTextureFromURL({ object, materials, url, slotName, uvScaleX, uvScaleY, uvRotation, isPreset: false })
     .finally(() => { URL.revokeObjectURL(url); });
 }
 
@@ -207,7 +217,8 @@ async function applyPreset(object, materials, presetKey, page) {
   st.activePreset = presetKey;
   st.activeAlbedo = presetKey;
   clearAllOverrides(object, materials);
-  const uvScale = st.uvScale;
+  const uvScaleX = st.uvScaleX || 1;
+  const uvScaleY = st.uvScaleY || 1;
   const uvRotation = st.uvRotation;
   const texturePromises = [];
 
@@ -215,7 +226,7 @@ async function applyPreset(object, materials, presetKey, page) {
     const url = preset[slotName];
     if (url) {
       texturePromises.push(
-        applyTextureFromURL({ object, materials, url, slotName, uvScale, uvRotation, isPreset: true })
+        applyTextureFromURL({ object, materials, url, slotName, uvScaleX, uvScaleY, uvRotation, isPreset: true })
       );
     }
   }
@@ -242,12 +253,13 @@ async function applyAlbedoOverride(object, materials, albedoKey) {
   if (!preset) return;
   const st = ensureTexState(object);
   st.activeAlbedo = albedoKey;
-  const uvScale = st.uvScale;
+  const uvScaleX = st.uvScaleX || 1;
+  const uvScaleY = st.uvScaleY || 1;
   const uvRotation = st.uvRotation;
   const slotName = 'albedo';
   
   if (preset.albedo) {
-    await applyTextureFromURL({ object, materials, url: preset.albedo, slotName, uvScale, uvRotation, isPreset: true });
+    await applyTextureFromURL({ object, materials, url: preset.albedo, slotName, uvScaleX, uvScaleY, uvRotation, isPreset: true });
   } else {
     clearOverrideSlot(object, materials, slotName);
   }
@@ -273,9 +285,9 @@ function buildTransformTab(object, page) {
       ${toRow('tz','Pos Z', -100,100,0.1, object.position.z.toFixed(2))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
-      ${toRow('rx','Rot X °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
-      ${toRow('ry','Rot Y °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
-      ${toRow('rz','Rot Z °', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
+      ${toRow('rx','Rot X Â°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.x).toFixed(0))}
+      ${toRow('ry','Rot Y Â°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.y).toFixed(0))}
+      ${toRow('rz','Rot Z Â°', -180,180,1, THREE.MathUtils.radToDeg(object.rotation.z).toFixed(0))}
     </div>
     <div class="grid grid-cols-3 gap-3 mt-3">
       ${toRow('sx','Scale X', 0.01,20,0.01, object.scale.x.toFixed(2))}
@@ -390,8 +402,7 @@ function buildTexturesTab(object, page) {
       </label>
     </div>
     <div id="texture-ui-content" class="space-y-4 mt-4">
-      <!-- Content will be injected here by refreshTextureUI -->
-    </div>
+      </div>
   `;
 
   const select = page.querySelector('#mesh-target-select');
@@ -406,7 +417,7 @@ function buildTexturesTab(object, page) {
   meshTargets.forEach((mesh, uuid) => {
     const opt = document.createElement('option');
     opt.value = uuid;
-    opt.textContent = `  • ${mesh.name || 'Unnamed Mesh'}`;
+    opt.textContent = `  â¢ ${mesh.name || 'Unnamed Mesh'}`;
     select.appendChild(opt);
   });
 
@@ -456,6 +467,9 @@ function refreshTextureUI(target, contentEl, rootModel) {
   const preset = PRESET_TEXTURES[presetKey] || PRESET_TEXTURES['none'];
   const rough = ('roughness' in rep) ? rep.roughness : preset.roughnessScalar;
   const metal = ('metalness' in rep) ? rep.metalness : preset.metalnessScalar;
+  const uvScaleX = st.uvScaleX || 1;
+  const uvScaleY = st.uvScaleY || 1;
+  const uvRotation = st.uvRotation || 0;
 
   contentEl.innerHTML = `
     <div>
@@ -491,18 +505,25 @@ function refreshTextureUI(target, contentEl, rootModel) {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="space-y-1">
           <label class="text-sm font-medium flex justify-between items-center">
-            <span>UV Repeat</span>
-            <input type="number" id="uv-scale-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${st.uvScale.toFixed(1)}">
+            <span>UV Repeat X</span>
+            <input type="number" id="uv-scale-x-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${uvScaleX.toFixed(1)}">
           </label>
-          <input type="range" id="uv-scale-slider" min="0.1" max="50" step="0.1" value="${st.uvScale}">
+          <input type="range" id="uv-scale-x-slider" min="0.1" max="50" step="0.1" value="${uvScaleX}">
         </div>
         <div class="space-y-1">
           <label class="text-sm font-medium flex justify-between items-center">
-            <span>UV Rotation °</span>
-            <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(st.uvRotation || 0))}">
+            <span>UV Repeat Y</span>
+            <input type="number" id="uv-scale-y-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${uvScaleY.toFixed(1)}">
           </label>
-          <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(st.uvRotation || 0)}">
+          <input type="range" id="uv-scale-y-slider" min="0.1" max="50" step="0.1" value="${uvScaleY}">
         </div>
+      </div>
+      <div class="mt-2 space-y-1">
+        <label class="text-sm font-medium flex justify-between items-center">
+          <span>UV Rotation Â°</span>
+          <input type="number" id="uv-rot-val" class="${numberInputClasses}" min="0" max="360" step="1" value="${Math.round(THREE.MathUtils.radToDeg(uvRotation || 0))}">
+        </label>
+        <input type="range" id="uv-rot-slider" min="0" max="360" step="1" value="${THREE.MathUtils.radToDeg(uvRotation || 0)}">
       </div>
       <div class="mt-2 space-y-1">
         <label class="text-sm font-medium flex justify-between items-center">
@@ -599,14 +620,17 @@ function refreshTextureUI(target, contentEl, rootModel) {
   linkSimple('mat-rough', formatF2, v => setMaterialScalar(mats, 'roughness', v));
   linkSimple('mat-metal', formatF2, v => setMaterialScalar(mats, 'metalness', v));
   const syncUV = () => {
-    const scale = parseFloat(contentEl.querySelector('#uv-scale-slider').value);
+    const scaleX = parseFloat(contentEl.querySelector('#uv-scale-x-slider').value);
+    const scaleY = parseFloat(contentEl.querySelector('#uv-scale-y-slider').value);
     const rotDeg = parseFloat(contentEl.querySelector('#uv-rot-slider').value);
     const rotRad = THREE.MathUtils.degToRad(rotDeg);
-    st.uvScale = scale;
+    st.uvScaleX = scaleX;
+    st.uvScaleY = scaleY;
     st.uvRotation = rotRad;
-    applyUVToAllMaps(mats, scale, rotRad);
+    applyUVToAllMaps(mats, scaleX, scaleY, rotRad);
   };
-  linkSimple('uv-scale', formatF1, syncUV);
+  linkSimple('uv-scale-x', formatF1, syncUV);
+  linkSimple('uv-scale-y', formatF1, syncUV);
   linkSimple('uv-rot', formatF0, syncUV);
   linkSimple('disp-scale', formatF2, v => {
     st.displacementScale = v;
@@ -637,10 +661,11 @@ function refreshTextureUI(target, contentEl, rootModel) {
       st.activePreset = 'none'; st.activeAlbedo = 'none';
       presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
       albedoSelect.value = 'none';
-      const scale = parseFloat(contentEl.querySelector('#uv-scale-slider').value);
+      const scaleX = parseFloat(contentEl.querySelector('#uv-scale-x-slider').value);
+      const scaleY = parseFloat(contentEl.querySelector('#uv-scale-y-slider').value);
       const rot = THREE.MathUtils.degToRad(parseFloat(contentEl.querySelector('#uv-rot-slider').value));
       try {
-        await uploadMapFromFile({ object: target, materials: mats, file: f, slotName, uvScale: scale, uvRotation: rot });
+        await uploadMapFromFile({ object: target, materials: mats, file: f, slotName, uvScaleX: scaleX, uvScaleY: scaleY, uvRotation: rot });
       } catch (err) { console.error('Texture upload failed:', err); } 
       finally { inp.value = ''; }
     });
@@ -694,4 +719,3 @@ export function updatePropsPanel(object) {
     { id: 'textures',  label: 'Textures',  build: (page) => buildTexturesTab(object, page) }
   ]);
 }
-
