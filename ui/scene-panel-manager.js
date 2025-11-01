@@ -15,7 +15,7 @@ function promptRename(span, obj, type) {
   const input = document.createElement('input');
   input.type = 'text';
   input.value = currentName;
-  input.className = 'bg-gray-900 text-white rounded p-0.5 text-sm font-normal';
+  input.className = 'bg-slate-900 text-white rounded p-0.5 text-sm font-normal'; // Updated color
   input.style.width = '80%';
   
   const parent = span.parentElement;
@@ -57,7 +57,7 @@ function promptRename(span, obj, type) {
  */
 function createMeshEntry(mesh, container, indentLevel) {
   const row = document.createElement('div');
-  row.className = `flex items-center justify-between bg-gray-700 hover:bg-gray-600 rounded-md px-3 py-2 pl-${indentLevel * 4}`;
+  row.className = `flex items-center justify-between bg-slate-700 hover:bg-slate-600 rounded-md px-3 py-2 pl-${indentLevel * 4}`; // Updated color
 
   const nameBtn = document.createElement('button');
   nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform flex items-center gap-2';
@@ -76,7 +76,7 @@ function createMeshEntry(mesh, container, indentLevel) {
 
   // --- ADDED RENAME BUTTON ---
   const renameBtn = document.createElement('button');
-  renameBtn.className = 'p-2 rounded-md bg-gray-800 hover:bg-gray-900 active:scale-95 transition-transform';
+  renameBtn.className = 'p-2 rounded-md bg-slate-800 hover:bg-slate-900 active:scale-95 transition-transform'; // Updated color
   renameBtn.title = 'Rename Mesh';
   renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L15.232 5.232z" /></svg>`;
   renameBtn.addEventListener('click', (e) => {
@@ -87,7 +87,7 @@ function createMeshEntry(mesh, container, indentLevel) {
 
   // Visibility (Hide/Show) Button
   const visBtn = document.createElement('button');
-  visBtn.className = 'p-2 rounded-md bg-gray-800 hover:bg-gray-900 active:scale-95 transition-transform';
+  visBtn.className = 'p-2 rounded-md bg-slate-800 hover:bg-slate-900 active:scale-95 transition-transform'; // Updated color
   visBtn.title = 'Toggle Visibility';
   visBtn.innerHTML = mesh.visible 
     ? `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg>`
@@ -132,7 +132,7 @@ function createMeshEntry(mesh, container, indentLevel) {
  */
 function createModelEntry(model, container, indentLevel) {
   const row = document.createElement('div');
-  row.className = `flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-md px-3 py-2 pl-${indentLevel * 4}`;
+  row.className = `flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-md px-3 py-2 pl-${indentLevel * 4}`; // Updated color
 
   const nameBtn = document.createElement('button');
   nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform flex items-center gap-2 font-semibold';
@@ -170,7 +170,7 @@ function createModelEntry(model, container, indentLevel) {
 
   // --- ADDED RENAME BUTTON ---
   const renameBtn = document.createElement('button');
-  renameBtn.className = 'p-2 rounded-md bg-gray-600 hover:bg-gray-500 active:scale-95 transition-transform';
+  renameBtn.className = 'p-2 rounded-md bg-slate-600 hover:bg-slate-500 active:scale-95 transition-transform'; // Updated color
   renameBtn.title = 'Rename Object';
   renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L15.232 5.232z" /></svg>`;
   renameBtn.addEventListener('click', (e) => {
@@ -181,7 +181,7 @@ function createModelEntry(model, container, indentLevel) {
 
   // Duplicate Button
   const dupBtn = document.createElement('button');
-  dupBtn.className = 'p-2 rounded-md bg-gray-600 hover:bg-gray-500 active:scale-95 transition-transform';
+  dupBtn.className = 'p-2 rounded-md bg-slate-600 hover:bg-slate-500 active:scale-95 transition-transform'; // Updated color
   dupBtn.title = 'Duplicate Model';
   dupBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect><rect x="5" y="5" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect></svg>`;
   dupBtn.addEventListener('click', (e) => { e.stopPropagation(); duplicateModel(model); });
@@ -291,7 +291,7 @@ export function refreshSceneList() {
   const rootModels = scene.children.filter(c => c.userData?.isModel);
 
   if (rootModels.length === 0) {
-    sceneList.innerHTML = '<p class="text-gray-400">No objects in scene.</p>';
+    sceneList.innerHTML = '<p class="text-slate-500">No objects in scene.</p>'; // Updated color
     return;
   }
 
