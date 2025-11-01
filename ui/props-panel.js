@@ -502,7 +502,16 @@ function refreshTextureUI(target, contentEl, rootModel) {
     </div>
     <div class="mt-2 border-t border-white/10 pt-3">
       <h4 class="text-sm font-bold mb-2">Tiling & Displacement</h4>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      
+      <div class="space-y-1">
+        <label class="text-sm font-medium flex justify-between items-center">
+          <span>UV Uniform Scale</span>
+          <input type="number" id="uv-scale-uniform-val" class="${numberInputClasses}" min="0.1" max="50" step="0.1" value="${uvScaleX.toFixed(1)}">
+        </label>
+        <input type="range" id="uv-scale-uniform-slider" min="0.1" max="50" step="0.1" value="${uvScaleX}">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
         <div class="space-y-1">
           <label class="text-sm font-medium flex justify-between items-center">
             <span>UV Repeat X</span>
@@ -619,6 +628,7 @@ function refreshTextureUI(target, contentEl, rootModel) {
 
   linkSimple('mat-rough', formatF2, v => setMaterialScalar(mats, 'roughness', v));
   linkSimple('mat-metal', formatF2, v => setMaterialScalar(mats, 'metalness', v));
+  
   const syncUV = () => {
     const scaleX = parseFloat(contentEl.querySelector('#uv-scale-x-slider').value);
     const scaleY = parseFloat(contentEl.querySelector('#uv-scale-y-slider').value);
@@ -629,6 +639,7 @@ function refreshTextureUI(target, contentEl, rootModel) {
     st.uvRotation = rotRad;
     applyUVToAllMaps(mats, scaleX, scaleY, rotRad);
   };
+  
   linkSimple('uv-scale-x', formatF1, syncUV);
   linkSimple('uv-scale-y', formatF1, syncUV);
   linkSimple('uv-rot', formatF0, syncUV);
@@ -636,6 +647,59 @@ function refreshTextureUI(target, contentEl, rootModel) {
     st.displacementScale = v;
     setMaterialScalar(mats, 'displacementScale', v);
   });
+
+  // --- Link new Uniform UV Slider ---
+  const uniformSlider = contentEl.querySelector('#uv-scale-uniform-slider');
+  const uniformVal = contentEl.querySelector('#uv-scale-uniform-val');
+  const xSlider = contentEl.querySelector('#uv-scale-x-slider');
+  const xVal = contentEl.querySelector('#uv-scale-x-val');
+  const ySlider = contentEl.querySelector('#uv-scale-y-slider');
+  const yVal = contentEl.querySelector('#uv-scale-y-val');
+
+  const updateFromUniform = (val) => {
+    const valFmt = val.toFixed(1);
+    // Update self
+    uniformVal.value = valFmt;
+    uniformSlider.value = val;
+    // Update X and Y
+    xSlider.value = val;
+    xVal.value = valFmt;
+    ySlider.value = val;
+    yVal.value = valFmt;
+  };
+
+  uniformSlider.addEventListener('input', () => {
+    const val = parseFloat(uniformSlider.value);
+    updateFromUniform(val);
+  });
+
+  uniformSlider.addEventListener('change', () => {
+    // After changing, trigger the main sync function
+    syncUV(); 
+    // Mark as manual edit
+    st.activePreset = 'none'; st.activeAlbedo = 'none';
+    presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
+  });
+  
+  const updateFromUniformNumber = () => {
+      let val = parseFloat(uniformVal.value);
+      const min = parseFloat(uniformSlider.min);
+      const max = parseFloat(uniformSlider.max);
+      if (isNaN(val)) val = min;
+      val = Math.max(min, Math.min(max, val)); // Clamp
+      updateFromUniform(val);
+      syncUV();
+      // Mark as manual edit
+      st.activePreset = 'none'; st.activeAlbedo = 'none';
+      presetScroller.querySelectorAll('button').forEach(b => b.classList.remove('border-blue-500'));
+  };
+  
+  uniformVal.addEventListener('change', updateFromUniformNumber);
+  uniformVal.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); uniformVal.blur(); }
+  });
+  // --- End Uniform Link ---
+
 
   // --- PBR Upload Rows ---
   const pbrGrid = contentEl.querySelector('#pbr-grid');
