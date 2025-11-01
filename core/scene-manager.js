@@ -8,6 +8,7 @@ import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
 import { ensureTexState } from '../ui/props-panel.js';
 
+// We are putting transformControls back here to keep everything in one file
 export let scene, camera, renderer, orbitControls, transformControls;
 export let allModels = [];
 export let currentSelection = null;
@@ -69,9 +70,10 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
+  // Re-initialize transformControls here
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('translate');
-  transformControls.visible = false; // Start hidden (This one is OK)
+  transformControls.visible = false; // It's OK to set it to false *once* on init
   transformControls.addEventListener('dragging-changed', (e) => {
     orbitControls.enabled = !e.value;
   });
@@ -82,7 +84,6 @@ export function initScene() {
 
   // Events
   window.addEventListener('resize', resizeRenderer);
-  // Use pointer events on the actual canvas to fix iOS/Android/Desktop
   renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
   renderer.domElement.addEventListener('pointerup', onPointerUp, { passive: false });
 }
@@ -126,12 +127,13 @@ function handleSingleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // Check if tapping the gizmo itself
+  // Robust check for gizmo hits
   const gizmoChildren = (transformControls && transformControls.children) ? transformControls.children : [];
   const gizmoHits = gizmoChildren.length ? raycaster.intersectObjects(gizmoChildren, true) : [];
   if (gizmoHits.length) return;
 
-  // Only raycast against user models
+  // **CRITICAL FIX**: Only raycast against `allModels`, not the whole scene.
+  // This prevents you from selecting the ground or grid.
   const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
@@ -147,7 +149,7 @@ function handleDoubleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // Only raycast against user models
+  // **CRITICAL FIX**: Only raycast against `allModels`.
   const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
@@ -167,17 +169,16 @@ function ascendToModelRoot(o) {
 export function selectObject(o) {
   if (!o || currentSelection === o) return;
   
-  // Safety check
   if (!o.userData?.isModel && o.type !== 'Mesh') {
-    return; 
+    return; // Safety check
   }
   
   currentSelection = o;
   transformControls.attach(o);
   
   // --- BUG FIX ---
-  // This line was removed. `attach()` handles visibility.
-  // transformControls.visible = true; 
+  // REMOVED: transformControls.visible = true;
+  // `attach()` handles this automatically.
   // --- END FIX ---
 
   updatePropsPanel && updatePropsPanel(o);
@@ -204,8 +205,8 @@ export function deselectAll() {
   if (currentSelection) transformControls.detach();
   
   // --- BUG FIX ---
-  // This line was removed. `detach()` handles visibility.
-  // transformControls.visible = false;
+  // REMOVED: transformControls.visible = false;
+  // `detach()` handles this automatically.
   // --- END FIX ---
   
   currentSelection = null;
