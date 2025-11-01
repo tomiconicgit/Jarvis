@@ -1,227 +1,315 @@
-// File: core/scene-manager.js
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { updatePropsPanel } from '../ui/props-panel.js';
-import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
-import { BUILDERS } from '../objects/object-manifest.js';
-import { ensureTexState } from '../ui/props-panel.js'; // Texture state logic moved to props-panel
+import { allModels, currentSelection, selectObject, deselectAll, assignDefaultName, scene } from '../core/scene-manager.js';
+import { hidePanel } from './ui-panels.js';
+import { OBJECT_DEFINITIONS } from '../objects/object-manifest.js';
 
-export let scene, camera, renderer, orbitControls, transformControls;
-export let allModels = [];
-export let currentSelection = null;
-
-let raycaster, touchStartPos;
-let lastTapTime = 0;
-const DOUBLE_TAP_DELAY = 300;
-const nameCounts = {};
-
-export function initScene() {
-  const canvasContainer = document.getElementById('canvas-container');
-
-  // Scene
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x2a2a2a);
-  scene.fog = new THREE.Fog(0x2a2a2a, 1500, 10000);
-
-  // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-  renderer.shadowMap.enabled = true;
-  canvasContainer.appendChild(renderer.domElement);
-
-  // Env
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
-  scene.environment = envTex;
-
-  // Camera
-  camera = new THREE.PerspectiveCamera(
-    50,
-    canvasContainer.clientWidth / canvasContainer.clientHeight,
-    0.05,
-    10000
-  );
-  camera.position.set(15, 20, 25);
-
-  // Lights
-  scene.add(new THREE.AmbientLight(0x808080));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  dirLight.position.set(10, 20, 5);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(1024, 1024);
-  scene.add(dirLight);
-
-  // Ground + Grid
-  scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444));
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  // Controls
-  orbitControls = new OrbitControls(camera, renderer.domElement);
-  orbitControls.enableDamping = true;
-  orbitControls.dampingFactor = 0.1;
-  orbitControls.enablePan = true;
-  orbitControls.maxDistance = 2000;
-
-  transformControls = new TransformControls(camera, renderer.domElement);
-  transformControls.setMode('translate');
-  transformControls.addEventListener('dragging-changed', (e) => {
-    orbitControls.enabled = !e.value;
+/**
+ * Helper function to create the rename input field.
+ * @param {HTMLElement} span - The text span element to replace.
+ * @param {THREE.Object3D} obj - The object being renamed.
+ * @param {'model' | 'mesh'} type - The type of object.
+ */
+function promptRename(span, obj, type) {
+  const currentName = span.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentName;
+  input.className = 'bg-slate-900 text-white rounded p-0.5 text-sm font-normal'; // Updated color
+  input.style.width = '80%';
+  
+  const parent = span.parentElement;
+  parent.replaceChild(input, span);
+  input.focus();
+  input.select();
+  
+  const saveName = () => {
+      const newName = input.value.trim();
+      if (newName && newName !== currentName) {
+          if (type === 'model') {
+              obj.userData.label = newName; // Save to userData.label for models
+          } else {
+              obj.name = newName; // Save to .name for meshes
+          }
+          span.textContent = newName;
+      } else {
+          span.textContent = currentName;
+      }
+      parent.replaceChild(span, input);
+  };
+  
+  input.addEventListener('blur', saveName);
+  input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      else if (e.key === 'Escape') {
+          e.preventDefault();
+          span.textContent = currentName;
+          parent.replaceChild(span, input);
+      }
   });
-  transformControls.addEventListener('mouseUp', () => {
-    if (currentSelection) updatePropsPanel(currentSelection);
+}
+
+/**
+ * Creates a visual row for a sub-mesh in the scene panel.
+ * @param {THREE.Mesh} mesh - The mesh object.
+ * @param {HTMLElement} container - The parent element to append to.
+ * @param {number} indentLevel - The indentation level.
+ */
+function createMeshEntry(mesh, container, indentLevel) {
+  const row = document.createElement('div');
+  row.className = `flex items-center justify-between bg-slate-700 hover:bg-slate-600 rounded-md px-3 py-2 pl-${indentLevel * 4}`; // Updated color
+
+  const nameBtn = document.createElement('button');
+  nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform flex items-center gap-2';
+  nameBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a2 2 0 00-2 2v1H6a2 2 0 00-2 2v1H3a1 1 0 000 2h1v1a2 2 0 002 2h1v1a2 2 0 002 2h2a2 2 0 002-2v-1h1a2 2 0 002-2v-1h1a1 1 0 100-2h-1V7a2 2 0 00-2-2h-1V4a2 2 0 00-2-2h-2z" /></svg>
+    <span class="object-label">${mesh.name || 'Unnamed Mesh'}</span>
+  `;
+  nameBtn.addEventListener('click', (e) => { 
+    e.stopPropagation();
+    selectObject(mesh); // Select the sub-mesh
+    hidePanel(document.getElementById('scene-panel')); 
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'flex items-center gap-2';
+
+  // --- ADDED RENAME BUTTON ---
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'p-2 rounded-md bg-slate-800 hover:bg-slate-900 active:scale-95 transition-transform'; // Updated color
+  renameBtn.title = 'Rename Mesh';
+  renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L15.232 5.232z" /></svg>`;
+  renameBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const span = nameBtn.querySelector('.object-label');
+    if (span) promptRename(span, mesh, 'mesh');
+  });
+
+  // Visibility (Hide/Show) Button
+  const visBtn = document.createElement('button');
+  visBtn.className = 'p-2 rounded-md bg-slate-800 hover:bg-slate-900 active:scale-95 transition-transform'; // Updated color
+  visBtn.title = 'Toggle Visibility';
+  visBtn.innerHTML = mesh.visible 
+    ? `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zM10 12a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /><path d="M10 17c-4.478 0-8.268-2.943-9.542-7 .94-3.034 3.568-5.39 6.812-6.182L3.707 2.293A1 1 0 002.293 3.707l14 14a1 1 0 001.414-1.414l-1.781-1.781A9.958 9.958 0 0110 17z" /></svg>`;
+  visBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    mesh.visible = !mesh.visible;
+    refreshSceneList(); // Re-render to update icon
   });
   
-  // --- FIX: Explicitly hide gizmo on start ---
-  transformControls.visible = false;
-  scene.add(transformControls);
-  // --- END FIX ---
-
-
-  // Raycast / touch
-  raycaster = new THREE.Raycaster();
-  touchStartPos = new THREE.Vector2();
-
-  // Events
-  window.addEventListener('resize', resizeRenderer);
-  canvasContainer.addEventListener('touchstart', onTouchStart, { passive: false });
-  canvasContainer.addEventListener('touchend', onTouchEnd);
-}
-
-export function animate() {
-  requestAnimationFrame(animate);
-  orbitControls.update();
-  renderer.render(scene, camera);
-}
-
-function resizeRenderer() {
-  const c = document.getElementById('canvas-container');
-  if (!c) return;
-  camera.aspect = c.clientWidth / c.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(c.clientWidth, c.clientHeight);
-}
-
-function onTouchStart(e) {
-  e.preventDefault();
-  if (e.touches.length === 1) {
-    const t = e.touches[0];
-    touchStartPos.set(t.clientX, t.clientY);
-  }
-}
-
-function onTouchEnd(e) {
-  if (e.changedTouches.length === 1) {
-    const t = e.changedTouches[0];
-    const endPos = new THREE.Vector2(t.clientX, t.clientY);
-    if (touchStartPos.distanceTo(endPos) < 10) {
-      const now = Date.now();
-      if (now - lastTapTime < DOUBLE_TAP_DELAY) handleDoubleTap(t);
-      else handleSingleTap(t);
-      lastTapTime = now;
+  // Delete Button (for sub-mesh)
+  const delBtn = document.createElement('button');
+  delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-95 transition-transform';
+  delBtn.title = 'Delete Mesh';
+  delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-1 1v1H4a1 1 0 000 2h1v9a2 2 0 002 2h6a2 2 0 002-2V6h1a1 1 0 100-2h-4V3a1 1 0 00-1-1H9zM7 6h6v9H7V6zm2 2v5a1 1 0 102 0V8a1 1 0 10-2 0zm-2 0v5a1 1 0 102 0V8a1 1 0 10-2 0z" clip-rule="evenodd" /></svg>`;
+  delBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (mesh.parent) {
+      mesh.parent.remove(mesh);
     }
+    mesh.geometry?.dispose();
+    mesh.material?.dispose();
+    if (currentSelection === mesh) {
+      deselectAll();
+    }
+    refreshSceneList();
+  });
+
+  actions.appendChild(renameBtn);
+  actions.appendChild(visBtn);
+  actions.appendChild(delBtn);
+  row.appendChild(nameBtn);
+  row.appendChild(actions);
+  container.appendChild(row);
+}
+
+/**
+ * Creates a visual row for a root model in the scene panel.
+ * @param {THREE.Group} model - The root model object (with userData.isModel).
+ * @param {HTMLElement} container - The parent element to append to.
+ * @param {number} indentLevel - The indentation level.
+ */
+function createModelEntry(model, container, indentLevel) {
+  const row = document.createElement('div');
+  row.className = `flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-md px-3 py-2 pl-${indentLevel * 4}`; // Updated color
+
+  const nameBtn = document.createElement('button');
+  nameBtn.className = 'text-left flex-1 pr-3 active:scale-[0.99] transition-transform flex items-center gap-2 font-semibold';
+  
+  const childrenContainer = document.createElement('div');
+  childrenContainer.className = 'pt-2 space-y-2';
+  childrenContainer.style.display = 'none';
+
+  const childEntries = model.children.filter(c => c.isMesh || c.userData?.isModel);
+  const hasChildren = childEntries.length > 0;
+  
+  const arrow = hasChildren
+    ? `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>`
+    : `<div class="w-4 h-4 flex-shrink-0"></div>`; // Placeholder for alignment
+
+  nameBtn.innerHTML = `${arrow}<span class="object-label">${model.userData?.label || model.name || 'Object'}</span>`;
+  
+  nameBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectObject(model); // Select the root model
+    hidePanel(document.getElementById('scene-panel')); 
+  });
+  
+  if (hasChildren) {
+    nameBtn.firstElementChild.addEventListener('click', (e) => {
+      e.stopPropagation(); // Don't select when clicking arrow
+      const isHidden = childrenContainer.style.display === 'none';
+      childrenContainer.style.display = isHidden ? '' : 'none';
+      nameBtn.firstElementChild.classList.toggle('rotate-90', isHidden);
+    });
   }
+
+  const actions = document.createElement('div');
+  actions.className = 'flex items-center gap-2';
+
+  // --- ADDED RENAME BUTTON ---
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'p-2 rounded-md bg-slate-600 hover:bg-slate-500 active:scale-95 transition-transform'; // Updated color
+  renameBtn.title = 'Rename Object';
+  renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L15.232 5.232z" /></svg>`;
+  renameBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const span = nameBtn.querySelector('.object-label');
+    if (span) promptRename(span, model, 'model');
+  });
+
+  // Duplicate Button
+  const dupBtn = document.createElement('button');
+  dupBtn.className = 'p-2 rounded-md bg-slate-600 hover:bg-slate-500 active:scale-95 transition-transform'; // Updated color
+  dupBtn.title = 'Duplicate Model';
+  dupBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect><rect x="5" y="5" width="10" height="10" rx="2" ry="2" stroke-width="2"></rect></svg>`;
+  dupBtn.addEventListener('click', (e) => { e.stopPropagation(); duplicateModel(model); });
+
+  // Delete Button
+  const delBtn = document.createElement('button');
+  delBtn.className = 'p-2 rounded-md bg-red-600 hover:bg-red-700 active:scale-95 transition-transform';
+  delBtn.title = 'Delete Model';
+  delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18" stroke-width="2" stroke-linecap="round"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-width="2"></path><path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"></path></svg>`;
+  delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(model); });
+
+  actions.appendChild(renameBtn);
+  actions.appendChild(dupBtn);
+  actions.appendChild(delBtn);
+  row.appendChild(nameBtn);
+  row.appendChild(actions);
+  container.appendChild(row);
+  container.appendChild(childrenContainer); // Add hidden container
+
+  // Recursively populate children
+  childEntries.forEach(child => {
+    if (child.userData?.isModel) {
+      createModelEntry(child, childrenContainer, indentLevel + 1);
+    } else if (child.isMesh) {
+      createMeshEntry(child, childrenContainer, indentLevel + 1);
+    }
+  });
 }
 
-function getTouchNDC(t) {
-  return {
-    x: (t.clientX / window.innerWidth) * 2 - 1,
-    y: -(t.clientY / window.innerHeight) * 2 + 1
-  };
+/**
+ * Duplicates a root model.
+ * @param {THREE.Group} src - The root model to duplicate.
+ */
+function duplicateModel(src) {
+  let copy;
+  const type = src.userData?.type || 'Object';
+  const params = { ...(src.userData?.params || {}) };
+
+  const def = OBJECT_DEFINITIONS.find(d => d.type === type);
+  
+  if (def && type !== 'ImportedGLB') {
+    copy = new def.ctor(params);
+  } else {
+    // Fallback for imported GLBs or non-manifest objects
+    copy = src.clone(true);
+    copy.userData = JSON.parse(JSON.stringify(src.userData)); // Deep copy userData
+  }
+
+  copy.position.copy(src.position).add(new THREE.Vector3(1, 0, 1));
+  copy.rotation.copy(src.rotation);
+  copy.scale.copy(src.scale);
+  copy.userData.isModel = true;
+  copy.userData.type = type;
+  if (!copy.userData.params) copy.userData.params = params;
+  
+  // Ensure deep-cloned meshes also get new UUIDs
+  copy.traverse(n => {
+    n.uuid = THREE.MathUtils.generateUUID();
+    if (n.isMesh && !n.name) n.name = n.uuid.substring(0, 8);
+  });
+
+  assignDefaultName(copy);
+  scene.add(copy);
+  allModels.push(copy); // Add to flat list for raycasting
+  refreshSceneList();
+  selectObject(copy);
 }
 
-function handleSingleTap(t) {
-  const ndc = getTouchNDC(t);
-  raycaster.setFromCamera(ndc, camera);
+/**
+ * Deletes a root model and all its children.
+ * @param {THREE.Group} obj - The root model to delete.
+ */
+export function deleteModel(obj) {
+  const idx = allModels.indexOf(obj);
+  if (idx !== -1) allModels.splice(idx, 1);
 
-  // --- ADDED ---
-  // First, check if we tapped the gizmo itself
-  // We check the gizmo's children because it's a THREE.Group
-  const gizmoHits = raycaster.intersectObjects(transformControls.children, true);
-  if (gizmoHits.length > 0) {
-    // We tapped the gizmo. Let the TransformControls handle it.
-    // Do not select or deselect anything.
+  if (currentSelection === obj) deselectAll();
+
+  // Recursively dispose of all geometries and materials
+  obj.traverse((n) => {
+    if (n.isMesh) {
+      n.geometry?.dispose();
+      const m = n.material;
+      if (Array.isArray(m)) m.forEach((mm) => mm?.dispose && mm.dispose());
+      else if (m?.dispose) m.dispose();
+    }
+    if (typeof n.dispose === 'function' && !n.isMesh) {
+      // For custom group classes
+      n.dispose();
+    }
+  });
+
+  if (obj.parent) {
+    obj.parent.remove(obj);
+  }
+  refreshSceneList();
+}
+
+/**
+ * Main function to refresh the entire scene list UI.
+ */
+export function refreshSceneList() {
+  const sceneList = document.getElementById('scene-list');
+  if (!sceneList) return;
+
+  sceneList.innerHTML = '';
+  const rootModels = scene.children.filter(c => c.userData?.isModel);
+
+  if (rootModels.length === 0) {
+    sceneList.innerHTML = '<p class="text-slate-500">No objects in scene.</p>'; // Updated color
     return;
   }
-  // --- END ADDED ---
 
-  const hits = raycaster.intersectObjects(allModels, true);
-  if (hits.length) {
-    let obj = hits[0].object;
-    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
-    selectObject(obj || hits[0].object);
-  } else {
-    deselectAll();
-  }
+  rootModels.forEach(model => {
+    createModelEntry(model, sceneList, 0);
+  });
 }
 
-function handleDoubleTap(t) {
-  const ndc = getTouchNDC(t);
-  raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(allModels, true);
-  if (hits.length) {
-    const box = new THREE.Box3().setFromObject(hits[0].object);
-    orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-    showTempMessage('Camera Focused');
-  }
-}
-
-export function selectObject(o) {
-  if (!o) return;
-  if (currentSelection === o) return;
-  currentSelection = o;
-  transformControls.attach(o);
-  // --- FIX: Explicitly show gizmo on select ---
-  transformControls.visible = true;
-  // --- END FIX ---  
+export function initScenePanel() {
+  const scenePanel = document.getElementById('scene-panel');
+  if (!scenePanel) return;
   
-  updatePropsPanel(o);
-  showPanel(document.getElementById('props-panel'));
-  // Hide all other panels
-  [
-    document.getElementById('add-panel'), 
-    document.getElementById('scene-panel'), 
-    document.getElementById('parent-panel'), 
-    document.getElementById('file-panel'), 
-    document.getElementById('export-panel')
-  ].forEach(hidePanel);
-}
-
-export function deselectAll() {
-  if (currentSelection) transformControls.detach();
-  // --- FIX: Explicitly hide gizmo on deselect ---
-  transformControls.visible = false;
-  // --- END FIX ---  
-
-  currentSelection = null;
-  hidePanel(document.getElementById('props-panel'));
-}
-
-export function assignDefaultName(obj) {
-  const base = obj.userData?.type || 'Object';
-  nameCounts[base] = (nameCounts[base] || 0) + 1;
-  obj.userData.label = `${base} #${nameCounts[base]}`;
-}
-
-// Function to find an object by UUID (needed by parent-manager)
-export function findByUUID(uuid) { 
-  return allModels.find(o => o.uuid === uuid); 
-}
-
-// Get the correct BUILDERS map for file loading
-export function getBuilders() {
-  return BUILDERS;
-}
-
-// Get the texture state function for file loading
-export function getEnsureTexState() {
-  return ensureTexState;
+  // Refresh list when panel is shown
+  document.getElementById('scene-btn').addEventListener('click', () => {
+    refreshSceneList();
+  });
+  
+  // Close button
+  document.getElementById('close-scene-panel').addEventListener('click', () => {
+    hidePanel(scenePanel);
+  });
 }
