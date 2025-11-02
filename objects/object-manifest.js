@@ -84,14 +84,14 @@ function linkControls(page, object, paramConfig) {
         // We re-calculate the dynamic 'max' value based on the *next* params
         if (key === 'cornerRadius') {
             if (type === 'TowerBase') maxVal = TowerBase.getMaxCornerRadius(next);
-            // else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxCornerRadius(next); // <-- REMOVED
+            //if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxCornerRadius(next); // <-- REMOVED
             else if (type === 'DoubleDoor') maxVal = DoubleDoor.getMaxCornerRadius(next);
             else if (type === 'Window') maxVal = WindowAsset.getMaxCornerRadius(next);
             else if (type === 'Floor') maxVal = Floor.getMaxCornerRadius(next);
             else if (type === 'Roof') maxVal = Roof.getMaxCornerRadius(next);
-            // else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next); // <-- REMOVED
-            // else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- REMOVED
-            // else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxCornerRadius(next); // <-- REMOVED
+            //else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxCornerRadius(next); // <-- REMOVED
+            //else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- REMOVED
+            //else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxCornerRadius(next); // <-- REMOVED
             // --- MODIFIED --- Constraint for Cube cornerRadius
             else if (type === 'Cube') {
               maxVal = Math.min(next.width, next.height, next.depth) / 2;
@@ -100,20 +100,24 @@ function linkControls(page, object, paramConfig) {
             maxVal = WindowAsset.getMaxInnerCornerRadius(next);
         } else if (key === 'edgeRoundness') {
              if (type === 'TowerBase') maxVal = TowerBase.getMaxEdgeRoundness(next);
-            // else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxEdgeRoundness(next); // <-- REMOVED
+            //else if (type === 'TowerBaseSculpted') maxVal = TowerBaseSculpted.getMaxEdgeRoundness(next); // <-- REMOVED
             else if (type === 'DoubleDoor') maxVal = DoubleDoor.getMaxEdgeRoundness(next);
             else if (type === 'Window') maxVal = WindowAsset.getMaxEdgeRoundness(next);
             else if (type === 'Floor') maxVal = Floor.getMaxEdgeRoundness(next);
             else if (type === 'Roof') maxVal = Roof.getMaxEdgeRoundness(next);
-            // else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next); // <-- REMOVED
-            // else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- REMOVED
-            // else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxEdgeRoundness(next); // <-- REMOVED
+            //else if (type === 'TowerBanded') maxVal = TowerBanded.getMaxEdgeRoundness(next); // <-- REMOVED
+            //else if (type === 'WindowFrame') maxVal = WindowFrame.getMaxCornerRadius(next); // <-- REMOVED
+            //else if (type === 'WrapAroundWindow') maxVal = WrapAroundWindow.getMaxEdgeRoundness(next); // <-- REMOVED
         } else if (key === 'doorWidth' && type === 'TowerBase') {
             maxVal = TowerBase.getMaxDoorWidth(next);
-        } else if (key === 'doorWidthFront' && type === 'TowerBaseSculpted') {
-            // maxVal = TowerBaseSculpted.getMaxDoorWidth(next); // <-- REMOVED
-        } else if (key === 'doorWidthSide' && type === 'TowerBaseSculpted') {
-            // maxVal = TowerBaseSculpted.getMaxSideDoorWidth(next); // <-- REMOVED
+        } else if (key === 'doorWidthFront' && type === 'TowerBase') {
+            maxVal = TowerBase.getMaxDoorWidth(next);
+        } else if (key === 'doorWidthBack' && type === 'TowerBase') {
+            maxVal = TowerBase.getMaxDoorWidth(next);
+        } else if (key === 'doorWidthLeft' && type === 'TowerBase') {
+            maxVal = TowerBase.getMaxDoorWidth({...next, width: next.depth});
+        } else if (key === 'doorWidthRight' && type === 'TowerBase') {
+            maxVal = TowerBase.getMaxDoorWidth({...next, width: next.depth});
         } else if (key === 'wallThickness' && type === 'Pipe') {
             maxVal = Pipe.getMaxWall(next);
         }
@@ -212,7 +216,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Tower (Door)',
     category: 'Architecture', // <-- NEW
     ctor: TowerBase,
-    defaultParams: { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidth: 4 },
+    defaultParams: { width: 12, depth: 12, height: 6, wallThickness: 1, cornerRadius: 1.2, edgeRoundness: 0.3, doorWidthFront: 4, doorWidthBack: 0, doorWidthLeft: 0, doorWidthRight: 0 },
     initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const p = object.userData.params;
@@ -225,7 +229,10 @@ export const OBJECT_DEFINITIONS = [
         cornerSmoothness: { min: 8,   max: 64, step: 1,   label: 'Corner Smoothness' },
         edgeRoundness:    { min: 0,   max: TowerBase.getMaxEdgeRoundness(p), step: 0.05, label: 'Edge Roundness' },
         edgeSmoothness:   { min: 1,   max: 12, step: 1,   label: 'Edge Smoothness' },
-        doorWidth:        { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Door Width' }
+        doorWidthFront:   { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Front Door Width' },
+        doorWidthBack:    { min: 0,   max: TowerBase.getMaxDoorWidth(p), step: 0.1, label: 'Back Door Width' },
+        doorWidthLeft:    { min: 0,   max: TowerBase.getMaxDoorWidth({width: p.depth, cornerRadius: p.cornerRadius}), step: 0.1, label: 'Left Door Width' },
+        doorWidthRight:   { min: 0,   max: TowerBase.getMaxDoorWidth({width: p.depth, cornerRadius: p.cornerRadius}), step: 0.1, label: 'Right Door Width' }
       };
       buildTabFromConfig(object, page, paramConfig);
     }
@@ -235,7 +242,7 @@ export const OBJECT_DEFINITIONS = [
     label: 'Tower (Solid)',
     category: 'Architecture', // <-- NEW
     ctor: TowerBase,
-    defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidth: 0 },
+    defaultParams: { width: 10, depth: 10, height: 8, wallThickness: 1, cornerRadius: 1.0, edgeRoundness: 0.2, doorWidthFront: 0, doorWidthBack: 0, doorWidthLeft: 0, doorWidthRight: 0 },
     initialY: (p) => p.height / 2,
     buildShapeTab: (object, page) => {
       const doorTowerDef = OBJECT_DEFINITIONS.find(d => d.label === 'Tower (Door)');
@@ -303,7 +310,7 @@ export const OBJECT_DEFINITIONS = [
         vertPanes:        { min: 1,   max: 10, step: 1,   label: 'Vertical Panes' },
         horizPanes:       { min: 1,   max: 10, step: 1,   label: 'Horizontal Panes' },
         mullionThickness: { min: 0.01,max: 0.5,step: 0.01, label: 'Mullion Thickness' },
-        bendAngle:        { min: -180,max: 180,step: 1,   label: 'Bend Angle ÃÂ°' },
+        bendAngle:        { min: -180,max: 180,step: 1,   label: 'Bend Angle Â°' },
         bendStartY:       { min: 0.0, max: 1.0,step: 0.01, label: 'Bend Start %' },
         glassR:           { min: 0,   max: 1,  step: 0.01, label: 'Glass R' },
         glassG:           { min: 0,   max: 1,  step: 0.01, label: 'Glass G' },
@@ -365,10 +372,10 @@ export const OBJECT_DEFINITIONS = [
         wallThickness:   { min: 0.002, max: Pipe.getMaxWall(p), step: 0.01, label: 'Wall Thickness' },
         radialSegments:  { min: 8,    max: 64,  step: 1,    label: 'Radial Segments' },
         hasElbow:        { type: 'checkbox', label: 'Has Elbow' },
-        shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle ÃÂÃÂ°' },
+        shoulderDeg:     { min: 0,    max: 180, step: 1,    label: 'Elbow Angle Â°' },
         elbowRadius:     { min: 0.2,  max: 20,  step: 0.05, label: 'Elbow Bend Radius' },
         elbowSegments:   { min: 8,    max: 64,  step: 1,    label: 'Elbow Segments' },
-        elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane ÃÂÃÂ°' },
+        elbowPlaneDeg:   { min: -180, max: 180, step: 1,    label: 'Elbow Plane Â°' },
         hasFlangeStart:  { type: 'checkbox', label: 'Flange at Start' },
         hasFlangeEnd:    { type: 'checkbox', label: 'Flange at End' },
         flangeRadius:    { min: 0.1, max: 20,  step: 0.05, label: 'Flange Radius' },
@@ -567,7 +574,7 @@ export const OBJECT_DEFINITIONS = [
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
         // --- NEW SLIDERS ---
-        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle ÃÂ°' },
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
         bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
         flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
         flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
@@ -587,15 +594,15 @@ export const OBJECT_DEFINITIONS = [
       const paramConfig = {
         radius: { min: 0.1, max: 50, step: 0.1, label: 'Radius' },
         segments: { min: 4, max: 64, step: 1, label: 'Segments' },
-        phiStart: { min: 0, max: 360, step: 1, label: 'Horiz. Start ÃÂ°' },
-        phiLength: { min: 0, max: 360, step: 1, label: 'Horiz. Length ÃÂ°' },
-        thetaStart: { min: 0, max: 180, step: 1, label: 'Vert. Start ÃÂ°' },
-        thetaLength: { min: 0, max: 180, step: 1, label: 'Vert. Length ÃÂ°' },
+        phiStart: { min: 0, max: 360, step: 1, label: 'Horiz. Start Â°' },
+        phiLength: { min: 0, max: 360, step: 1, label: 'Horiz. Length Â°' },
+        thetaStart: { min: 0, max: 180, step: 1, label: 'Vert. Start Â°' },
+        thetaLength: { min: 0, max: 180, step: 1, label: 'Vert. Length Â°' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
         // --- NEW SLIDERS ---
-        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle ÃÂ°' },
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
         bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
         flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
         flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
@@ -617,14 +624,14 @@ export const OBJECT_DEFINITIONS = [
         radiusBottom: { min: 0, max: 50, step: 0.1, label: 'Radius Bottom' },
         height: { min: 0.1, max: 50, step: 0.1, label: 'Height' },
         radialSegments: { min: 3, max: 64, step: 1, label: 'Radial Segments' },
-        thetaStart: { min: 0, max: 360, step: 1, label: 'Start Angle ÃÂ°' },
-        thetaLength: { min: 0, max: 360, step: 1, label: 'Arc Length ÃÂ°' },
+        thetaStart: { min: 0, max: 360, step: 1, label: 'Start Angle Â°' },
+        thetaLength: { min: 0, max: 360, step: 1, label: 'Arc Length Â°' },
         openEnded: { type: 'checkbox', label: 'Open Ended' },
         colorR: { min: 0, max: 1, step: 0.01, label: 'Color R' },
         colorG: { min: 0, max: 1, step: 0.01, label: 'Color G' },
         colorB: { min: 0, max: 1, step: 0.01, label: 'Color B' },
         // --- NEW SLIDERS ---
-        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle ÃÂ°' },
+        bendAngle:   { min: -180, max: 180, step: 1, label: 'Bend Angle Â°' },
         bendStartY:  { min: 0.0, max: 1.0, step: 0.01, label: 'Bend Start %' },
         flareAmount: { min: -10, max: 10, step: 0.05, label: 'Flare Amount' },
         flareStartY: { min: 0.0, max: 1.0, step: 0.01, label: 'Flare Start %' }
