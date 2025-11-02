@@ -1,41 +1,38 @@
 // File: main.js
-// Purpose: Boot the scene and expose simple hooks for UI to toggle the gizmo modes.
+// Wires UI to scene-manager. Exposes helpers used by index.html overlay.
 
 import {
-  initScene,
-  addModel,
+  initScene as initCore,
+  addModel as addModelCore,
+  removeModel,
+  selectObject as selectObjectCore,
+  clearSelection as clearSelectionCore,
+  focusSelection as focusSelectionCore,
   setTransformMode,
   setTransformSpace,
-  selectObject,
-  clearSelection,
-  focusSelection,
-  getScene,
-  getCamera,
-  getRenderer
+  getScene, getCamera, getRenderer
 } from './core/scene-manager.js';
 
-window.addEventListener('DOMContentLoaded', () => {
-  const container = document.getElementById('canvas-container');
-  initScene(container);
+export function initScene(container) {
+  initCore(container);
+}
 
-  // OPTIONAL: expose helpers for your existing UI buttons/menus
-  window.Iconic = {
-    addModel,
-    setTransformMode,     // 'translate' | 'rotate' | 'scale'
-    setTransformSpace,    // 'world' | 'local'
-    selectObject,
-    clearSelection,
-    focusSelection,
-    getScene,
-    getCamera,
-    getRenderer
-  };
+export function addModel(o) {
+  addModelCore(o);
+  selectObject(o);
+}
 
-  // If you want default mode buttons to work by data attributes:
-  document.querySelectorAll('[data-tmode]').forEach(btn => {
-    btn.addEventListener('click', () => setTransformMode(btn.getAttribute('data-tmode')));
-  });
-  document.querySelectorAll('[data-tspace]').forEach(btn => {
-    btn.addEventListener('click', () => setTransformSpace(btn.getAttribute('data-tspace')));
-  });
-});
+export function selectObject(o) {
+  selectObjectCore(o);
+}
+
+export function clearSelection() {
+  clearSelectionCore();
+}
+
+export function focusSelection() {
+  focusSelectionCore();
+}
+
+// Re-exports for index
+export { setTransformMode, setTransformSpace, getScene, getCamera, getRenderer };
