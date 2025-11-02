@@ -1,239 +1,222 @@
 // File: core/scene-manager.js
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'; // RE-ADDED
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { updatePropsPanel } from '../ui/props-panel.js';
-import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
-import { BUILDERS } from '../objects/object-manifest.js';
-import { ensureTexState } from '../ui/props-panel.js';
-// --- GIZMO IMPORTS REMOVED ---
-// import { showGizmo, hideGizmo } from '../ui/gizmo.js';
+// Purpose: Proper object selection + visible TransformControls gizmo on tap/click.
 
-// We are putting transformControls back here
-export let scene, camera, renderer, orbitControls, transformControls; // RE-ADDED transformControls
-export let allModels = [];
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { updatePropsPanel } from '../ui/props-panel.js';
+import { showPanel } from '../ui/ui-panels.js';
+
+export let scene, camera, renderer, orbitControls, transformControls;
 export let currentSelection = null;
+export const allModels = [];
 
 const raycaster = new THREE.Raycaster();
-const downPos = new THREE.Vector2();
-let lastTapTime = 0;
-const DOUBLE_TAP_DELAY = 300;
-const nameCounts = {};
+const pointer = new THREE.Vector2();
+let isDragging = false;
+let containerEl = null;
 
-export function initScene() {
-  const canvasContainer = document.getElementById('canvas-container');
-
-  // Scene
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x2a2a2a);
-  scene.fog = new THREE.Fog(0x2a2a2a, 1500, 10000);
-
-  // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-  renderer.shadowMap.enabled = true;
-  canvasContainer.appendChild(renderer.domElement);
-
-  // Environment
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envTex = pmrem.fromScene(new RoomEnvironment()).texture;
-  scene.environment = envTex;
-
-  // Camera
-  camera = new THREE.PerspectiveCamera(50,
-    canvasContainer.clientWidth / canvasContainer.clientHeight,
-    0.05, 10000);
-  camera.position.set(15, 20, 25);
-
-  // Lights
-  scene.add(new THREE.AmbientLight(0x808080));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  dirLight.position.set(10, 20, 5);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(1024, 1024);
-  scene.add(dirLight);
-
-  // Ground + Grid
-  scene.add(new THREE.GridHelper(100, 100, 0x888888, 0x444444));
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  // Controls
-  orbitControls = new OrbitControls(camera, renderer.domElement);
-  orbitControls.enableDamping = true;
-  orbitControls.dampingFactor = 0.1;
-  orbitControls.enablePan = true;
-  orbitControls.maxDistance = 2000;
-
-  // --- RE-ADD TRANSFORMCONTROLS ---
-  transformControls = new TransformControls(camera, renderer.domElement);
-  transformControls.visible = false;
-  transformControls.addEventListener('dragging-changed', (event) => {
-    orbitControls.enabled = !event.value;
-  });
-  scene.add(transformControls);
-  // --- END TRANSFORMCONTROLS ---
-
-  // Events
-  window.addEventListener('resize', resizeRenderer);
-  renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
-  renderer.domElement.addEventListener('pointerup', onPointerUp, { passive: false });
+function isInTransformControls(object) {
+  // If the intersected object is part of the gizmo, ignore it for selection
+  let o = object;
+  while (o) {
+    if (o === transformControls) return true;
+    o = o.parent;
+  }
+  return false;
 }
 
-export function animate() {
-  requestAnimationFrame(animate);
-  orbitControls.update();
+function setPointerFromEvent(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ( (event.clientX ?? (event.touches?.[0]?.clientX ?? 0)) - rect.left ) / rect.width;
+  const y = ( (event.clientY ?? (event.touches?.[0]?.clientY ?? 0)) - rect.top ) / rect.height;
+  pointer.set(x * 2 - 1, - (y * 2 - 1));
+}
+
+function selectableTop(o) {
+  // Climb to the first object explicitly marked selectable
+  let n = o;
+  while (n && !n.userData.__selectable && n.parent) n = n.parent;
+  return n && n.userData.__selectable ? n : null;
+}
+
+function intersectSelectable() {
+  const targets = [];
+  for (const m of allModels) {
+    // include whole hierarchy
+    targets.push(m);
+  }
+  return raycaster.intersectObjects(targets, true).filter(h => !isInTransformControls(h.object));
+}
+
+function render() {
   renderer.render(scene, camera);
 }
 
-function resizeRenderer() {
-  const c = document.getElementById('canvas-container');
-  if (!c) return;
-  camera.aspect = c.clientWidth / c.clientHeight;
+function animate() {
+  requestAnimationFrame(animate);
+  render();
+}
+
+function onResize() {
+  if (!renderer || !camera) return;
+  const { clientWidth, clientHeight } = renderer.domElement.parentElement;
+  camera.aspect = clientWidth / clientHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(c.clientWidth, c.clientHeight);
+  renderer.setSize(clientWidth, clientHeight, false);
+  render();
 }
 
-// ------- Picking helpers -------
-function getPointerNDC(evt) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  return {
-    x: ((evt.clientX - rect.left) / rect.width) * 2 - 1,
-    y: -((evt.clientY - rect.top) / rect.height) * 2 + 1
-  };
-}
 function onPointerDown(e) {
-  downPos.set(e.clientX, e.clientY);
+  // Let TransformControls take over if it’s grabbing
+  if (isDragging) return;
+  setPointerFromEvent(e);
 }
+
 function onPointerUp(e) {
-  const end = new THREE.Vector2(e.clientX, e.clientY);
-  if (downPos.distanceTo(end) < 10) {
-    const now = performance.now();
-    if (now - lastTapTime < DOUBLE_TAP_DELAY) handleDoubleTap(e);
-    else handleSingleTap(e);
-    lastTapTime = now;
-  }
-}
+  // If we were dragging the gizmo, do not re-select
+  if (isDragging) return;
 
-function handleSingleTap(e) {
-  const ndc = getPointerNDC(e);
-  raycaster.setFromCamera(ndc, camera);
+  setPointerFromEvent(e);
+  raycaster.setFromCamera(pointer, camera);
 
-  // --- ADDED GIZMO HIT CHECK ---
-  // If the transform gizmo is visible, check if we tapped it.
-  // If so, do nothing and let the gizmo handle it.
-  if (transformControls.visible) {
-    const gizmoHits = raycaster.intersectObjects(transformControls.children, true);
-    if (gizmoHits.length > 0) {
-      return; // Tapped on the gizmo, don't deselect.
-    }
-  }
-  // --- END GIZMO HIT CHECK ---
-  
-  // **CRITICAL FIX**: Only raycast against `allModels`, not the whole scene.
-  // This prevents you from selecting the ground or grid.
-  const hits = raycaster.intersectObjects(allModels, true);
-
+  const hits = intersectSelectable();
   if (hits.length) {
-    let obj = hits[0].object;
-    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
-    selectObject(obj || hits[0].object);
+    const top = selectableTop(hits[0].object) || hits[0].object;
+    selectObject(top);
   } else {
-    deselectAll();
+    clearSelection();
   }
 }
 
-function handleDoubleTap(e) {
-  const ndc = getPointerNDC(e);
-  raycaster.setFromCamera(ndc, camera);
+export function initScene(container) {
+  containerEl = container;
 
-  // **CRITICAL FIX**: Only raycast against `allModels`.
-  const hits = raycaster.intersectObjects(allModels, true);
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(container.clientWidth, container.clientHeight, false);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
 
-  if (hits.length) {
-    const root = ascendToModelRoot(hits[0].object);
-    const box = new THREE.Box3().setFromObject(root);
-    orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-    showTempMessage && showTempMessage('Camera Focused');
-  }
-}
+  // Scene + Env
+  scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.background = new THREE.Color(0x0b0b0b);
 
-function ascendToModelRoot(o) {
-  let obj = o;
-  while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
-  return obj || o;
-}
+  // Camera
+  camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 5000);
+  camera.position.set(6, 6, 10);
 
-export function selectObject(o) {
-  if (!o || currentSelection === o) return;
-  
-  if (!o.userData?.isModel && o.type !== 'Mesh') {
-    return; // Safety check
-  }
-  
-  currentSelection = o;
-  transformControls.attach(o); // RE-ADDED
-  
-  // --- GIZMO ---
-  // showGizmo && showGizmo(o); // REMOVED
-  // --- END GIZMO ---
-  
-  // --- BUG FIX ---
-  transformControls.visible = true; // RE-ADDED
-  // --- END FIX ---
+  // Grid/Helpers (optional)
+  const grid = new THREE.GridHelper(200, 200, 0x444444, 0x222222);
+  grid.material.depthWrite = false;
+  scene.add(grid);
 
-  updatePropsPanel && updatePropsPanel(o);
+  // Orbit
+  orbitControls = new OrbitControls(camera, renderer.domElement);
+  orbitControls.enableDamping = true;
+  orbitControls.dampingFactor = 0.08;
+  orbitControls.target.set(0, 1, 0);
 
-  const props = document.getElementById('props-panel');
-  if (props && showPanel) showPanel(props);
-  
-  // Hide all other panels
-  [
-    'add-panel',
-    'scene-panel',
-    'tools-panel',
-    'parent-panel',
-    'decimate-panel',
-    'file-panel',
-    'export-panel'
-  ].forEach(id => { 
-      const el = document.getElementById(id); 
-      el && hidePanel && hidePanel(el); 
+  // TransformControls (the gizmo)
+  transformControls = new TransformControls(camera, renderer.domElement);
+  transformControls.visible = false; // hidden until something is selected
+  transformControls.setMode('translate'); // default
+  transformControls.setSpace('world');    // world space by default
+  transformControls.size = 1;             // gizmo screen size multiplier
+  scene.add(transformControls);
+
+  // Handle drag state to disable orbit while dragging gizmo
+  transformControls.addEventListener('dragging-changed', (e) => {
+    isDragging = e.value;
+    orbitControls.enabled = !e.value;
   });
+
+  // Keep transformControls visible when attaching/detaching
+  transformControls.addEventListener('change', render);
+
+  // Basic lighting so gizmo is readable on dark backgrounds
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x111122, 0.7);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+  dir.position.set(5, 10, 7);
+  scene.add(hemi, dir);
+
+  // Events
+  renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
+  renderer.domElement.addEventListener('pointerup', onPointerUp, { passive: true });
+  window.addEventListener('resize', onResize);
+
+  animate();
+  onResize();
 }
 
-export function deselectAll() {
-  if (currentSelection) transformControls.detach(); // RE-ADDED
-  
-  // --- GIZMO ---
-  // hideGizmo && hideGizmo(); // REMOVED
-  // --- END GIZMO ---
-  
-  // --- BUG FIX ---
-  transformControls.visible = false; // RE-ADDED
-  // --- END FIX ---
-  
+export function addModel(object3D) {
+  // Mark as selectable and track it
+  object3D.userData.__selectable = true;
+  allModels.push(object3D);
+  scene.add(object3D);
+  render();
+}
+
+export function removeModel(object3D) {
+  const i = allModels.indexOf(object3D);
+  if (i !== -1) allModels.splice(i, 1);
+  if (object3D.parent) object3D.parent.remove(object3D);
+  if (currentSelection === object3D) clearSelection();
+  render();
+}
+
+export function selectObject(object3D) {
+  if (!object3D) return;
+  currentSelection = object3D;
+
+  // Attach gizmo and show it
+  transformControls.attach(object3D);
+  transformControls.visible = true;
+
+  // Update UI (if your panels exist)
+  try {
+    updatePropsPanel?.(object3D);
+    showPanel?.('props');
+  } catch (_) { /* safe no-op */ }
+
+  render();
+}
+
+export function clearSelection() {
   currentSelection = null;
-
-  const props = document.getElementById('props-panel');
-  props && hidePanel && hidePanel(props);
+  try { transformControls.detach(); } catch (_) {}
+  transformControls.visible = false;
+  render();
 }
 
-export function assignDefaultName(obj) {
-  const base = obj.userData?.type || 'Object';
-  nameCounts[base] = (nameCounts[base] || 0) + 1;
-  obj.userData.label = `${base} #${nameCounts[base]}`;
+export function setTransformMode(mode /* 'translate' | 'rotate' | 'scale' */) {
+  transformControls.setMode(mode);
+  render();
 }
 
-export function findByUUID(uuid) { 
-  return allModels.find(o => o.uuid === uuid); 
+export function setTransformSpace(space /* 'world' | 'local' */) {
+  transformControls.setSpace(space);
+  render();
 }
-export function getBuilders() { return BUILDERS; }
-export function getEnsureTexState() { return ensureTexState; }
+
+export function focusSelection() {
+  const target = currentSelection;
+  if (!target) return;
+  const box = new THREE.Box3().setFromObject(target);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+  orbitControls.target.copy(center);
+  camera.position.sub(orbitControls.target).setLength(Math.max(4, size.length() * 1.2)).add(center);
+  orbitControls.update();
+  render();
+}
+
+export function getScene() { return scene; }
+export function getCamera() { return camera; }
+export function getRenderer() { return renderer; }
