@@ -1,229 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
-  />
-  <title>Iconic Editor — Gizmo Visible Fix</title>
-  <meta name="theme-color" content="#0b0b0b" />
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  >
+  <title>Mobile 3D Tower Modeler</title>
 
-  <!-- Module shim + import map -->
-  <script src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root { --toolbar-h: 52px; }
+    html, body {
+      margin: 0; padding: 0; overflow: hidden;
+      height: 100%; width: 100%; background: #111;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    #canvas-container { position: fixed; inset: 0; z-index: 1; }
+    canvas { display: block; width: 100%; height: 100%; }
+    * { -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+
+    #loading-screen {
+      position: fixed; inset: 0; background: #1a1a1a; color: #fff;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 1.5rem; z-index: 1000; transition: opacity 0.5s ease;
+    }
+
+    .ui-panel {
+      position: fixed; 
+      background: rgba(30, 41, 59, 0.92); /* slate-800 @ 92% */
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-radius: 16px; z-index: 12;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      transition: transform 0.25s ease-out, opacity 0.2s ease-out, visibility 0.2s;
+    }
+
+    /* Mobile bottom-sheet default */
+    .bottom-sheet {
+      left: 12px; right: 12px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      transform: translateY(100%); opacity: 0; visibility: hidden;
+    }
+
+    /* Desktop left-drawer pattern (used in addition to bottom-sheet) */
+    .left-drawer {
+      left: 12px;
+      top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 12px);
+      width: 360px;
+      transform: translateX(-120%); opacity: 0; visibility: hidden;
+    }
+    body.desktop .left-drawer { bottom: auto; }
+    body.desktop .left-drawer.show { transform: translateX(0); opacity: 1; visibility: visible; }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+      background: #334155; /* slate-700 */
+      border-radius: 4px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 24px; height: 24px; 
+      background: #38bdf8; /* sky-500 */
+      border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 24px; height: 24px; 
+      background: #38bdf8; /* sky-500 */
+      border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+
+    #message-box {
+      position: fixed;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(51, 65, 85, 0.96); /* slate-700 */
+      color: #fff;
+      padding: 12px 16px; border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      z-index: 1001; opacity: 0; visibility: hidden;
+      transition: transform 0.18s ease-out, opacity 0.18s ease-out, visibility 0.18s;
+      text-align: center; font-size: 14px;
+    }
+    #message-box.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+
+    #app-toolbar-wrap {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+      padding-top: env(safe-area-inset-top, 0px);
+      background: rgba(15, 23, 42, 0.92); /* slate-900 @ 92% */
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #app-toolbar { height: var(--toolbar-h); }
+    .tool-btn { min-width: 64px; height: 36px; font-size: 14px; }
+
+    /* Props panel: mobile bottom-sheet; desktop right sidebar */
+    #props-panel {
+      left: 0; right: 0; bottom: 0;
+      border-top-left-radius: 16px; border-top-right-radius: 16px;
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+      height: 45vh; max-height: 45vh; z-index: 15;
+      transform: translateY(100%); opacity: 0; visibility: hidden;
+    }
+    body.desktop #props-panel {
+      right: 12px;
+      left: auto;
+      top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 12px);
+      bottom: 12px;
+      height: auto; max-height: calc(100vh - var(--toolbar-h) - 24px - env(safe-area-inset-top, 0px));
+      width: 360px; /* Standardized width */
+      transform: translateX(0) !important; opacity: 1 !important; visibility: visible !important;
+      border-radius: 16px;
+    }
+  </style>
+
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js",
+      "three/examples/jsm/controls/TransformControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/TransformControls.js",
+      "three/examples/jsm/environments/RoomEnvironment.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/environments/RoomEnvironment.js",
+      "three/examples/jsm/exporters/GLTFExporter.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/exporters/GLTFExporter.js",
+      "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js",
+      "three/addons/utils/BufferGeometryUtils.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/BufferGeometryUtils.js",
+      "three/examples/jsm/geometries/RoundedBoxGeometry.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/geometries/RoundedBoxGeometry.js",
+      "three/examples/jsm/modifiers/SimplifyModifier.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/modifiers/SimplifyModifier.js"
     }
   }
   </script>
 
-  <style>
-    :root { --bg:#0b0b0b; --panel:#141414; --line:#222; --text:#ddd; --muted:#999; --accent:#49a6ff; }
-    html, body { height:100%; width:100%; margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+  <script type="module" src="debugger.js"></script>
 
-    /* Layout: top viewer, bottom UI panel (mobile-first) */
-    #app {
-      position:fixed; inset:0; display:grid;
-      grid-template-rows: 60% 40%;
-    }
-    #viewer {
-      position:relative; background:#0b0b0b; border-bottom:1px solid var(--line);
-    }
-    #canvas-container { position:absolute; inset:0; }
-    #canvas-container canvas { display:block; width:100%; height:100%; touch-action:none; }
-    .axes-note { position:absolute; right:10px; bottom:10px; font-size:12px; color:var(--muted); opacity:.7 }
-    .status { position:absolute; left:10px; bottom:10px; font-size:12px; color:var(--muted); opacity:.8 }
-
-    /* Bottom panel */
-    #panel {
-      position:relative; background:var(--panel);
-      display:grid; grid-template-rows:auto 1fr;
-    }
-    .toolbar {
-      display:flex; gap:8px; padding:8px; border-bottom:1px solid var(--line);
-      background:linear-gradient(180deg, #171717, #131313);
-      position:relative; z-index:2;
-    }
-    .toolbar .group { display:flex; gap:6px; }
-    .toolbar button {
-      border:1px solid var(--line); background:#1a1a1a; color:var(--text); padding:6px 10px; border-radius:8px; font-size:13px;
-    }
-    .toolbar button:hover { border-color:#2a2a2a; }
-    .toolbar .split { flex:1 }
-    .toolbar .badge { font-size:11px; color:var(--muted); margin-left:6px; }
-
-    /* Panels area */
-    .panes { position:relative; overflow:auto; }
-    .pane {
-      padding:12px; display:none;
-    }
-    .pane.active { display:block; }
-
-    /* Simple lists */
-    .list { display:grid; gap:8px; }
-    .row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; background:#161616; border:1px solid var(--line); border-radius:8px; }
-    .row label { font-size:13px; color:#ccc; }
-    .row input[type="range"] { width:50%; }
-    .hint { color:var(--muted); font-size:12px; }
-
-    /* Desktop: put panel at right for wide screens */
-    @media (min-width: 900px) {
-      #app { grid-template-rows: 100%; grid-template-columns: 70% 30%; }
-      #viewer { border-bottom:0; border-right:1px solid var(--line); }
-      #panel { grid-row:1; grid-column:2; }
-    }
-  </style>
 </head>
-<body>
-  <div id="app">
-    <div id="viewer">
-      <div id="canvas-container"></div>
-      <div class="axes-note">Gizmo axes: X red • Y green • Z blue</div>
-      <div class="status" id="status">No selection</div>
+<body class="bg-slate-900 text-white">
 
-      <!-- Quick transform buttons overlay -->
-      <div class="toolbar" style="position:absolute; left:10px; top:10px; right:auto;">
-        <div class="group">
-          <button data-tmode="translate" title="W">Move</button>
-          <button data-tmode="rotate"    title="E">Rotate</button>
-          <button data-tmode="scale"     title="R">Scale</button>
-        </div>
-        <div class="group">
-          <button data-tspace="world" title="1">World</button>
-          <button data-tspace="local" title="2">Local</button>
-        </div>
-        <span class="badge">Tap object to attach gizmo</span>
-      </div>
-    </div>
+  <div id="canvas-container"></div>
 
-    <div id="panel">
-      <!-- Main toolbar -->
-      <div class="toolbar">
-        <div class="group">
-          <button id="btn-add-cube">Add Cube</button>
-          <button id="btn-add-sphere">Add Sphere</button>
-        </div>
-        <div class="group">
-          <button id="btn-focus">Focus</button>
-          <button id="btn-clear">Clear Selection</button>
-        </div>
-        <div class="split"></div>
-        <div class="group">
-          <button id="btn-grid-toggle">Grid On/Off</button>
-          <button id="btn-axis-toggle">Axes On/Off</button>
-        </div>
-      </div>
+  <div id="loading-screen"><div>Loading 3D Environment...</div></div>
 
-      <!-- Panes -->
-      <div class="panes">
-        <section class="pane active" id="pane-props">
-          <h3 style="margin:6px 0 12px;">Properties</h3>
-          <div class="list">
-            <div class="row">
-              <label>Uniform Scale</label>
-              <input id="ui-scale" type="range" min="0.1" max="5" step="0.01" value="1" />
-            </div>
-            <div class="row">
-              <label>Wireframe (Active)</label>
-              <input id="ui-wire" type="checkbox" />
-            </div>
-            <div class="row">
-              <label>Gizmo Size</label>
-              <input id="ui-gizmo-size" type="range" min="0.3" max="2.5" step="0.1" value="1" />
-            </div>
-            <p class="hint">W/E/R switch mode • 1/2 switch space • Tap mesh to attach gizmo.</p>
-          </div>
-        </section>
+  <div id="message-box"><p id="message-text">Ready</p></div>
+
+  <div id="app-toolbar-wrap">
+    <div id="app-toolbar" class="px-3 flex items-center gap-2">
+      <button id="file-btn"   class="tool-btn flex-1 bg-slate-700 rounded-md shadow active:scale-95 font-semibold">File</button>
+      <button id="add-btn"    class="tool-btn flex-1 bg-sky-600 rounded-md shadow active:scale-95 font-semibold">Add</button>
+      <button id="scene-btn"  class="tool-btn flex-1 bg-slate-700 rounded-md shadow active:scale-95 font-semibold">Scene</button>
+      <button id="tools-btn" class="tool-btn flex-1 bg-slate-700 rounded-md shadow active:scale-95 font-semibold">Tools</button>
       </div>
-    </div>
   </div>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import {
-      initScene, addModel, selectObject, clearSelection, focusSelection,
-      setTransformMode, setTransformSpace, getScene, getCamera, getRenderer
-    } from './main.js';
+  <div id="file-panel-placeholder"></div>
+  <div id="add-panel-placeholder"></div>
+  <div id="scene-panel-placeholder"></div>
+  <div id="tools-panel-placeholder"></div>
+  <div id="parent-panel-placeholder"></div>
+  <div id="decimate-panel-placeholder"></div>
+  <div id="export-panel-placeholder"></div>
+  <div id="props-panel-placeholder"></div>
 
-    // Boot scene
-    const container = document.getElementById('canvas-container');
-    initScene(container);
+  <input id="picker-load-json" type="file" accept="application/json" class="hidden">
+  <input id="picker-import-glb" type="file" accept=".glb,model/gltf-binary" class="hidden">
 
-    // Optional helpers
-    const scene = getScene();
-    const status = document.getElementById('status');
 
-    // Small axis + grid toggles
-    const axesHelper = new THREE.AxesHelper(1.4); axesHelper.visible = true; scene.add(axesHelper);
-    let gridRef = scene.children.find(o => o.isGridHelper); // created in scene-manager
-    document.getElementById('btn-grid-toggle').onclick = () => { gridRef.visible = !gridRef.visible; };
-    document.getElementById('btn-axis-toggle').onclick = () => { axesHelper.visible = !axesHelper.visible; };
-
-    // Add sample builders (uses object-manifest.js in your project normally)
-    document.getElementById('btn-add-cube').onclick = async () => {
-      const { MeshStandardMaterial, BoxGeometry, Mesh } = THREE;
-      const mesh = new Mesh(new BoxGeometry(1,1,1), new MeshStandardMaterial({ color: 0x7daafc, metalness:0.1, roughness:0.7 }));
-      mesh.name = 'Cube';
-      addModel(mesh);
-      selectObject(mesh);
-      status.textContent = 'Selected: Cube';
+  <script>
+    // This function will still run, but debugger.js will also catch errors.
+    const hideLoader = () => {
+      const ls = document.getElementById('loading-screen');
+      if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
     };
-    document.getElementById('btn-add-sphere').onclick = async () => {
-      const { MeshStandardMaterial, SphereGeometry, Mesh } = THREE;
-      const mesh = new Mesh(new SphereGeometry(0.6, 32, 16), new MeshStandardMaterial({ color: 0xffad66, metalness:0.2, roughness:0.6 }));
-      mesh.name = 'Sphere';
-      mesh.position.set(1.3, 0.6, 0);
-      addModel(mesh);
-      selectObject(mesh);
-      status.textContent = 'Selected: Sphere';
-    };
-
-    document.getElementById('btn-focus').onclick = () => focusSelection();
-    document.getElementById('btn-clear').onclick = () => { clearSelection(); status.textContent = 'No selection'; };
-
-    // Simple UI bindings
-    document.getElementById('ui-scale').addEventListener('input', (e) => {
-      const s = parseFloat(e.target.value);
-      if (window.currentSelectionRef) {
-        window.currentSelectionRef.scale.setScalar(s);
-      }
-    });
-    document.getElementById('ui-wire').addEventListener('change', (e) => {
-      if (window.currentSelectionRef) {
-        if (window.currentSelectionRef.material) {
-          window.currentSelectionRef.material.wireframe = !!e.target.checked;
-        }
-      }
-    });
-    document.getElementById('ui-gizmo-size').addEventListener('input', (e) => {
-      const v = parseFloat(e.target.value);
-      // scene-manager exposes transformControls on module scope; adjust via event
-      window.dispatchEvent(new CustomEvent('iconic:set-gizmo-size', { detail: v }));
-    });
-
-    // Keyboard shortcuts
-    window.addEventListener('keydown', (ev) => {
-      if (ev.key === 'w' || ev.key === 'W') setTransformMode('translate');
-      if (ev.key === 'e' || ev.key === 'E') setTransformMode('rotate');
-      if (ev.key === 'r' || ev.key === 'R') setTransformMode('scale');
-      if (ev.key === '1') setTransformSpace('world');
-      if (ev.key === '2') setTransformSpace('local');
-    });
-
-    // Track selection status via custom event from scene-manager
-    window.addEventListener('iconic:selection-changed', (e) => {
-      const obj = e.detail;
-      window.currentSelectionRef = obj || null;
-      status.textContent = obj ? `Selected: ${obj.name || obj.type}` : 'No selection';
-      // Sync wireframe switch
-      const wf = document.getElementById('ui-wire');
-      wf.checked = !!(obj && obj.material && obj.material.wireframe);
-    });
+    window.addEventListener('error', hideLoader);
+    window.addEventListener('unhandledrejection', hideLoader);
   </script>
 
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
