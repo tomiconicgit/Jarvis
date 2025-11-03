@@ -33,6 +33,9 @@ function getSerializableTexOverrides(o) {
 export function serializeModels(scene) {
   const nodes = [];
   scene.traverse((o) => {
+    // --- NEW: Skip invisible objects ---
+    if (!o.visible) return;
+    // --- END NEW ---
     // We only serialize root models...
     if (o.userData?.isModel) {
       nodes.push({
@@ -208,23 +211,9 @@ function mergeAllModels(rootModels) {
   const mergedGeo = mergeGeometries(geometries, true);
   if (!mergedGeo) return null;
 
-  // Generate new top-down UVs
-  mergedGeo.computeBoundingBox();
-  const box = mergedGeo.boundingBox;
-  const size = box.getSize(new THREE.Vector3());
-  const pos = mergedGeo.attributes.position;
-  const uvArray = new Float32Array(pos.count * 2);
-  const sizeX = size.x === 0 ? 1 : size.x;
-  const sizeZ = size.z === 0 ? 1 : size.z;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-    uvArray[i * 2] = (x - box.min.x) / sizeX;
-    uvArray[i * 2 + 1] = (z - box.min.z) / sizeZ;
-  }
-  mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
-  mergedGeo.setAttribute('uv2', new THREE.BufferAttribute(uvArray, 2));
+  // --- MODIFIED: Removed top-down UV generation to preserve original UVs ---
   mergedGeo.computeVertexNormals();
+  // --- END MODIFIED ---
 
   return new THREE.Mesh(mergedGeo, materials);
 }
@@ -243,12 +232,19 @@ export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 
     for (const m of allModels) {
       let a = m;
       while (a.parent && a.parent !== scene && a.parent.userData?.isModel) a = a.parent;
-      roots.add(a);
+      // --- NEW: Only include visible roots ---
+      if (a.visible) roots.add(a);
+      // --- END NEW ---
     }
     
     // --- MODIFIED: Handle mergeAll option ---
     if (mergeAll) {
       const rootModels = Array.from(roots).map(r => r.clone(true));
+      // --- NEW: Bake UV transforms in cloned models for merged export ---
+      rootModels.forEach(clonedModel => {
+        bakeUVTransforms(clonedModel);
+      });
+      // --- END NEW ---
       const mergedMesh = mergeAllModels(rootModels);
       if (mergedMesh) {
         tempRoot = new THREE.Group();
@@ -262,7 +258,13 @@ export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 
     } else {
       tempRoot = new THREE.Group();
       tempRoot.name = 'ExportRoot_Standard';
-      roots.forEach(r => tempRoot.add(r.clone(true)));
+      roots.forEach(r => {
+        const cloned = r.clone(true);
+        // --- NEW: Bake UV transforms in the cloned model ---
+        bakeUVTransforms(cloned);
+        // --- END NEW ---
+        tempRoot.add(cloned);
+      });
       root = tempRoot;
     }
     // --- END MODIFICATION ---
@@ -323,3 +325,75 @@ export function importGLBFile(file, scene, allModels, onAfterAdd) {
     throw e;
   });
 }
+
+// --- NEW: Function to bake UV transforms into geometry for export ---
+function bakeUVTransforms(root) {
+  root.traverse((n) => {
+    if (n.isMesh) {
+      let overrides = n.userData._texOverrides;
+      if (!overrides) {
+        // Check ancestors for overrides (if set on group)
+        let par = n.parent;
+        while (par && par !== scene) {
+          if (par.userData._texOverrides) {
+            overrides = par.userData._texOverrides;
+            break;
+          }
+          par = par.parent;
+        }
+      }
+      if (overrides) {
+        const scaleX = overrides.uvScaleX || 1;
+        const scaleY = overrides.uvScaleY || 1;
+        const rotation = overrides.uvRotation || 0;
+        if (scaleX !== 1 || scaleY !== 1 || rotation !== 0) {
+          // Clone geometry to modify
+          n.geometry = n.geometry.clone();
+          ['uv', 'uv2'].forEach(attrName => {
+            const uvAttr = n.geometry.attributes[attrName];
+            if (uvAttr) {
+              const centerX = 0.5, centerY = 0.5;
+              const cos = Math.cos(rotation);
+              const sin = Math.sin(rotation);
+              for (let i = 0; i < uvAttr.count; i++) {
+                let u = uvAttr.getX(i) - centerX;
+                let v = uvAttr.getY(i) - centerY;
+                const u2 = u * cos - v * sin;
+                const v2 = u * sin + v * cos;
+                uvAttr.setXY(i, u2 * scaleX + centerX, v2 * scaleY + centerY);
+              }
+              uvAttr.needsUpdate = true;
+            }
+          });
+        }
+        // Clone material(s) and reset texture transforms
+        if (Array.isArray(n.material)) {
+          n.material = n.material.map(m => m.clone());
+        } else {
+          n.material = n.material.clone();
+        }
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        const resetTex = (tex) => {
+          if (tex) {
+            tex.repeat.set(1, 1);
+            tex.rotation = 0;
+            tex.center.set(0, 0);
+            tex.offset.set(0, 0);
+            tex.needsUpdate = true;
+          }
+        };
+        mats.forEach(m => {
+          resetTex(m.map);
+          resetTex(m.normalMap);
+          resetTex(m.roughnessMap);
+          resetTex(m.metalnessMap);
+          resetTex(m.aoMap);
+          resetTex(m.emissiveMap);
+          resetTex(m.displacementMap);
+          // displacementScale is preserved on cloned material
+        });
+      }
+    }
+  });
+}
+// --- END NEW ---
