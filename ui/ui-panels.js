@@ -1,3 +1,5 @@
+File: ui/ui-panels.js
+--------------------------------------------------------------------------------
 // File: ui/ui-panels.js
 import { deselectAll } from '../core/scene-manager.js';
 
@@ -49,9 +51,15 @@ export function initPanelToggles() {
   document.getElementById('file-btn').addEventListener('click', () => {
     togglePanel(document.getElementById('file-panel'));
   });
+  
+  // --- *** OVERHAUL CHANGE *** ---
+  // The "Add" button now directly triggers the GLB import picker
   document.getElementById('add-btn').addEventListener('click', () => {
-    togglePanel(document.getElementById('add-panel'));
+    if (activePanel) hidePanel(activePanel); // Close any open panel
+    document.getElementById('picker-import-glb').click();
   });
+  // --- *** END OVERHAUL CHANGE *** ---
+  
   document.getElementById('scene-btn').addEventListener('click', () => {
     togglePanel(document.getElementById('scene-panel'));
   });
