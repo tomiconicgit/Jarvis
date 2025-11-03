@@ -1,8 +1,13 @@
+File: ui/file-panel-manager.js
+--------------------------------------------------------------------------------
 // File: ui/file-panel-manager.js
-import { scene, allModels, assignDefaultName, getBuilders, getEnsureTexState } from '../core/scene-manager.js';
+// --- MODIFIED IMPORT: Removed getEnsureTexState ---
+import { scene, allModels, assignDefaultName, getBuilders } from '../core/scene-manager.js';
 import { serializeModels, downloadBlob, loadFromJSON, exportGLB, importGLBFile } from '../fileio.js';
 import { hidePanel, showTempMessage, togglePanel } from './ui-panels.js';
 import { refreshSceneList } from './scene-panel-manager.js';
+// --- NEW IMPORT: Get ensureTexState from props-panel directly ---
+import { ensureTexState } from '../ui/props-panel.js';
 
 export function initFilePanel() {
   const filePanel = document.getElementById('file-panel');
@@ -29,9 +34,12 @@ export function initFilePanel() {
     try {
       const text = await f.text();
       const json = JSON.parse(text);
+      
+      // --- MODIFIED CALL: Pass ensureTexState directly ---
       loadFromJSON(json, getBuilders(), scene, allModels, (o) => {
         if (!o.userData.label) assignDefaultName(o);
-      }, getEnsureTexState());
+      }, ensureTexState); // <-- Use the direct import
+      
       refreshSceneList();
       showTempMessage('Session loaded');
       hidePanel(filePanel);
@@ -46,8 +54,8 @@ export function initFilePanel() {
   // File Export
   document.getElementById('file-export').addEventListener('click', () => {
     document.getElementById('export-name').value = 'Model.glb';
-    document.getElementById('opt-merge-all').checked = false; // Default to not merged
-    togglePanel(exportPanel); // This will hide filePanel and show exportPanel
+    document.getElementById('opt-merge-all').checked = false;
+    togglePanel(exportPanel);
   });
   document.getElementById('export-close').addEventListener('click', () => hidePanel(exportPanel));
   document.getElementById('export-cancel').addEventListener('click', () => hidePanel(exportPanel));
@@ -55,7 +63,7 @@ export function initFilePanel() {
     const name = (document.getElementById('export-name').value || 'Model.glb').trim();
     const optOnlyModels = document.getElementById('opt-only-models').checked;
     const optBinary = document.getElementById('opt-binary').checked;
-    const optMergeAll = document.getElementById('opt-merge-all').checked; // <-- NEW
+    const optMergeAll = document.getElementById('opt-merge-all').checked;
     
     exportGLB(
       { 
@@ -64,7 +72,7 @@ export function initFilePanel() {
         binary: optBinary, 
         fileName: name, 
         allModels,
-        mergeAll: optMergeAll // <-- NEW
+        mergeAll: optMergeAll
       },
       () => showTempMessage('Exported'),
       (e) => { console.error(e); showTempMessage('Export failed'); }
@@ -82,7 +90,6 @@ export function initFilePanel() {
       importGLBFile(f, scene, allModels, (o) => {
         assignDefaultName(o);
         refreshSceneList();
-        // selectObject(o); // Decided not to auto-select on import
       });
       showTempMessage('Importing…');
     } catch (err) {
