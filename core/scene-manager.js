@@ -1,3 +1,5 @@
+File: core/scene-manager.js
+--------------------------------------------------------------------------------
 // File: core/scene-manager.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -141,13 +143,16 @@ function handleSingleTap(e) {
   // This prevents you from selecting the ground or grid.
   const hits = raycaster.intersectObjects(allModels, true);
 
+  // --- *** OVERHAUL CHANGE *** ---
+  // We no longer ascend to the root. We select the specific mesh that was hit.
+  // This allows for individual mesh transforming and editing.
   if (hits.length) {
-    let obj = hits[0].object;
-    while (obj && obj.parent && !obj.userData?.isModel) obj = obj.parent;
-    selectObject(obj || hits[0].object);
+    const obj = hits[0].object; // Select the specific mesh
+    selectObject(obj);
   } else {
     deselectAll();
   }
+  // --- *** END OVERHAUL CHANGE *** ---
 }
 
 function handleDoubleTap(e) {
@@ -158,6 +163,7 @@ function handleDoubleTap(e) {
   const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
+    // For double-tap, we *do* want to find the root to focus the camera
     const root = ascendToModelRoot(hits[0].object);
     const box = new THREE.Box3().setFromObject(root);
     orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
@@ -174,9 +180,12 @@ function ascendToModelRoot(o) {
 export function selectObject(o) {
   if (!o || currentSelection === o) return;
   
-  if (!o.userData?.isModel && o.type !== 'Mesh') {
-    return; // Safety check
+  // --- *** OVERHAUL CHANGE *** ---
+  // Allow selecting any mesh, not just models
+  if (o.type !== 'Mesh' && !o.userData?.isModel) {
+     return; // Safety check, but we now allow meshes
   }
+  // --- *** END OVERHAUL CHANGE *** ---
   
   currentSelection = o;
   transformControls.attach(o); // RE-ADDED
@@ -233,7 +242,14 @@ export function assignDefaultName(obj) {
 }
 
 export function findByUUID(uuid) { 
-  return allModels.find(o => o.uuid === uuid); 
+  // --- *** OVERHAUL CHANGE *** ---
+  // We must also be able to find sub-meshes by UUID for selection
+  let found = allModels.find(o => o.uuid === uuid);
+  if (found) return found;
+
+  // If not in root list, search scene graph (for sub-meshes)
+  return scene.getObjectByProperty('uuid', uuid);
+  // --- *** END OVERHAUL CHANGE *** ---
 }
 export function getBuilders() { return BUILDERS; }
 export function getEnsureTexState() { return ensureTexState; }
