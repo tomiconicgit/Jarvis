@@ -162,6 +162,12 @@ function mergeAllModels(rootModels) {
   for (const model of rootModels) {
     model.traverse(mesh => {
       if (mesh.isMesh && mesh.geometry?.attributes?.position) {
+        
+        // --- ADDED FIX ---
+        // Don't include invisible meshes in the merge
+        if (!mesh.visible) return; 
+        // --- END FIX ---
+
         mesh.updateWorldMatrix(true, true);
         const geo = mesh.geometry.clone();
         geo.applyMatrix4(mesh.matrixWorld);
@@ -261,6 +267,29 @@ export function exportGLB({ scene, modelsOnly = true, binary = true, fileName = 
       tempRoot.name = 'ExportRoot_Standard';
       roots.forEach(r => {
         const cloned = r.clone(true);
+        
+        // -----------------------------------------------------------------
+        // --- FIX: Prune invisible children from the clone ---
+        // This stops hidden objects (like optimized originals)
+        // from appearing in the final export.
+        // -----------------------------------------------------------------
+        const toRemove = [];
+        cloned.traverse(child => {
+            if (!child.visible) {
+                toRemove.push(child);
+            }
+        });
+        
+        // Traverse backwards to remove deepest children first
+        for (let i = toRemove.length - 1; i >= 0; i--) {
+            const child = toRemove[i];
+            if (child.parent) {
+                child.parent.remove(child);
+            }
+        }
+        // --- END FIX ---
+        // -----------------------------------------------------------------
+
         // --- NEW: Bake UV transforms in the cloned model ---
         bakeUVTransforms(cloned);
         // --- END NEW ---
