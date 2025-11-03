@@ -311,15 +311,13 @@ export function importGLBFile(file, scene, allModels, onAfterAdd) {
       }
     });
 
-    const wrap = new THREE.Group();
-    wrap.name = file.name.replace(/\.(glb|gltf)$/i, '') || 'ImportedGLB';
-    wrap.userData.isModel = true;
-    wrap.userData.type = 'ImportedGLB';
-    wrap.add(obj);
+    obj.name = file.name.replace(/\.(glb|gltf)$/i, '') || 'ImportedGLB';
+    obj.userData.isModel = true;
+    obj.userData.type = 'ImportedGLB';
 
-    scene.add(wrap);
-    allModels.push(wrap);
-    onAfterAdd && onAfterAdd(wrap);
+    scene.add(obj);
+    allModels.push(obj);
+    onAfterAdd && onAfterAdd(obj);
     URL.revokeObjectURL(url);
   }, undefined, (e) => {
     URL.revokeObjectURL(url);
