@@ -1,3 +1,5 @@
+File: ui/scene-panel-manager.js (NO CHANGE from last time)
+--------------------------------------------------------------------------------
 import * as THREE from 'three';
 import { allModels, currentSelection, selectObject, deselectAll, assignDefaultName, scene } from '../core/scene-manager.js';
 import { hidePanel } from './ui-panels.js';
@@ -219,15 +221,16 @@ function duplicateModel(src) {
   const type = src.userData?.type || 'Object';
   const params = { ...(src.userData?.params || {}) };
 
-  const def = OBJECT_DEFINITIONS.find(d => d.type === type);
+  // --- *** OVERHAUL CHANGE *** ---
+  // We can only duplicate 'ImportedGLB' or other cloned types
+  // const def = OBJECT_DEFINITIONS.find(d => d.type === type); // No definitions left
   
-  if (def && type !== 'ImportedGLB') {
-    copy = new def.ctor(params);
-  } else {
-    // Fallback for imported GLBs or non-manifest objects
-    copy = src.clone(true);
-    copy.userData = JSON.parse(JSON.stringify(src.userData)); // Deep copy userData
-  }
+  // if (def && type !== 'ImportedGLB') { ... } // This block is removed
+  
+  // Fallback for imported GLBs or non-manifest objects
+  copy = src.clone(true);
+  copy.userData = JSON.parse(JSON.stringify(src.userData)); // Deep copy userData
+  // --- *** END OVERHAUL CHANGE *** ---
 
   copy.position.copy(src.position).add(new THREE.Vector3(1, 0, 1));
   copy.rotation.copy(src.rotation);
