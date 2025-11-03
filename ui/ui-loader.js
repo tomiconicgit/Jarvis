@@ -1,9 +1,11 @@
+File: ui/ui-loader.js
+--------------------------------------------------------------------------------
 // File: ui/ui-loader.js
 
 // List of all UI panels to load
 const panels = [
   { id: 'file-panel-placeholder', path: 'ui/file-panel.html' },
-  { id: 'add-panel-placeholder', path: 'ui/add-panel.html' },
+  // { id: 'add-panel-placeholder', path: 'ui/add-panel.html' }, // <-- REMOVED
   { id: 'scene-panel-placeholder', path: 'ui/scene-panel.html' },
   { id: 'tools-panel-placeholder', path: 'ui/tools-panel.html' }, // --- NEW
   { id: 'parent-panel-placeholder', path: 'ui/parent-panel.html' },
