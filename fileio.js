@@ -4,6 +4,7 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { GLTFLoader }   from 'three/examples/jsm/loaders/GLTFLoader.js';
 // --- NEW IMPORT ---
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { scene } from '../core/scene-manager.js';
 
 /** Helper to serialize texture overrides */
 function getSerializableTexOverrides(o) {
