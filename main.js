@@ -1,9 +1,11 @@
+File: main.js
+--------------------------------------------------------------------------------
 // File: main.js
 import { Debugger } from './debugger.js'; // <-- Keep the debugger
 import { loadUIPanels } from './ui/ui-loader.js';
 import { initScene, animate } from './core/scene-manager.js';
 import { initGlobalUI, initPanelToggles, showTempMessage } from './ui/ui-panels.js';
-import { initAddPanel } from './ui/add-panel-manager.js';
+// import { initAddPanel } from './ui/add-panel-manager.js'; // <-- REMOVED
 import { initFilePanel } from './ui/file-panel-manager.js';
 import { initScenePanel } from './ui/scene-panel-manager.js';
 import { initParentPanel } from './ui/parent-panel-manager.js';
@@ -30,7 +32,7 @@ async function main() {
     initGlobalUI(); 
     initPanelToggles(); 
     initToolsPanel(); 
-    initAddPanel();
+    // initAddPanel(); // <-- REMOVED
     initFilePanel();
     initScenePanel();
     initParentPanel();
