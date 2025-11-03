@@ -1,4 +1,4 @@
-File: core/scene-manager.js
+File: core/scene-manager.js (NO CHANGE from last time)
 --------------------------------------------------------------------------------
 // File: core/scene-manager.js
 import * as THREE from 'three';
