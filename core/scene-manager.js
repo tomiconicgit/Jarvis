@@ -1,21 +1,29 @@
-File: core/scene-manager.js (NO CHANGE from last time)
+File: core/scene-manager.js
 --------------------------------------------------------------------------------
 // File: core/scene-manager.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'; // RE-ADDED
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { updatePropsPanel } from '../ui/props-panel.js';
-import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
+// --- UI IMPORTS REMOVED ---
+// import { updatePropsPanel } from '../ui/props-panel.js';
+// import { showPanel, hidePanel, showTempMessage } from '../ui/ui-panels.js';
 import { BUILDERS } from '../objects/object-manifest.js';
-import { ensureTexState } from '../ui/props-panel.js';
-// --- GIZMO IMPORTS REMOVED ---
-// import { showGizmo, hideGizmo } from '../ui/gizmo.js';
+// import { ensureTexState } from '../ui/props-panel.js'; // <-- REMOVED
 
-// We are putting transformControls back here
-export let scene, camera, renderer, orbitControls, transformControls; // RE-ADDED transformControls
+export let scene, camera, renderer, orbitControls, transformControls;
 export let allModels = [];
 export let currentSelection = null;
+
+// --- CALLBACKS TO NOTIFY UI ---
+let onSelectCallback = null;
+let onDeselectCallback = null;
+let showMessageCallback = null;
+
+export function setOnSelect(fn) { onSelectCallback = fn; }
+export function setOnDeselect(fn) { onDeselectCallback = fn; }
+export function setShowMessage(fn) { showMessageCallback = fn; }
+// --- END CALLBACKS ---
 
 const raycaster = new THREE.Raycaster();
 const downPos = new THREE.Vector2();
@@ -74,14 +82,12 @@ export function initScene() {
   orbitControls.enablePan = true;
   orbitControls.maxDistance = 2000;
 
-  // --- RE-ADD TRANSFORMCONTROLS ---
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.visible = false;
   transformControls.addEventListener('dragging-changed', (event) => {
     orbitControls.enabled = !event.value;
   });
   scene.add(transformControls.getHelper());
-  // --- END TRANSFORMCONTROLS ---
 
   // Events
   window.addEventListener('resize', resizeRenderer);
@@ -128,46 +134,35 @@ function handleSingleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // --- ADDED GIZMO HIT CHECK ---
-  // If the transform gizmo is visible, check if we tapped it.
-  // If so, do nothing and let the gizmo handle it.
   if (transformControls.visible) {
     const gizmoHits = raycaster.intersectObjects(transformControls.getHelper().children, true);
     if (gizmoHits.length > 0) {
-      return; // Tapped on the gizmo, don't deselect.
+      return;
     }
   }
-  // --- END GIZMO HIT CHECK ---
   
-  // **CRITICAL FIX**: Only raycast against `allModels`, not the whole scene.
-  // This prevents you from selecting the ground or grid.
   const hits = raycaster.intersectObjects(allModels, true);
 
-  // --- *** OVERHAUL CHANGE *** ---
-  // We no longer ascend to the root. We select the specific mesh that was hit.
-  // This allows for individual mesh transforming and editing.
   if (hits.length) {
-    const obj = hits[0].object; // Select the specific mesh
+    const obj = hits[0].object;
     selectObject(obj);
   } else {
     deselectAll();
   }
-  // --- *** END OVERHAUL CHANGE *** ---
 }
 
 function handleDoubleTap(e) {
   const ndc = getPointerNDC(e);
   raycaster.setFromCamera(ndc, camera);
 
-  // **CRITICAL FIX**: Only raycast against `allModels`.
   const hits = raycaster.intersectObjects(allModels, true);
 
   if (hits.length) {
-    // For double-tap, we *do* want to find the root to focus the camera
     const root = ascendToModelRoot(hits[0].object);
     const box = new THREE.Box3().setFromObject(root);
     orbitControls.target.copy(box.getCenter(new THREE.Vector3()));
-    showTempMessage && showTempMessage('Camera Focused');
+    // --- UI CALL REMOVED ---
+    showMessageCallback && showMessageCallback('Camera Focused');
   }
 }
 
@@ -180,59 +175,28 @@ function ascendToModelRoot(o) {
 export function selectObject(o) {
   if (!o || currentSelection === o) return;
   
-  // --- *** OVERHAUL CHANGE *** ---
-  // Allow selecting any mesh, not just models
   if (o.type !== 'Mesh' && !o.userData?.isModel) {
-     return; // Safety check, but we now allow meshes
+     return;
   }
-  // --- *** END OVERHAUL CHANGE *** ---
   
   currentSelection = o;
-  transformControls.attach(o); // RE-ADDED
-  
-  // --- GIZMO ---
-  // showGizmo && showGizmo(o); // REMOVED
-  // --- END GIZMO ---
-  
-  // --- BUG FIX ---
-  transformControls.visible = true; // RE-ADDED
-  // --- END FIX ---
+  transformControls.attach(o);
+  transformControls.visible = true;
 
-  updatePropsPanel && updatePropsPanel(o);
-
-  const props = document.getElementById('props-panel');
-  if (props && showPanel) showPanel(props);
-  
-  // Hide all other panels
-  [
-    'add-panel',
-    'scene-panel',
-    'tools-panel',
-    'parent-panel',
-    'decimate-panel',
-    'file-panel',
-    'export-panel'
-  ].forEach(id => { 
-      const el = document.getElementById(id); 
-      el && hidePanel && hidePanel(el); 
-  });
+  // --- UI CALLS REMOVED ---
+  onSelectCallback && onSelectCallback(o);
+  // --- END UI CALLS ---
 }
 
 export function deselectAll() {
-  if (currentSelection) transformControls.detach(); // RE-ADDED
+  if (currentSelection) transformControls.detach();
   
-  // --- GIZMO ---
-  // hideGizmo && hideGizmo(); // REMOVED
-  // --- END GIZMO ---
-  
-  // --- BUG FIX ---
-  transformControls.visible = false; // RE-ADDED
-  // --- END FIX ---
-  
+  transformControls.visible = false;
   currentSelection = null;
 
-  const props = document.getElementById('props-panel');
-  props && hidePanel && hidePanel(props);
+  // --- UI CALLS REMOVED ---
+  onDeselectCallback && onDeselectCallback();
+  // --- END UI CALLS ---
 }
 
 export function assignDefaultName(obj) {
@@ -242,14 +206,9 @@ export function assignDefaultName(obj) {
 }
 
 export function findByUUID(uuid) { 
-  // --- *** OVERHAUL CHANGE *** ---
-  // We must also be able to find sub-meshes by UUID for selection
   let found = allModels.find(o => o.uuid === uuid);
   if (found) return found;
-
-  // If not in root list, search scene graph (for sub-meshes)
   return scene.getObjectByProperty('uuid', uuid);
-  // --- *** END OVERHAUL CHANGE *** ---
 }
 export function getBuilders() { return BUILDERS; }
-export function getEnsureTexState() { return ensureTexState; }
+// --- REMOVED getEnsureTexState() ---
