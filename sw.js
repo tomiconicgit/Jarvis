@@ -1,21 +1,29 @@
 // sw.js
 
-const CACHE_VERSION = 'v1.0.1'; // You might want to bump this to v1.0.2
+const CACHE_VERSION = 'v1.0.3'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
     '/',
     'index.html',
     'manifest.json',
-    'launcher.js', // <-- **** RENAMED FROM loading.js ****
+    'launcher.js',
     'debugger.js',
     'src/main.js',
     'src/core/viewport.js',
-    'src/core/camera.js'
-    // Add icons and other assets here
-    // Note: The service worker will NOT know about your UI modules
-    // unless you add them here, but the app will still work
-    // (it just won't be 100% offline-first until they are added).
+    'src/core/camera.js',
+    
+    // --- ADDED ALL NEW MODULES ---
+    'src/core/filemanagement.js',
+    'src/core/procedural/terrain.js',
+    'src/core/ui/menu.js',
+    'src/core/ui/workspace.js',
+    'src/core/selectioncontext.js' // <-- YOUR NEW FILE
+    
+    // Add icons/ folder here when ready
+    // 'icons/icon-192x192.png',
+    // 'icons/icon-512x512.png',
+    // 'icons/icon-maskable-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {
