@@ -1,5 +1,8 @@
 // src/core/ui/workspace.js
 
+// --- 1. ADD A MODULE-LEVEL App VARIABLE ---
+let App;
+
 // --- We now provide icons as SVGs for the file manager ---
 const ICONS = {
     mesh: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 6.5-10 6.5-10-6.5L12 2zM2 15l10 6.5L22 15M2 8.5l10 6.5L22 8.5"></path></svg>`,
@@ -163,12 +166,19 @@ function injectStyles() {
             color: var(--workspace-text-color, #f5f5f7);
             font-size: 14px;
             border-bottom: 1px solid var(--ui-border);
+            cursor: pointer; /* --- 2. ADD CURSOR POINTER --- */
         }
         .ws-file-item:last-child {
             border-bottom: none;
         }
         .ws-file-item:active {
             background: var(--ui-light-grey);
+        }
+        
+        /* --- NEW: Add a selected state --- */
+        .ws-file-item.is-selected {
+            background: var(--ui-blue);
+            color: #fff;
         }
         
         .ws-file-item .file-icon {
@@ -288,32 +298,45 @@ export function renderWorkspaceUI(folders) {
 
     // Build the new HTML
     for (const folder of folders) {
-        // 1. Create Folder Wrapper
-        const folderDiv = document.createElement('div');
-        folderDiv.className = `ws-folder ${folder.isOpen ? '' : 'is-closed'}`;
-        
-        // 2. Create Folder Header
-        const header = document.createElement('div');
-        header.className = 'ws-folder-header';
-        header.innerHTML = `
-            ${ICONS.arrow}
-            <span class="folder-icon">${ICONS.folder}</span>
-            <span class="ws-folder-name">${folder.name}</span>
-        `;
-        
-        // 3. Create Items Container
-        const itemsDiv = document.createElement('div');
-        itemsDiv.className = 'ws-folder-items';
+        // ... (folderDiv, header, itemsDiv creation is unchanged) ...
         
         // 4. Create File Items
         for (const item of folder.items) {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'ws-file-item';
             itemDiv.dataset.id = item.id;
+            itemDiv.dataset.name = item.name; // <-- 3. STORE NAME
             itemDiv.innerHTML = `
                 <span class="file-icon">${item.icon}</span>
                 <span>${item.name}</span>
             `;
+            
+            // --- 4. ADD CLICK LISTENER TO SELECT OBJECT ---
+            itemDiv.addEventListener('click', () => {
+                if (!App || !App.selectionContext) {
+                    console.warn('SelectionContext not available on App');
+                    return;
+                }
+                
+                // Find the 3D object in the scene by its name
+                const objectName = itemDiv.dataset.name;
+                const objectInScene = App.scene.getObjectByName(objectName);
+                
+                if (objectInScene) {
+                    App.selectionContext.select(objectInScene);
+                    
+                    // --- (Optional) Highlight the selected item in the UI ---
+                    document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
+                        el.classList.remove('is-selected');
+                    });
+                    itemDiv.classList.add('is-selected');
+                    
+                } else {
+                    console.warn(`Could not find object in scene named: "${objectName}"`);
+                    App.selectionContext.clear();
+                }
+            });
+            
             itemsDiv.appendChild(itemDiv);
         }
         
@@ -332,9 +355,11 @@ export function renderWorkspaceUI(folders) {
 
 /**
  * Initializes the workspace UI shell.
- * (This is the original init function).
+ * --- 5. MODIFY THIS FUNCTION to accept the App object ---
  */
-export function initWorkspace() {
+export function initWorkspace(app) { // <-- ACCEPT THE APP OBJECT
+    App = app; // <-- STORE IT
+    
     injectStyles();
     createMarkup();
     console.log('Workspace UI Initialized.');
