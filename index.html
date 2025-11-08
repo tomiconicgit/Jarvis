@@ -1,190 +1,45 @@
-File: index.html
---------------------------------------------------------------------------------
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-  >
-  <title>Mobile 3D Tower Modeler</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <style>
-    :root { --toolbar-h: 52px; }
-    html, body {
-      margin: 0; padding: 0; overflow: hidden;
-      height: 100%; width: 100%; background: #111;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    }
-    #canvas-container { position: fixed; inset: 0; z-index: 1; }
-    canvas { display: block; width: 100%; height: 100%; }
-    * { -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-
-    #loading-screen {
-      position: fixed; inset: 0; background: #1a1a1a; color: #fff;
-      display: flex; justify-content: center; align-items: center;
-      font-size: 1.5rem; z-index: 1000; transition: opacity 0.5s ease;
-    }
-
-    .ui-panel {
-      position: fixed; 
-      background: rgba(30, 41, 59, 0.92); /* slate-800 @ 92% */
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border-radius: 16px; z-index: 12;
-      border: 1px solid rgba(255,255,255,0.05);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-      transition: transform 0.25s ease-out, opacity 0.2s ease-out, visibility 0.2s;
-    }
-
-    /* Mobile bottom-sheet default */
-    .bottom-sheet {
-      left: 12px; right: 12px;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-      transform: translateY(100%); opacity: 0; visibility: hidden;
-    }
-
-    /* Desktop left-drawer pattern (used in addition to bottom-sheet) */
-    .left-drawer {
-      left: 12px;
-      top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 12px);
-      width: 360px;
-      transform: translateX(-120%); opacity: 0; visibility: hidden;
-    }
-    body.desktop .left-drawer { bottom: auto; }
-    body.desktop .left-drawer.show { transform: translateX(0); opacity: 1; visibility: visible; }
-
-    input[type="range"] {
-      -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
-      background: #334155; /* slate-700 */
-      border-radius: 4px; outline: none;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 24px; height: 24px; 
-      background: #38bdf8; /* sky-500 */
-      border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      cursor: pointer;
-    }
-    input[type="range"]::-moz-range-thumb {
-      width: 24px; height: 24px; 
-      background: #38bdf8; /* sky-500 */
-      border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      cursor: pointer;
-    }
-
-    #message-box {
-      position: fixed;
-      left: 50%;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
-      transform: translateX(-50%) translateY(20px);
-      background: rgba(51, 65, 85, 0.96); /* slate-700 */
-      color: #fff;
-      padding: 12px 16px; border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
-      z-index: 1001; opacity: 0; visibility: hidden;
-      transition: transform 0.18s ease-out, opacity 0.18s ease-out, visibility 0.18s;
-      text-align: center; font-size: 14px;
-    }
-    #message-box.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
-
-    #app-toolbar-wrap {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-      padding-top: env(safe-area-inset-top, 0px);
-      background: rgba(15, 23, 42, 0.92); /* slate-900 @ 92% */
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    #app-toolbar { height: var(--toolbar-h); }
-    .tool-btn { min-width: 64px; height: 36px; font-size: 14px; }
-
-    /* Props panel: mobile bottom-sheet; desktop right sidebar */
-    #props-panel {
-      left: 0; right: 0; bottom: 0;
-      border-top-left-radius: 16px; border-top-right-radius: 16px;
-      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-      height: 45vh; max-height: 45vh; z-index: 15;
-      transform: translateY(100%); opacity: 0; visibility: hidden;
-    }
-    body.desktop #props-panel {
-      right: 12px;
-      left: auto;
-      top: calc(var(--toolbar-h) + env(safe-area-inset-top, 0px) + 12px);
-      bottom: 12px;
-      height: auto; max-height: calc(100vh - var(--toolbar-h) - 24px - env(safe-area-inset-top, 0px));
-      width: 360px; /* Standardized width */
-      transform: translateX(0) !important; opacity: 1 !important; visibility: visible !important;
-      border-radius: 16px;
-    }
-  </style>
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-      "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js",
-      "three/examples/jsm/controls/TransformControls.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/TransformControls.js",
-      "three/examples/jsm/environments/RoomEnvironment.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/environments/RoomEnvironment.js",
-      "three/examples/jsm/exporters/GLTFExporter.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/exporters/GLTFExporter.js",
-      "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js",
-      "three/addons/utils/BufferGeometryUtils.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/BufferGeometryUtils.js",
-      "three/examples/jsm/geometries/RoundedBoxGeometry.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/geometries/RoundedBoxGeometry.js",
-      "three/examples/jsm/modifiers/SimplifyModifier.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/modifiers/SimplifyModifier.js"
-    }
-  }
-  </script>
-
-  <script type="module" src="debugger.js"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="format-detection" content="telephone=no">
+    <title>Terra</title>
+    <link rel="manifest" href="manifest.json"> <!-- Placeholder for manifest, to be created later -->
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; }
+        #viewport { width: 100vw; height: calc(100vh - 80px); } /* Central viewport area */
+        #toolbar { height: 40px; background: #333; display: flex; align-items: center; justify-content: space-around; } /* Top toolbar */
+        #status-bar { height: 40px; background: #222; position: fixed; bottom: 0; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; } /* Bottom status */
+        #loading-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        #loading-bar { width: 80%; height: 20px; background: #333; border-radius: 10px; overflow: hidden; }
+        #loading-progress { height: 100%; background: #0f0; width: 0; transition: width 0.3s; }
+        #loading-info { margin-top: 10px; font-size: 14px; text-align: center; }
+    </style>
+    <!-- External CDNs -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script> <!-- For camera controls -->
 </head>
-<body class="bg-slate-900 text-white">
+<body>
+    <div id="loading-screen">
+        <div id="loading-bar"><div id="loading-progress"></div></div>
+        <div id="loading-info">Loading modules...</div>
+    </div>
+    <div id="toolbar">
+        <!-- Placeholder for tools/buttons, e.g., import model, etc. -->
+        <button>Import</button>
+        <button>Library</button>
+        <button>Animate</button>
+    </div>
+    <canvas id="viewport"></canvas>
+    <div id="status-bar">Status: Ready | Debugger: No errors</div> <!-- For debugger updates -->
 
-  <div id="canvas-container"></div>
-
-  <div id="loading-screen"><div>Loading 3D Environment...</div></div>
-
-  <div id="message-box"><p id="message-text">Ready</p></div>
-
-  <div id="app-toolbar-wrap">
-    <div id="app-toolbar" class="px-3 flex items-center gap-2">
-      <button id="file-btn"   class="tool-btn flex-1 bg-slate-700 rounded-md shadow active:scale-95 font-semibold">File</button>
-      <button id="add-btn"    class="tool-btn flex-1 bg-sky-600 rounded-md shadow active:scale-95 font-semibold">Import</button> <button id="scene-btn"  class="tool-btn flex-1 bg-slate-700 rounded-md shadow active:scale-95 font-semibold">Scene</button>
-      <button id="tools-btn" class="tool-btn flex-1 bg-slate-700 rounded-md shadow active:scale-95 font-semibold">Tools</button>
-      </div>
-  </div>
-
-  <div id="file-panel-placeholder"></div>
-  <div id="scene-panel-placeholder"></div>
-  <div id="tools-panel-placeholder"></div>
-  <div id="parent-panel-placeholder"></div>
-  <div id="decimate-panel-placeholder"></div>
-  <div id="export-panel-placeholder"></div>
-  <div id="props-panel-placeholder"></div>
-
-  <input id="picker-load-json" type="file" accept="application/json" class="hidden">
-  <input id="picker-import-glb" type="file" accept=".glb,model/gltf-binary" class="hidden">
-
-
-  <script>
-    // This function will still run, but debugger.js will also catch errors.
-    const hideLoader = () => {
-      const ls = document.getElementById('loading-screen');
-      if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
-    };
-    window.addEventListener('error', hideLoader);
-    window.addEventListener('unhandledrejection', hideLoader);
-  </script>
-
-  <script type="module" src="main.js"></script>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('Service Worker registered', reg))
-        .catch(err => console.error('Service Worker registration failed', err));
-    }
-  </script>
-
+    <script type="module" src="loading.js"></script>
+    <script type="module" src="debugger.js"></script>
+    <script type="module" src="src/main.js"></script>
+    <script type="module" src="src/core/viewport.js"></script>
+    <script type="module" src="src/core/camera.js"></script>
 </body>
 </html>
