@@ -23,16 +23,16 @@ export function initViewport() {
     directionalLight.castShadow = true;
     scene.add(directionalLight);
 
-    // Ground plane
-    const geometry = new THREE.PlaneGeometry(2000, 2000);
+    // Ground plane 100 x 100
+    const geometry = new THREE.PlaneGeometry(100, 100);
     const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
     const plane = new THREE.Mesh(geometry, material);
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Subtle grid
-    const grid = new THREE.GridHelper(2000, 2000, 0x000000, 0x000000);
+    // Grid 100 x 100
+    const grid = new THREE.GridHelper(100, 100, 0x000000, 0x000000);
     grid.material.opacity = 0.2;
     grid.material.transparent = true;
     scene.add(grid);
