@@ -159,7 +159,7 @@ function createMarkup() {
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- UPDATED: Added id="menu-file-new" ---
+    // --- UPDATED: Added id="menu-file-save" ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -169,7 +169,7 @@ function createMarkup() {
             <div class="menu-submenu" id="file-submenu">
                 <button class="menu-submenu-item" id="menu-file-new">New Project</button>
                 <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item">Save Project</button>
+                <button class="menu-submenu-item" id="menu-file-save">Save Project</button>
                 <div class="menu-item-separator"></div>
                 <button class="menu-submenu-item">Load Project</button>
             </div>
@@ -258,12 +258,18 @@ function createMarkup() {
         // Clicked on a final action item
         if (subItem) {
             
-            // --- NEW: Handle "New Project" click ---
+            // --- UPDATED: Handle "New" and "Save" ---
             if (subItem.id === 'menu-file-new') {
-                if (App && App.engine) {
+                if (App && App.engine && App.engine.newProject) {
                     App.engine.newProject();
                 } else {
-                    console.error('Engine not found on App object.');
+                    console.error('Engine.newProject() not found.');
+                }
+            } else if (subItem.id === 'menu-file-save') {
+                if (App && App.engine && App.engine.saveProject) {
+                    App.engine.saveProject();
+                } else {
+                    console.error('Engine.saveProject() not found.');
                 }
             } else {
                 console.log(`Sub-Item Clicked: ${subItem.textContent}`);
@@ -304,8 +310,8 @@ function createMarkup() {
 /**
  * Initializes the main menu UI.
  */
-export function initMenu(app) { // <-- ADDED: Accept App
-    App = app; // <-- ADDED: Store App
+export function initMenu(app) {
+    App = app;
     injectStyles();
     createMarkup();
     console.log('Menu UI Initialized.');
