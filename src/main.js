@@ -6,6 +6,7 @@ import { checkForErrors } from '../debugger.js';
 import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
 import { initFileManagement } from './core/filemanagement.js'; // <-- 1. IMPORT CORE SERVICE
+import { initSelectionContext } from './core/selectioncontext.js'; // <-- 2. IMPORT NEW CONTEXT
 
 /**
  * -------------------------------------------------------------------
@@ -16,7 +17,7 @@ import { initFileManagement } from './core/filemanagement.js'; // <-- 1. IMPORT 
 const pluggableModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
-    './core/procedural/terrain.js' // <-- 2. ADD TERRAIN
+    './core/procedural/terrain.js'
 ];
 
 /**
@@ -62,8 +63,9 @@ async function loadModule(path, App) { // <-- 3. ACCEPT APP OBJECT
     App.controls = controls;
 
     // 7. Initialize Core Services and attach to App
-    // File management must be init'd BEFORE modules that use it.
+    // These must be init'd BEFORE modules that use them.
     initFileManagement(App);
+    initSelectionContext(App); // <-- 5. INITIALIZE THE NEW CONTEXT
 
     // 8. Load all pluggable modules in parallel
     // They all get the same App object.
