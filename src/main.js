@@ -9,7 +9,7 @@ import { initFileManagement } from './core/filemanagement.js';
 import { initSelectionContext } from './core/selectioncontext.js';
 import { initModal } from './core/ui/modal.js';
 import { initEngine } from './core/engine/newproject.js';
-import { initSaveProject } from './core/engine/saveproject.js'; // <-- 1. NEW IMPORT
+import { initSaveProject } from './core/engine/saveproject.js';
 
 /**
  * -------------------------------------------------------------------
@@ -23,7 +23,7 @@ const coreServices = [
     initSelectionContext,
     initModal,
     initEngine,
-    initSaveProject // <-- 2. ADD TO LIST (must be after initEngine)
+    initSaveProject 
 ];
 
 // Pluggable UI modules
@@ -35,9 +35,8 @@ const uiModules = [
 
 // Default assets that make up a "New Project"
 const defaultSceneModules = [
-    './core/procedural/terrain.js',
-    './core/procedural/lighting.js',
-    './core/procedural/sky.js'
+    './core/default/terrain.js',      // <-- UPDATED PATH
+    './core/default/environment.js'   // <-- REPLACED lighting/sky
 ];
 
 
@@ -45,13 +44,14 @@ const defaultSceneModules = [
  * Dynamically loads a module and returns its 'init' function.
  */
 async function loadModuleInit(path) {
-    // ... (this function is unchanged)
     try {
         checkForErrors(`Main: Importing ${path}`);
         const module = await import(path);
+        
         const initFunction = Object.values(module).find(
             (val) => typeof val === 'function' && val.name.startsWith('init')
         );
+
         if (initFunction) {
             return initFunction;
         } else {
