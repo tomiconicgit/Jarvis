@@ -5,8 +5,8 @@ import { checkForErrors } from '../debugger.js';
 // --- Core modules (load these first) ---
 import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
-import { initFileManagement } from './core/filemanagement.js'; // <-- 1. IMPORT CORE SERVICE
-import { initSelectionContext } from './core/selectioncontext.js'; // <-- 2. IMPORT NEW CONTEXT
+import { initFileManagement } from './core/filemanagement.js';
+import { initSelectionContext } from './core/selectioncontext.js';
 
 /**
  * -------------------------------------------------------------------
@@ -17,13 +17,14 @@ import { initSelectionContext } from './core/selectioncontext.js'; // <-- 2. IMP
 const pluggableModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
-    './core/procedural/terrain.js'
+    './core/procedural/terrain.js',
+    './core/procedural/lighting.js' // <-- ADDED
 ];
 
 /**
  * Dynamically loads and initializes a single module, passing the App object.
  */
-async function loadModule(path, App) { // <-- 3. ACCEPT APP OBJECT
+async function loadModule(path, App) {
     try {
         checkForErrors(`Main: Importing ${path}`);
         const module = await import(path);
@@ -34,7 +35,7 @@ async function loadModule(path, App) { // <-- 3. ACCEPT APP OBJECT
 
         if (initFunction) {
             console.log(`[Main] Initializing: ${initFunction.name}`);
-            initFunction(App); // <-- 4. PASS APP TO INIT
+            initFunction(App);
         } else {
             console.warn(`[Main] No 'init' function found in ${path}`);
         }
@@ -65,7 +66,7 @@ async function loadModule(path, App) { // <-- 3. ACCEPT APP OBJECT
     // 7. Initialize Core Services and attach to App
     // These must be init'd BEFORE modules that use them.
     initFileManagement(App);
-    initSelectionContext(App); // <-- 5. INITIALIZE THE NEW CONTEXT
+    initSelectionContext(App);
 
     // 8. Load all pluggable modules in parallel
     // They all get the same App object.
