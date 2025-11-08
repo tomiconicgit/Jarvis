@@ -17,20 +17,17 @@ export function orchestrateModules() {
     const { scene, renderer } = initViewport();
     const { camera, controls } = initCamera();
 
-    // Render loop
     renderer.setAnimationLoop(() => {
         controls.update();
         renderer.render(scene, camera);
     });
 
-    // Handle resize
     window.addEventListener('resize', () => {
         const canvas = renderer.domElement;
         const width = canvas.clientWidth;
-        const height = canvas.clientHeight || 1; // avoid divide-by-zero
+        const height = canvas.clientHeight || 1;
 
         renderer.setSize(width, height);
-
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
     });
