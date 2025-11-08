@@ -7,25 +7,26 @@ import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
 import { initFileManagement } from './core/filemanagement.js';
 import { initSelectionContext } from './core/selectioncontext.js';
-import { initModal } from './core/ui/modal.js'; // <-- 1. NEW
-import { initEngine } from './core/engine/newproject.js'; // <-- 2. NEW
+import { initModal } from './core/ui/modal.js';
+import { initEngine } from './core/engine/newproject.js';
+import { initSaveProject } from './core/engine/saveproject.js'; // <-- 1. NEW IMPORT
 
 /**
  * -------------------------------------------------------------------
  * MODULE MANIFESTS
  * -------------------------------------------------------------------
- * We now separate modules by type for better orchestration.
  */
 
-// Core services that provide an API (e.g., App.fileManager)
+// Core services that provide an API
 const coreServices = [
     initFileManagement,
     initSelectionContext,
     initModal,
-    initEngine // <-- Init engine AFTER its dependencies (modal, fileManager)
+    initEngine,
+    initSaveProject // <-- 2. ADD TO LIST (must be after initEngine)
 ];
 
-// Pluggable UI modules (e.g., menus, panels)
+// Pluggable UI modules
 const uiModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
@@ -44,14 +45,13 @@ const defaultSceneModules = [
  * Dynamically loads a module and returns its 'init' function.
  */
 async function loadModuleInit(path) {
+    // ... (this function is unchanged)
     try {
         checkForErrors(`Main: Importing ${path}`);
         const module = await import(path);
-        
         const initFunction = Object.values(module).find(
             (val) => typeof val === 'function' && val.name.startsWith('init')
         );
-
         if (initFunction) {
             return initFunction;
         } else {
@@ -73,16 +73,15 @@ async function loadModuleInit(path) {
     // 1. Create the central App object
     const App = {};
 
-    // 2. Initialize Core Systems and attach to App
+    // 2. Initialize Core Systems
     const { scene, renderer } = initViewport();
     App.scene = scene;
     App.renderer = renderer;
-
     const { camera, controls } = initCamera();
     App.camera = camera;
     App.controls = controls;
 
-    // 3. Initialize Core Services (File Manager, Selection, Modal, Engine)
+    // 3. Initialize Core Services
     console.log('[Main] Initializing core services...');
     coreServices.forEach(initFunc => initFunc(App));
 
@@ -116,7 +115,6 @@ async function loadModuleInit(path) {
         const canvas = App.renderer.domElement;
         const width = canvas.clientWidth;
         const height = canvas.clientHeight || 1;
-
         App.renderer.setSize(width, height);
         App.camera.aspect = width / height;
         App.camera.updateProjectionMatrix();
@@ -124,4 +122,4 @@ async function loadModuleInit(path) {
 
     console.log('[Main] Orchestration complete.');
 
-})(); // Self-executing function
+})();
