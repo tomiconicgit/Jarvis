@@ -9,128 +9,116 @@ function injectStyles() {
 
     const css = `
         :root {
-            /* Define new variables, but default to workspace vars */
-            --menu-bg: var(--workspace-header-bg, rgba(44, 44, 46, 0.9));
-            --menu-border: var(--workspace-border-color, rgba(255, 255, 255, 0.1));
-            --menu-text: var(--workspace-text-color, #f5f5f7);
-            --menu-btn-width: 60px;
-            --menu-btn-height: 44px;
-            --menu-safe-top: env(safe-area-inset-top);
-            --menu-safe-left: env(safe-area-inset-left);
+            /* Shared UI Theme */
+            --ui-blue: #007aff;
+            --ui-blue-pressed: #005ecf;
+            --ui-grey: #3a3a3c;
+            --ui-light-grey: #4a4a4c;
+            --ui-border: rgba(255, 255, 255, 0.15);
+            --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            --ui-corner-radius: 12px;
+            --ui-safe-top: env(safe-area-inset-top);
+            --ui-safe-left: env(safe-area-inset-left);
+        }
+
+        /* --- Keyframe for the bounce animation --- */
+        @keyframes button-bounce {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.08); }
+            100% { transform: scale(1); }
         }
 
         #menu-toggle-btn {
             position: fixed;
-            top: 0;
-            left: 0;
+            top: calc(10px + var(--ui-safe-top));
+            left: calc(10px + var(--ui-safe-left));
+            z-index: 11;
             
-            /* --- UPDATED STYLES --- */
-            /* Match the workspace button's tab-like design */
-            width: var(--menu-btn-width);
-            height: var(--menu-btn-height);
-            border-radius: 0 0 12px 0; /* Rounded bottom-right corner */
+            /* --- New Button Style --- */
+            background: var(--ui-blue);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 10px 16px;
             
-            background: var(--menu-bg);
-            border: 1px solid var(--menu-border);
-            border-top: none; /* Flush with top */
-            border-left: none; /* Flush with left */
+            border: none;
+            border-radius: var(--ui-corner-radius);
+            box-shadow: var(--ui-shadow);
             
-            /* Add padding for safe areas INSTEAD of using calc() */
-            padding-top: var(--menu-safe-top);
-            padding-left: var(--menu-safe-left);
-            box-sizing: border-box;
-            /* --- END UPDATED STYLES --- */
-            
-            z-index: 11; /* Higher than status bar */
             cursor: pointer;
-
-            display: grid;
-            place-items: center;
-
-            /* iOS frosted glass effect */
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-
-            /* Animate the icon change */
-            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            
+            /* Transitions for press */
+            transition: background-color 0.2s ease, transform 0.1s ease;
         }
 
+        /* Animate the bounce */
+        #menu-toggle-btn.is-bouncing {
+            animation: button-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Press-down effect */
+        #menu-toggle-btn:active {
+            background: var(--ui-blue-pressed);
+            transform: scale(0.96);
+        }
+
+        /* Remove the old .is-open rotation */
         #menu-toggle-btn.is-open {
-            /* Slight rotate animation when open */
-            transform: rotate(90deg);
-        }
-
-        #menu-toggle-btn svg {
-            width: 24px;
-            height: 24px;
-            stroke: var(--menu-text);
-            stroke-width: 2;
-            stroke-linecap: round;
+            transform: none; 
         }
 
         #menu-items-container {
             position: fixed;
-            
-            /* --- UPDATED POSITION --- */
-            /* Position below the new button (height + safe-area + 8px margin) */
-            top: calc(var(--menu-btn-height) + var(--menu-safe-top) + 8px); 
-            left: calc(10px + var(--menu-safe-left));
-            /* --- END UPDATED POSITION --- */
-            
+            top: calc(64px + var(--ui-safe-top)); /* Position below button */
+            left: calc(10px + var(--ui-safe-left));
             z-index: 10;
-            display: flex;
-            flex-direction: column;
-
-            /* Animation: Start hidden */
+            
+            /* --- New Dropdown Style --- */
+            background: var(--ui-grey);
+            border-radius: var(--ui-corner-radius);
+            box-shadow: var(--ui-shadow);
+            
+            /* Use clip-path for a nice expand animation */
+            clip-path: inset(0 0 100% 0);
             opacity: 0;
-            transform: translateY(-10px);
+            transform: scale(0.95);
+            transform-origin: top left;
+            
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
-            transition: opacity 0.3s ease, transform 0.3s ease;
+            overflow: hidden; /* Important for border-radius */
         }
 
         #menu-items-container.is-open {
-            /* Animation: Show */
+            clip-path: inset(0 0 0 0);
             opacity: 1;
-            transform: translateY(0);
+            transform: scale(1);
             pointer-events: auto;
         }
 
         .menu-item {
-            background: var(--menu-bg);
-            border: 1px solid var(--menu-border);
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            /* --- New Item Style --- */
+            background: none;
+            border: none;
+            display: block;
+            width: 100%;
             
-            color: var(--menu-text);
-            font-size: 14px;
-            font-weight: 500;
-            padding: 10px 16px;
-            border-radius: 8px;
-            margin-bottom: 8px;
+            color: var(--workspace-text-color, #f5f5f7);
+            font-size: 15px;
+            padding: 14px 18px;
             cursor: pointer;
             text-align: left;
-            min-width: 120px;
-
-            /* Staggered animation setup */
-            opacity: 0;
-            transform: translateY(-5px);
-            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            min-width: 150px;
         }
 
-        /* --- Beautiful Staggered Animation --- */
-        #menu-items-container.is-open .menu-item {
-            opacity: 1;
-            transform: translateY(0);
+        .menu-item:active {
+            background: var(--ui-light-grey);
         }
 
-        #menu-items-container.is-open .menu-item:nth-child(1) {
-            transition-delay: 0.05s;
-        }
-        #menu-items-container.is-open .menu-item:nth-child(2) {
-            transition-delay: 0.1s;
-        }
-        #menu-items-container.is-open .menu-item:nth-child(3) {
-            transition-delay: 0.15s;
+        .menu-item-separator {
+            height: 1px;
+            background: var(--ui-border);
+            margin: 0 8px;
         }
     `;
 
@@ -144,27 +132,22 @@ function injectStyles() {
  * Creates the HTML markup for the menu and attaches event listeners.
  */
 function createMarkup() {
-    // --- Icon (Inline SVG) ---
-    // A "hamburger" icon
-    const menuIcon = `
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>`;
-
+    
     // --- 1. Create Menu Toggle Button ---
     const menuToggleBtn = document.createElement('button');
     menuToggleBtn.id = 'menu-toggle-btn';
     menuToggleBtn.setAttribute('aria-label', 'Open Menu');
-    menuToggleBtn.innerHTML = menuIcon;
+    menuToggleBtn.textContent = 'Menu'; // <-- Text instead of SVG
     
     // --- 2. Create Menu Items Container ---
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
+    // --- New markup with separators ---
     menuItemsContainer.innerHTML = `
         <button class="menu-item">File...</button>
+        <div class="menu-item-separator"></div>
         <button class="menu-item">Import...</button>
+        <div class="menu-item-separator"></div>
         <button class="menu-item">Export...</button>
     `;
 
@@ -174,17 +157,22 @@ function createMarkup() {
 
     // --- 4. Add Event Listeners ---
     
-    // Toggle function
     const toggleMenu = (event) => {
-        // Stop the click from bubbling up to the 'document' listener
         if (event) event.stopPropagation(); 
         
         const isOpen = menuItemsContainer.classList.toggle('is-open');
         menuToggleBtn.classList.toggle('is-open', isOpen);
         menuToggleBtn.setAttribute('aria-expanded', isOpen);
+
+        // --- Trigger bounce animation ---
+        if (isOpen) {
+            menuToggleBtn.classList.add('is-bouncing');
+            setTimeout(() => {
+                menuToggleBtn.classList.remove('is-bouncing');
+            }, 300); // Animation duration
+        }
     };
 
-    // Close function
     const closeMenu = () => {
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
@@ -193,25 +181,16 @@ function createMarkup() {
         }
     };
 
-    // Listen for toggle button click
     menuToggleBtn.addEventListener('click', toggleMenu);
 
-    // Listen for clicks on the menu items themselves (to perform actions)
     menuItemsContainer.addEventListener('click', (event) => {
         if (event.target.classList.contains('menu-item')) {
             console.log(`Menu Item Clicked: ${event.target.textContent}`);
-            // You can add logic here like:
-            // if (event.target.textContent === 'Import...') { importFile(); }
-            
-            // Close the menu after clicking an item
             closeMenu();
         }
     });
 
-    // Professional "click-outside-to-close" behavior
-    // Use 'pointerdown' for faster touch response than 'click'
     document.addEventListener('pointerdown', (event) => {
-        // Close if the click is not on the toggle button AND not on the menu container
         if (!menuToggleBtn.contains(event.target) && !menuItemsContainer.contains(event.target)) {
             closeMenu();
         }
