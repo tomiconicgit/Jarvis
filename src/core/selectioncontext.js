@@ -1,4 +1,4 @@
-// src/core/selectionContext.js
+// src/core/selectioncontext.js
 import * as THREE from 'three';
 
 // Module-level state
