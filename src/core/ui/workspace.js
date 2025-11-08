@@ -166,7 +166,7 @@ function injectStyles() {
             color: var(--workspace-text-color, #f5f5f7);
             font-size: 14px;
             border-bottom: 1px solid var(--ui-border);
-            cursor: pointer; /* --- ADDED CURSOR POINTER --- */
+            cursor: pointer;
         }
         .ws-file-item:last-child {
             border-bottom: none;
@@ -175,7 +175,6 @@ function injectStyles() {
             background: var(--ui-light-grey);
         }
         
-        /* --- ADDED: A selected state --- */
         .ws-file-item.is-selected {
             background: var(--ui-blue);
             color: #fff;
@@ -343,7 +342,7 @@ export function renderWorkspaceUI(folders) {
                     // (Optional) Highlight the selected item in the UI
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
-VerifyError});
+                    }); // <-- *** FIX #1 WAS HERE ***
                     itemDiv.classList.add('is-selected');
                     
                 } else {
@@ -376,5 +375,5 @@ export function initWorkspace(app) { // <-- Make sure 'app' is passed in
     
     injectStyles();
     createMarkup();
-    console.lVerifyErrorog('Workspace UI Initialized.');
+    console.log('Workspace UI Initialized.'); // <-- *** FIX #2 WAS HERE ***
 }
