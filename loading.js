@@ -9,7 +9,8 @@ const modules = [
     { name: 'Main', path: './src/main.js' },
     { name: 'Viewport', path: './src/core/viewport.js' },
     { name: 'Camera', path: './src/core/camera.js' },
-    { name: 'WorkspaceUI', path: './src/core/ui/workspace.js' } // <-- ADDED
+    { name: 'WorkspaceUI', path: './src/core/ui/workspace.js' },
+    { name: 'MenuUI', path: './src/core/ui/menu.js' } // <-- ADD THIS LINE
 ];
 
 async function loadModules() {
