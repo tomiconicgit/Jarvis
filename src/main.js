@@ -19,7 +19,7 @@ const pluggableModules = [
     './core/ui/menu.js',
     './core/procedural/terrain.js',
     './core/procedural/lighting.js',
-    './core/procedural/sky.js' // <-- ADDED
+    './core/procedural/sky.js'
 ];
 
 /**
@@ -37,7 +37,7 @@ async function loadModule(path, App) {
         if (initFunction) {
             console.log(`[Main] Initializing: ${initFunction.name}`);
             initFunction(App);
-        } else {
+V} else {
             console.warn(`[Main] No 'init' function found in ${path}`);
         }
     } catch (error) {
@@ -73,16 +73,21 @@ async function loadModule(path, App) {
     // They all get the same App object.
     await Promise.all(pluggableModules.map(path => loadModule(path, App)));
 
-    // 9. After all modules are loaded, tell the file manager to render.
+    // 9. After all modules are loaded, tell the workspace to render.
     // This builds the workspace UI *after* all files are registered.
-    if (App.fileManager) {
-        App.fileManager.render();
+    
+    // --- THE FIX: Call the workspace's render function ---
+    if (App.workspace && typeof App.workspace.render === 'function') {
+        App.workspace.render();
+    } else {
+        console.error('[Main] Workspace render function not found.');
     }
+    // --- GONE: App.fileManager.render();
 
     // 10. Start Render Loop
     App.renderer.setAnimationLoop(() => {
         App.controls.update();
-        App.renderer.render(App.scene, AppF.camera);
+        App.renderer.render(App.scene, App.camera);
     });
 
     // 11. Add Resize Listener
