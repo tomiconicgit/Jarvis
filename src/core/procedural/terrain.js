@@ -1,4 +1,4 @@
-// src/core/procedural/terrain.js
+// src/core/default/terrain.js
 
 import * as THREE from 'three';
 
