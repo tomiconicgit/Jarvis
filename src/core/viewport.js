@@ -1,15 +1,15 @@
 // src/core/viewport.js
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.min.js';
 
-let scene, renderer;
-
 export function initViewport() {
     const canvas = document.getElementById('viewport');
-    scene = new THREE.Scene();
+    
+    const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); // Blue sky
 
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight - 80); // Adjust for toolbar/status
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    // Set initial size based on canvas's styled dimensions
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight); 
     renderer.shadowMap.enabled = true;
 
     // Lighting
@@ -20,7 +20,7 @@ export function initViewport() {
     directionalLight.castShadow = true;
     scene.add(directionalLight);
 
-    // Terrain: 2000x2000 grey plane
+    // Terrain
     const geometry = new THREE.PlaneGeometry(2000, 2000);
     const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
     const plane = new THREE.Mesh(geometry, material);
@@ -28,22 +28,15 @@ export function initViewport() {
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Grid: 2000x2000 with 1x1 cells
+    // Grid
     const grid = new THREE.GridHelper(2000, 2000, 0x000000, 0x000000);
     grid.material.opacity = 0.2;
     grid.material.transparent = true;
     scene.add(grid);
 
-    // Render loop
-    function animate() {
-        requestAnimationFrame(animate);
-        renderer.render(scene, window.camera); // Use global camera
-    }
-    animate();
+    // REMOVED: self-contained animate() loop
+    // REMOVED: window.addEventListener('resize')
 
-    window.addEventListener('resize', () => {
-        renderer.setSize(window.innerWidth, window.innerHeight - 80);
-    });
+    // Return the created objects for the orchestrator (main.js) to use
+    return { scene, renderer };
 }
-
-export { scene }; // For other modules to add to scene
