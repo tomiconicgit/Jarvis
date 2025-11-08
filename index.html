@@ -7,12 +7,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="format-detection" content="telephone=no">
     <title>Terra</title>
-    <link rel="manifest" href="manifest.json"> <!-- Placeholder for manifest, to be created later -->
-    <style>
+    <link rel="manifest" href="manifest.json"> <style>
         body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; }
-        #viewport { width: 100vw; height: calc(100vh - 80px); } /* Central viewport area */
-        #toolbar { height: 40px; background: #333; display: flex; align-items: center; justify-content: space-around; } /* Top toolbar */
-        #status-bar { height: 40px; background: #222; position: fixed; bottom: 0; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; } /* Bottom status */
+        /* CSS uses clientWidth/Height, which is correct */
+        #viewport { width: 100vw; height: calc(100vh - 80px); } 
+        #toolbar { height: 40px; background: #333; display: flex; align-items: center; justify-content: space-around; } 
+        #status-bar { height: 40px; background: #222; position: fixed; bottom: 0; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
         #loading-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
         #loading-bar { width: 80%; height: 20px; background: #333; border-radius: 10px; overflow: hidden; }
         #loading-progress { height: 100%; background: #0f0; width: 0; transition: width 0.3s; }
@@ -25,18 +25,13 @@
         <div id="loading-info">Loading modules...</div>
     </div>
     <div id="toolbar">
-        <!-- Placeholder for tools/buttons, e.g., import model, etc. -->
         <button>Import</button>
         <button>Library</button>
         <button>Animate</button>
     </div>
     <canvas id="viewport"></canvas>
-    <div id="status-bar">Status: Ready | Debugger: No errors</div> <!-- For debugger updates -->
+    <div id="status-bar">Status: Ready | Debugger: No errors</div>
 
     <script type="module" src="loading.js"></script>
-    <script type="module" src="debugger.js"></script>
-    <script type="module" src="src/main.js"></script>
-    <script type="module" src="src/core/viewport.js"></script>
-    <script type="module" src="src/core/camera.js"></script>
 </body>
 </html>
