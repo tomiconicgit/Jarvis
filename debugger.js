@@ -3,19 +3,19 @@ const statusBar = document.getElementById('status-bar');
 let errorLog = [];
 
 export function initDebugger() {
-    // Global error capture
+    // Global JS errors
     window.onerror = (msg, url, line, col, error) => {
         errorLog.push(`Error: ${msg} at ${url}:${line}:${col || 0}`);
         updateStatus();
     };
 
-    // Optional global unhandled promise rejection logging
+    // Unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
         errorLog.push(`Unhandled Rejection: ${event.reason}`);
         updateStatus();
     });
 
-    // Basic periodic performance / health check
+    // Simple periodic health check
     setInterval(checkPerformance, 5000);
 }
 
@@ -29,7 +29,6 @@ export function checkForErrors(moduleName) {
 }
 
 function checkPerformance() {
-    // Placeholder heuristic: here purely illustrative
     const now = performance.now();
     if (!Number.isFinite(now)) {
         errorLog.push('Performance API anomaly detected');
@@ -47,5 +46,3 @@ function updateStatus() {
         statusBar.textContent = 'Status: Ready | Debugger: No errors';
     }
 }
-
-// Future expansions: model load checks, network checks, etc.
