@@ -9,7 +9,7 @@
     <title>Terra</title>
     <link rel="manifest" href="manifest.json">
 
-    <!-- Import map so bare 'three' & OrbitControls resolve correctly -->
+    <!-- Import map: resolve bare 'three' + OrbitControls -->
     <script type="importmap">
     {
       "imports": {
@@ -29,7 +29,7 @@
             color: #fff;
         }
 
-        /* Full viewport minus status bar (40px) */
+        /* Full screen canvas minus status bar */
         #viewport {
             width: 100vw;
             height: calc(100vh - 40px);
@@ -90,10 +90,8 @@
         <div id="loading-info">Loading modules...</div>
     </div>
 
-    <!-- Pure viewport canvas -->
     <canvas id="viewport"></canvas>
 
-    <!-- Debug / status footer -->
     <div id="status-bar">Status: Ready | Debugger: No errors</div>
 
     <script type="module" src="loading.js"></script>
