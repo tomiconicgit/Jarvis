@@ -18,7 +18,8 @@ const pluggableModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
     './core/procedural/terrain.js',
-    './core/procedural/lighting.js' // <-- ADDED
+    './core/procedural/lighting.js',
+    './core/procedural/sky.js' // <-- ADDED
 ];
 
 /**
@@ -81,7 +82,7 @@ async function loadModule(path, App) {
     // 10. Start Render Loop
     App.renderer.setAnimationLoop(() => {
         App.controls.update();
-        App.renderer.render(App.scene, App.camera);
+        App.renderer.render(App.scene, AppF.camera);
     });
 
     // 11. Add Resize Listener
