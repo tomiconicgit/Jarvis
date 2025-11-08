@@ -55,4 +55,27 @@ async function loadModules() {
     }
 }
 
+// --- Service Worker Registration ---
+// This code will register your service worker (sw.js)
+// to handle caching and offline functionality.
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        // We register 'load' to ensure the page is fully
+        // loaded before we start registering the worker.
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js') // Assumes sw.js is in the root
+                .then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(err => {
+                    console.error('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
+}
+
+// --- Start the Application ---
 loadModules();
+
+// --- Register the Service Worker ---
+registerServiceWorker();
