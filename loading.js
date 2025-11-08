@@ -28,7 +28,7 @@ async function loadModules() {
             const msg = `Error loading ${mod.name}: ${error.message}`;
             loadingInfo.textContent = msg;
             console.error(msg, error);
-            return;
+            return; // Don't continue; keep loading screen with error message
         }
     }
 
@@ -36,15 +36,16 @@ async function loadModules() {
 
     try {
         const mainModule = await import('./src/main.js');
-        if (typeof mainModule.orchestrateModules === 'function') {
-            mainModule.orchestrateModules();
-        } else {
-            throw new Error('orchestrateModules() not exported from main.js');
+
+        if (typeof mainModule.orchestrateModules !== 'function') {
+            throw new Error('orchestrateModules() not exported from src/main.js');
         }
+
+        mainModule.orchestrateModules();
 
         setTimeout(() => {
             if (loadingScreen) loadingScreen.style.display = 'none';
-        }, 1000);
+        }, 800);
     } catch (error) {
         const msg = `Error starting application: ${error.message}`;
         loadingInfo.textContent = msg;
@@ -55,7 +56,7 @@ async function loadModules() {
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // If deploying under a subdirectory (e.g. GitHub Pages), adjust this to 'sw.js' or the correct path.
+            // If you host in a subdirectory (GitHub Pages), change '/sw.js' to 'sw.js'
             navigator.serviceWorker.register('/sw.js')
                 .then((registration) => {
                     console.log('ServiceWorker registration successful with scope:', registration.scope);
