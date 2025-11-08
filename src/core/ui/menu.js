@@ -1,12 +1,15 @@
 // src/core/ui/menu.js
 
+// --- ADD: Module-level App variable ---
+let App;
+
 /**
  * Creates and injects the CSS styles for the main menu UI.
  */
 function injectStyles() {
+    // ... (css is unchanged)
     const styleId = 'menu-ui-styles';
-    if (document.getElementById(styleId)) return; // Styles already injected
-
+    if (document.getElementById(styleId)) return;
     const css = `
         :root {
             /* Shared UI Theme */
@@ -20,14 +23,11 @@ function injectStyles() {
             --ui-safe-top: env(safe-area-inset-top);
             --ui-safe-left: env(safe-area-inset-left);
         }
-
-        /* --- Keyframe for the bounce animation --- */
         @keyframes button-bounce {
             0%   { transform: scale(1); }
             50%  { transform: scale(1.08); }
             100% { transform: scale(1); }
         }
-
         #menu-toggle-btn {
             position: fixed;
             top: calc(10px + var(--ui-safe-top));
@@ -44,77 +44,62 @@ function injectStyles() {
             cursor: pointer;
             transition: background-color 0.2s ease, transform 0.1s ease;
         }
-
         #menu-toggle-btn.is-bouncing {
             animation: button-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         #menu-toggle-btn:active {
             background: var(--ui-blue-pressed);
             transform: scale(0.96);
         }
-
         #menu-items-container {
             position: fixed;
             top: calc(64px + var(--ui-safe-top));
             left: calc(10px + var(--ui-safe-left));
             z-index: 10;
-            
             background: var(--ui-grey);
             border-radius: var(--ui-corner-radius);
             box-shadow: var(--ui-shadow);
-            
             clip-path: inset(0 0 100% 0);
             opacity: 0;
             transform: scale(0.95);
             transform-origin: top left;
-            
             transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
             overflow: hidden;
-            min-width: 170px; /* Wider for new content */
+            min-width: 170px;
         }
-
         #menu-items-container.is-open {
             clip-path: inset(0 0 0 0);
             opacity: 1;
             transform: scale(1);
             pointer-events: auto;
         }
-
         .menu-item-separator {
             height: 1px;
             background: var(--ui-border);
             margin: 0 8px;
         }
-        
         .menu-item-separator-full {
              height: 1px;
              background: var(--ui-border);
-             margin: 0; /* Full width separator */
+             margin: 0;
         }
-
-        /* --- NEW: Top-level item button --- */
         .menu-item {
             background: none;
             border: none;
-            display: flex; /* Use flex to align text and arrow */
+            display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            
             color: var(--workspace-text-color, #f5f5f7);
             font-size: 15px;
-            padding: 14px 12px 14px 18px; /* More padding-right for arrow */
+            padding: 14px 12px 14px 18px;
             cursor: pointer;
             text-align: left;
         }
-
         .menu-item:active {
             background: var(--ui-light-grey);
         }
-
-        /* --- NEW: Arrow SVG --- */
         .menu-item-arrow {
             width: 16px;
             height: 16px;
@@ -123,27 +108,18 @@ function injectStyles() {
             transition: transform 0.3s ease-out;
             opacity: 0.7;
         }
-
-        /* --- NEW: Arrow rotation on open --- */
         .menu-item.is-open .menu-item-arrow {
             transform: rotate(90deg);
         }
-
-        /* --- NEW: Submenu container --- */
         .menu-submenu {
             background: var(--ui-light-grey);
             overflow: hidden;
-            
-            /* The animation: max-height 0 to auto */
             max-height: 0;
             transition: max-height 0.3s ease-out;
         }
-
         .menu-submenu.is-open {
-            max-height: 200px; /* Animates to this value */
+            max-height: 200px;
         }
-
-        /* --- NEW: Submenu item button --- */
         .menu-submenu-item {
             background: none;
             border: none;
@@ -151,16 +127,14 @@ function injectStyles() {
             width: 100%;
             color: var(--workspace-text-color, #f5f5f7);
             font-size: 14px;
-            padding: 12px 18px 12px 28px; /* Indented */
+            padding: 12px 18px 12px 28px;
             cursor: pointer;
             text-align: left;
         }
-        
         .menu-submenu-item:active {
             background: var(--ui-grey);
         }
     `;
-
     const styleEl = document.createElement('style');
     styleEl.id = styleId;
     styleEl.textContent = css;
@@ -172,23 +146,20 @@ function injectStyles() {
  */
 function createMarkup() {
     
-    // --- NEW: Chevron (arrow) icon ---
     const chevronIcon = `
         <svg class="menu-item-arrow" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
             <path d="M9 18l6-6-6-6"></path>
         </svg>`;
 
-    // --- 1. Create Menu Toggle Button ---
     const menuToggleBtn = document.createElement('button');
     menuToggleBtn.id = 'menu-toggle-btn';
     menuToggleBtn.setAttribute('aria-label', 'Open Menu');
     menuToggleBtn.textContent = 'Menu';
     
-    // --- 2. Create Menu Items Container ---
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- NEW: Hierarchical HTML structure ---
+    // --- UPDATED: Added id="menu-file-new" ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -196,7 +167,7 @@ function createMarkup() {
                 ${chevronIcon}
             </button>
             <div class="menu-submenu" id="file-submenu">
-                <button class="menu-submenu-item">New Project</button>
+                <button class="menu-submenu-item" id="menu-file-new">New Project</button>
                 <div class="menu-item-separator"></div>
                 <button class="menu-submenu-item">Save Project</button>
                 <div class="menu-item-separator"></div>
@@ -237,26 +208,23 @@ function createMarkup() {
         </div>
     `;
 
-    // --- 3. Append to body ---
     document.body.appendChild(menuToggleBtn);
     document.body.appendChild(menuItemsContainer);
 
     // --- 4. Add Event Listeners ---
     
     const toggleMenu = (event) => {
+        // ... (function is unchanged)
         if (event) event.stopPropagation(); 
-        
         const isOpen = menuItemsContainer.classList.toggle('is-open');
         menuToggleBtn.classList.toggle('is-open', isOpen);
         menuToggleBtn.setAttribute('aria-expanded', isOpen);
-
         if (isOpen) {
             menuToggleBtn.classList.add('is-bouncing');
             setTimeout(() => {
                 menuToggleBtn.classList.remove('is-bouncing');
             }, 300);
         } else {
-            // --- NEW: Close all submenus when main menu closes ---
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
@@ -267,12 +235,11 @@ function createMarkup() {
     };
 
     const closeMenu = () => {
+        // ... (function is unchanged)
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
             menuToggleBtn.classList.remove('is-open');
             menuToggleBtn.setAttribute('aria-expanded', 'false');
-            
-            // --- NEW: Close all submenus when main menu closes ---
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
@@ -284,43 +251,46 @@ function createMarkup() {
 
     menuToggleBtn.addEventListener('click', toggleMenu);
 
-    // --- NEW: Updated click listener for hierarchy ---
     menuItemsContainer.addEventListener('click', (event) => {
         const subItem = event.target.closest('.menu-submenu-item');
         const parentItem = event.target.closest('.menu-item');
 
-        // Clicked on a final action item (e.g., "Save Project")
+        // Clicked on a final action item
         if (subItem) {
-            console.log(`Sub-Item Clicked: ${subItem.textContent}`);
+            
+            // --- NEW: Handle "New Project" click ---
+            if (subItem.id === 'menu-file-new') {
+                if (App && App.engine) {
+                    App.engine.newProject();
+                } else {
+                    console.error('Engine not found on App object.');
+                }
+            } else {
+                console.log(`Sub-Item Clicked: ${subItem.textContent}`);
+            }
+            
             closeMenu(); // Close the whole menu
             return;
         }
 
         // Clicked on a parent item (e.g., "File")
         if (parentItem) {
+            // ... (rest of this logic is unchanged)
             const submenuId = parentItem.dataset.submenu;
-            if (!submenuId) return; // Not an expandable item
-            
+            if (!submenuId) return;
             const submenu = document.getElementById(submenuId);
             if (!submenu) return;
-
             const isAlreadyOpen = submenu.classList.contains('is-open');
-
-            // --- Accordion Logic ---
-            // 1. Close all currently open submenus
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
             menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
                 btn.classList.remove('is-open');
             });
-
-            // 2. If it wasn't already open, open it
             if (!isAlreadyOpen) {
                 submenu.classList.add('is-open');
                 parentItem.classList.add('is-open');
             }
-            // (If it *was* already open, the code above just closes it)
         }
     });
 
@@ -334,7 +304,8 @@ function createMarkup() {
 /**
  * Initializes the main menu UI.
  */
-export function initMenu() {
+export function initMenu(app) { // <-- ADDED: Accept App
+    App = app; // <-- ADDED: Store App
     injectStyles();
     createMarkup();
     console.log('Menu UI Initialized.');
