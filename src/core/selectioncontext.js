@@ -6,58 +6,44 @@ let App;
 let selectedObject = null;
 let outlineMesh = null;
 
+// --- GONE: Callback arrays are removed ---
+
 /**
  * Creates the visual outline mesh and adds it to the scene.
  */
 function createOutlineHelper() {
-    // A simple, non-post-processing outline using EdgesGeometry
+    // ... (this function is unchanged)
     const outlineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x007aff, // The "nice blue"
-        linewidth: 3     // Note: "linewidth" has limitations on some GPUs
+        color: 0x007aff,
+        linewidth: 3
     });
-    
-    // Create an empty mesh first. We'll swap its geometry.
     outlineMesh = new THREE.LineSegments(new THREE.BufferGeometry(), outlineMaterial);
-    outlineMesh.visible = false; // Hide it initially
+    outlineMesh.visible = false;
     App.scene.add(outlineMesh);
 }
 
 /**
  * Focuses the camera on a given 3D object.
- * @param {THREE.Object3D} object - The object to focus on.
  */
 function focusOnObject(object) {
+    // ... (this function is unchanged)
     if (!object || !App.camera || !App.controls) return;
-
     const box = new THREE.Box3().setFromObject(object);
     const center = box.getCenter(new THREE.Vector3());
     const sphere = box.getBoundingSphere(new THREE.Sphere());
     const radius = sphere.radius;
-
-    // Calculate distance to fit the object's bounding sphere
     const fov = App.camera.fov * (Math.PI / 180);
-    
-    // --- UPDATED: Handle empty/invisible objects (like a Group) ---
-    // If radius is 0 or Infinity, use a default distance
     let distance;
     if (radius > 0 && isFinite(radius)) {
          distance = radius / Math.sin(fov / 2);
     } else {
-        distance = 10; // Default fallback distance
+        distance = 10;
     }
-
-    // Get the current camera direction (relative to its target)
     const direction = new THREE.Vector3()
         .subVectors(App.camera.position, App.controls.target)
         .normalize();
-
-    // Set new controls target (what to orbit around)
     App.controls.target.copy(center);
-
-    // Set new camera position (move along the direction vector)
-    App.camera.position.copy(center).addScaledVector(direction, distance * 1.5); // * 1.5 for padding
-
-    // Must call update for changes to take effect
+    App.camera.position.copy(center).addScaledVector(direction, distance * 1.5);
     App.controls.update();
 }
 
@@ -66,9 +52,8 @@ function focusOnObject(object) {
  * @param {THREE.Object3D} object - The object to select.
  */
 function select(object) {
-    // --- UPDATED: Allow any Object3D, not just Meshes ---
     if (!object || object === selectedObject) {
-        if (!object) clear(); // Clear selection if null is passed
+        if (!object) clear();
         return;
     }
 
@@ -76,22 +61,15 @@ function select(object) {
 
     // --- 1. Update Visual Outline (IF IT'S A MESH) ---
     if (object.isMesh) {
-        // Dispose of old geometry to prevent memory leaks
         if (outlineMesh.geometry) {
             outlineMesh.geometry.dispose();
         }
-
-        // Create new edges geometry from the object's geometry
-        outlineMesh.geometry = new THREE.EdgesGeometry(object.geometry, 1); // 1 = threshold angle
-        
-        // Match the position, rotation, and scale of the parent object
+        outlineMesh.geometry = new THREE.EdgesGeometry(object.geometry, 1);
         outlineMesh.position.copy(object.position);
         outlineMesh.rotation.copy(object.rotation);
         outlineMesh.scale.copy(object.scale);
-        
         outlineMesh.visible = true;
     } else {
-        // --- ADDED: It's a Group, Light, or something else. Hide the outline. ---
         outlineMesh.visible = false;
     }
 
@@ -99,6 +77,8 @@ function select(object) {
     focusOnObject(object);
     
     console.log(`Selection Context: Selected '${object.name}'`);
+    
+    // --- 3. GONE: Callback logic removed ---
 }
 
 /**
@@ -110,13 +90,14 @@ function clear() {
     selectedObject = null;
     outlineMesh.visible = false;
     
-    // Dispose of geometry
     if (outlineMesh.geometry) {
         outlineMesh.geometry.dispose();
     }
-    outlineMesh.geometry = new THREE.BufferGeometry(); // Set to empty
+    outlineMesh.geometry = new THREE.BufferGeometry();
     
     console.log('Selection Context: Cleared');
+    
+    // --- GONE: Callback logic removed ---
 }
 
 /**
@@ -127,6 +108,8 @@ function getSelected() {
     return selectedObject;
 }
 
+// --- GONE: onSelect() and onClear() are removed ---
+
 /**
  * Initializes the Selection Context module.
  * @param {object} app - The main App object.
@@ -136,7 +119,7 @@ export function initSelectionContext(app) {
         throw new Error('SelectionContext init failed: App object is incomplete.');
     }
     
-    App = app; // Store the App object for internal use
+    App = app;
     
     createOutlineHelper();
 
@@ -145,6 +128,7 @@ export function initSelectionContext(app) {
         select: select,
         clear: clear,
         getSelected: getSelected
+        // --- GONE: onSelect and onClear removed from here ---
     };
     
     console.log('Selection Context Initialized.');
