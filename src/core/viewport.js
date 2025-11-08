@@ -1,5 +1,5 @@
 // src/core/viewport.js
-import * as THREE from 'three';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.min.js';
 
 let scene, renderer;
 
