@@ -37,7 +37,7 @@ async function loadModule(path, App) {
         if (initFunction) {
             console.log(`[Main] Initializing: ${initFunction.name}`);
             initFunction(App);
-V} else {
+        } else { // <-- FIX: Removed the stray 'V'
             console.warn(`[Main] No 'init' function found in ${path}`);
         }
     } catch (error) {
@@ -87,7 +87,7 @@ V} else {
     // 10. Start Render Loop
     App.renderer.setAnimationLoop(() => {
         App.controls.update();
-        App.renderer.render(App.scene, App.camera);
+        App.renderer.render(App.scene, App.camera); // <-- FIX: Was AppF.camera
     });
 
     // 11. Add Resize Listener
