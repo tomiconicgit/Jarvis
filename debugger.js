@@ -1,71 +1,53 @@
-// loading.js
-import { initDebugger, checkForErrors } from './debugger.js';
+// debugger.js
+const statusBar = document.getElementById('status-bar');
+let errorLog = [];
 
-const loadingScreen = document.getElementById('loading-screen');
-const loadingProgress = document.getElementById('loading-progress');
-const loadingInfo = document.getElementById('loading-info');
+export function initDebugger() {
+    window.onerror = (msg, url, line, col, error) => {
+        const entry = `Error: ${msg} at ${url}:${line}:${col || 0}`;
+        errorLog.push(entry);
+        console.error('[Global Error]', entry, error || '');
+        updateStatus();
+    };
 
-const modules = [
-    { name: 'Main', path: './src/main.js' },
-    { name: 'Viewport', path: './src/core/viewport.js' },
-    { name: 'Camera', path: './src/core/camera.js' }
-];
+    window.addEventListener('unhandledrejection', (event) => {
+        const entry = `Unhandled Rejection: ${event.reason}`;
+        errorLog.push(entry);
+        console.error('[Unhandled Rejection]', event.reason);
+        updateStatus();
+    });
 
-async function loadModules() {
-    initDebugger();
-    let loaded = 0;
-    loadingInfo.textContent = 'Initializing...';
+    setInterval(checkPerformance, 5000);
+}
 
-    for (const mod of modules) {
-        loadingInfo.textContent = `Loading ${mod.name}...`;
-        try {
-            await import(mod.path);
-            checkForErrors(mod.name);
-            loaded++;
-            const percent = (loaded / modules.length) * 100;
-            loadingProgress.style.width = `${percent}%`;
-        } catch (error) {
-            const msg = `Error loading ${mod.name}: ${error.message}`;
-            loadingInfo.textContent = msg;
-            console.error(msg, error);
-            return;
-        }
-    }
-
-    loadingInfo.textContent = 'Loading complete. Starting scene...';
-
+export function checkForErrors(moduleName) {
     try {
-        const mainModule = await import('./src/main.js');
-        if (typeof mainModule.orchestrateModules === 'function') {
-            mainModule.orchestrateModules();
-        } else {
-            throw new Error('orchestrateModules() not exported from main.js');
-        }
-
-        setTimeout(() => {
-            if (loadingScreen) loadingScreen.style.display = 'none';
-        }, 1000);
+        if (!moduleName) throw new Error('Invalid module name');
     } catch (error) {
-        const msg = `Error starting application: ${error.message}`;
-        loadingInfo.textContent = msg;
-        console.error('Orchestration failed:', error);
+        const entry = `Module ${moduleName || '(unknown)'} error: ${error.message}`;
+        errorLog.push(entry);
+        console.error(entry);
     }
+    updateStatus();
 }
 
-function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            // Adjust path if hosted in a subdirectory
-            navigator.serviceWorker.register('/sw.js')
-                .then((registration) => {
-                    console.log('ServiceWorker registration successful with scope:', registration.scope);
-                })
-                .catch((err) => {
-                    console.error('ServiceWorker registration failed:', err);
-                });
-        });
+function checkPerformance() {
+    const now = performance.now();
+    if (!Number.isFinite(now)) {
+        const entry = 'Performance API anomaly detected';
+        errorLog.push(entry);
+        console.warn(entry);
     }
+    updateStatus();
 }
 
-loadModules();
-registerServiceWorker();
+function updateStatus() {
+    if (!statusBar) return;
+
+    if (errorLog.length > 0) {
+        const last = errorLog[errorLog.length - 1];
+        statusBar.textContent = `Status: Errors detected | Debugger: ${last}`;
+    } else {
+        statusBar.textContent = 'Status: Ready | Debugger: No errors';
+    }
+}
