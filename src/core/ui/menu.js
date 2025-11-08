@@ -33,52 +33,37 @@ function injectStyles() {
             top: calc(10px + var(--ui-safe-top));
             left: calc(10px + var(--ui-safe-left));
             z-index: 11;
-            
-            /* --- New Button Style --- */
             background: var(--ui-blue);
             color: #fff;
             font-size: 15px;
             font-weight: 600;
             padding: 10px 16px;
-            
             border: none;
             border-radius: var(--ui-corner-radius);
             box-shadow: var(--ui-shadow);
-            
             cursor: pointer;
-            
-            /* Transitions for press */
             transition: background-color 0.2s ease, transform 0.1s ease;
         }
 
-        /* Animate the bounce */
         #menu-toggle-btn.is-bouncing {
             animation: button-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* Press-down effect */
         #menu-toggle-btn:active {
             background: var(--ui-blue-pressed);
             transform: scale(0.96);
         }
 
-        /* Remove the old .is-open rotation */
-        #menu-toggle-btn.is-open {
-            transform: none; 
-        }
-
         #menu-items-container {
             position: fixed;
-            top: calc(64px + var(--ui-safe-top)); /* Position below button */
+            top: calc(64px + var(--ui-safe-top));
             left: calc(10px + var(--ui-safe-left));
             z-index: 10;
             
-            /* --- New Dropdown Style --- */
             background: var(--ui-grey);
             border-radius: var(--ui-corner-radius);
             box-shadow: var(--ui-shadow);
             
-            /* Use clip-path for a nice expand animation */
             clip-path: inset(0 0 100% 0);
             opacity: 0;
             transform: scale(0.95);
@@ -86,7 +71,8 @@ function injectStyles() {
             
             transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
-            overflow: hidden; /* Important for border-radius */
+            overflow: hidden;
+            min-width: 170px; /* Wider for new content */
         }
 
         #menu-items-container.is-open {
@@ -96,29 +82,82 @@ function injectStyles() {
             pointer-events: auto;
         }
 
+        .menu-item-separator {
+            height: 1px;
+            background: var(--ui-border);
+            margin: 0 8px;
+        }
+        
+        .menu-item-separator-full {
+             height: 1px;
+             background: var(--ui-border);
+             margin: 0; /* Full width separator */
+        }
+
+        /* --- NEW: Top-level item button --- */
         .menu-item {
-            /* --- New Item Style --- */
             background: none;
             border: none;
-            display: block;
+            display: flex; /* Use flex to align text and arrow */
+            justify-content: space-between;
+            align-items: center;
             width: 100%;
             
             color: var(--workspace-text-color, #f5f5f7);
             font-size: 15px;
-            padding: 14px 18px;
+            padding: 14px 12px 14px 18px; /* More padding-right for arrow */
             cursor: pointer;
             text-align: left;
-            min-width: 150px;
         }
 
         .menu-item:active {
             background: var(--ui-light-grey);
         }
 
-        .menu-item-separator {
-            height: 1px;
-            background: var(--ui-border);
-            margin: 0 8px;
+        /* --- NEW: Arrow SVG --- */
+        .menu-item-arrow {
+            width: 16px;
+            height: 16px;
+            stroke: var(--workspace-text-color, #f5f5f7);
+            stroke-width: 2.5;
+            transition: transform 0.3s ease-out;
+            opacity: 0.7;
+        }
+
+        /* --- NEW: Arrow rotation on open --- */
+        .menu-item.is-open .menu-item-arrow {
+            transform: rotate(90deg);
+        }
+
+        /* --- NEW: Submenu container --- */
+        .menu-submenu {
+            background: var(--ui-light-grey);
+            overflow: hidden;
+            
+            /* The animation: max-height 0 to auto */
+            max-height: 0;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .menu-submenu.is-open {
+            max-height: 200px; /* Animates to this value */
+        }
+
+        /* --- NEW: Submenu item button --- */
+        .menu-submenu-item {
+            background: none;
+            border: none;
+            display: block;
+            width: 100%;
+            color: var(--workspace-text-color, #f5f5f7);
+            font-size: 14px;
+            padding: 12px 18px 12px 28px; /* Indented */
+            cursor: pointer;
+            text-align: left;
+        }
+        
+        .menu-submenu-item:active {
+            background: var(--ui-grey);
         }
     `;
 
@@ -133,22 +172,69 @@ function injectStyles() {
  */
 function createMarkup() {
     
+    // --- NEW: Chevron (arrow) icon ---
+    const chevronIcon = `
+        <svg class="menu-item-arrow" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 18l6-6-6-6"></path>
+        </svg>`;
+
     // --- 1. Create Menu Toggle Button ---
     const menuToggleBtn = document.createElement('button');
     menuToggleBtn.id = 'menu-toggle-btn';
     menuToggleBtn.setAttribute('aria-label', 'Open Menu');
-    menuToggleBtn.textContent = 'Menu'; // <-- Text instead of SVG
+    menuToggleBtn.textContent = 'Menu';
     
     // --- 2. Create Menu Items Container ---
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
-    // --- New markup with separators ---
+    
+    // --- NEW: Hierarchical HTML structure ---
     menuItemsContainer.innerHTML = `
-        <button class="menu-item">File...</button>
-        <div class="menu-item-separator"></div>
-        <button class="menu-item">Import...</button>
-        <div class="menu-item-separator"></div>
-        <button class="menu-item">Export...</button>
+        <div class="menu-item-wrapper">
+            <button class="menu-item" data-submenu="file-submenu">
+                <span>File</span>
+                ${chevronIcon}
+            </button>
+            <div class="menu-submenu" id="file-submenu">
+                <button class="menu-submenu-item">New Project</button>
+                <div class="menu-item-separator"></div>
+                <button class="menu-submenu-item">Save Project</button>
+                <div class="menu-item-separator"></div>
+                <button class="menu-submenu-item">Load Project</button>
+            </div>
+        </div>
+        
+        <div class="menu-item-separator-full"></div>
+
+        <div class="menu-item-wrapper">
+            <button class="menu-item" data-submenu="import-submenu">
+                <span>Import</span>
+                ${chevronIcon}
+            </button>
+            <div class="menu-submenu" id="import-submenu">
+                <button class="menu-submenu-item">GLB</button>
+                <div class="menu-item-separator"></div>
+                <button class="menu-submenu-item">FBX</button>
+                <div class="menu-item-separator"></div>
+                <button class="menu-submenu-item">OBJ</button>
+            </div>
+        </div>
+        
+        <div class="menu-item-separator-full"></div>
+
+        <div class="menu-item-wrapper">
+            <button class="menu-item" data-submenu="export-submenu">
+                <span>Export</span>
+                ${chevronIcon}
+            </button>
+            <div class="menu-submenu" id="export-submenu">
+                <button class="menu-submenu-item">GLB</button>
+                <div class="menu-item-separator"></div>
+                <button class="menu-submenu-item">FBX</button>
+                <div class="menu-item-separator"></div>
+                <button class="menu-submenu-item">OBJ</button>
+            </div>
+        </div>
     `;
 
     // --- 3. Append to body ---
@@ -164,12 +250,19 @@ function createMarkup() {
         menuToggleBtn.classList.toggle('is-open', isOpen);
         menuToggleBtn.setAttribute('aria-expanded', isOpen);
 
-        // --- Trigger bounce animation ---
         if (isOpen) {
             menuToggleBtn.classList.add('is-bouncing');
             setTimeout(() => {
                 menuToggleBtn.classList.remove('is-bouncing');
-            }, 300); // Animation duration
+            }, 300);
+        } else {
+            // --- NEW: Close all submenus when main menu closes ---
+            menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
+                sm.classList.remove('is-open');
+            });
+            menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
+                btn.classList.remove('is-open');
+            });
         }
     };
 
@@ -178,15 +271,56 @@ function createMarkup() {
             menuItemsContainer.classList.remove('is-open');
             menuToggleBtn.classList.remove('is-open');
             menuToggleBtn.setAttribute('aria-expanded', 'false');
+            
+            // --- NEW: Close all submenus when main menu closes ---
+            menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
+                sm.classList.remove('is-open');
+            });
+            menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
+                btn.classList.remove('is-open');
+            });
         }
     };
 
     menuToggleBtn.addEventListener('click', toggleMenu);
 
+    // --- NEW: Updated click listener for hierarchy ---
     menuItemsContainer.addEventListener('click', (event) => {
-        if (event.target.classList.contains('menu-item')) {
-            console.log(`Menu Item Clicked: ${event.target.textContent}`);
-            closeMenu();
+        const subItem = event.target.closest('.menu-submenu-item');
+        const parentItem = event.target.closest('.menu-item');
+
+        // Clicked on a final action item (e.g., "Save Project")
+        if (subItem) {
+            console.log(`Sub-Item Clicked: ${subItem.textContent}`);
+            closeMenu(); // Close the whole menu
+            return;
+        }
+
+        // Clicked on a parent item (e.g., "File")
+        if (parentItem) {
+            const submenuId = parentItem.dataset.submenu;
+            if (!submenuId) return; // Not an expandable item
+            
+            const submenu = document.getElementById(submenuId);
+            if (!submenu) return;
+
+            const isAlreadyOpen = submenu.classList.contains('is-open');
+
+            // --- Accordion Logic ---
+            // 1. Close all currently open submenus
+            menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
+                sm.classList.remove('is-open');
+            });
+            menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
+                btn.classList.remove('is-open');
+            });
+
+            // 2. If it wasn't already open, open it
+            if (!isAlreadyOpen) {
+                submenu.classList.add('is-open');
+                parentItem.classList.add('is-open');
+            }
+            // (If it *was* already open, the code above just closes it)
         }
     });
 
