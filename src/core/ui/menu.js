@@ -13,24 +13,36 @@ function injectStyles() {
             --menu-bg: var(--workspace-header-bg, rgba(44, 44, 46, 0.9));
             --menu-border: var(--workspace-border-color, rgba(255, 255, 255, 0.1));
             --menu-text: var(--workspace-text-color, #f5f5f7);
-            --menu-btn-size: 44px; /* Generous touch target */
+            --menu-btn-width: 60px;
+            --menu-btn-height: 44px;
             --menu-safe-top: env(safe-area-inset-top);
             --menu-safe-left: env(safe-area-inset-left);
         }
 
         #menu-toggle-btn {
             position: fixed;
-            top: calc(10px + var(--menu-safe-top));
-            left: calc(10px + var(--menu-safe-left));
-            width: var(--menu-btn-size);
-            height: var(--menu-btn-size);
-            z-index: 11; /* Higher than status bar */
+            top: 0;
+            left: 0;
+            
+            /* --- UPDATED STYLES --- */
+            /* Match the workspace button's tab-like design */
+            width: var(--menu-btn-width);
+            height: var(--menu-btn-height);
+            border-radius: 0 0 12px 0; /* Rounded bottom-right corner */
             
             background: var(--menu-bg);
             border: 1px solid var(--menu-border);
-            border-radius: 50%; /* Circle button */
+            border-top: none; /* Flush with top */
+            border-left: none; /* Flush with left */
+            
+            /* Add padding for safe areas INSTEAD of using calc() */
+            padding-top: var(--menu-safe-top);
+            padding-left: var(--menu-safe-left);
+            box-sizing: border-box;
+            /* --- END UPDATED STYLES --- */
+            
+            z-index: 11; /* Higher than status bar */
             cursor: pointer;
-            padding: 0;
 
             display: grid;
             place-items: center;
@@ -58,10 +70,14 @@ function injectStyles() {
 
         #menu-items-container {
             position: fixed;
-            top: calc(64px + var(--menu-safe-top)); /* 10px + 44px + 10px spacing */
-            left: calc(10px + var(--menu-safe-left));
-            z-index: 10;
             
+            /* --- UPDATED POSITION --- */
+            /* Position below the new button (height + safe-area + 8px margin) */
+            top: calc(var(--menu-btn-height) + var(--menu-safe-top) + 8px); 
+            left: calc(10px + var(--menu-safe-left));
+            /* --- END UPDATED POSITION --- */
+            
+            z-index: 10;
             display: flex;
             flex-direction: column;
 
