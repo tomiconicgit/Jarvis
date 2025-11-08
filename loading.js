@@ -1,4 +1,4 @@
-// loading.js
+// launcher.js
 import { initDebugger, setLoaderErrorCallback } from './debugger.js';
 
 const loadingScreen = document.getElementById('loading-screen');
@@ -16,7 +16,7 @@ function showLoadingError(message) {
 }
 
 /**
- * This is the main application loader.
+ * This is the main application launcher.
  * It's now completely decoupled from the app's modules.
  */
 async function loadApp() {
