@@ -36,7 +36,15 @@ function focusOnObject(object) {
 
     // Calculate distance to fit the object's bounding sphere
     const fov = App.camera.fov * (Math.PI / 180);
-    const distance = radius / Math.sin(fov / 2);
+    
+    // --- UPDATED: Handle empty/invisible objects (like a Group) ---
+    // If radius is 0 or Infinity, use a default distance
+    let distance;
+    if (radius > 0 && isFinite(radius)) {
+         distance = radius / Math.sin(fov / 2);
+    } else {
+        distance = 10; // Default fallback distance
+    }
 
     // Get the current camera direction (relative to its target)
     const direction = new THREE.Vector3()
@@ -58,31 +66,36 @@ function focusOnObject(object) {
  * @param {THREE.Object3D} object - The object to select.
  */
 function select(object) {
-    if (!object || !object.isMesh || object === selectedObject) {
+    // --- UPDATED: Allow any Object3D, not just Meshes ---
+    if (!object || object === selectedObject) {
         if (!object) clear(); // Clear selection if null is passed
         return;
     }
 
     selectedObject = object;
 
-    // --- 1. Update Visual Outline ---
-    
-    // Dispose of old geometry to prevent memory leaks
-    if (outlineMesh.geometry) {
-        outlineMesh.geometry.dispose();
+    // --- 1. Update Visual Outline (IF IT'S A MESH) ---
+    if (object.isMesh) {
+        // Dispose of old geometry to prevent memory leaks
+        if (outlineMesh.geometry) {
+            outlineMesh.geometry.dispose();
+        }
+
+        // Create new edges geometry from the object's geometry
+        outlineMesh.geometry = new THREE.EdgesGeometry(object.geometry, 1); // 1 = threshold angle
+        
+        // Match the position, rotation, and scale of the parent object
+        outlineMesh.position.copy(object.position);
+        outlineMesh.rotation.copy(object.rotation);
+        outlineMesh.scale.copy(object.scale);
+        
+        outlineMesh.visible = true;
+    } else {
+        // --- ADDED: It's a Group, Light, or something else. Hide the outline. ---
+        outlineMesh.visible = false;
     }
 
-    // Create new edges geometry from the object's geometry
-    outlineMesh.geometry = new THREE.EdgesGeometry(object.geometry, 1); // 1 = threshold angle
-    
-    // Match the position, rotation, and scale of the parent object
-    outlineMesh.position.copy(object.position);
-    outlineMesh.rotation.copy(object.rotation);
-    outlineMesh.scale.copy(object.scale);
-    
-    outlineMesh.visible = true;
-
-    // --- 2. Focus Camera ---
+    // --- 2. Focus Camera (Works for all objects) ---
     focusOnObject(object);
     
     console.log(`Selection Context: Selected '${object.name}'`);
