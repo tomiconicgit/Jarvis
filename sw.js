@@ -1,6 +1,5 @@
 // sw.js
 
-// Bump this when you change cached files
 const CACHE_VERSION = 'v1.0.1';
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
