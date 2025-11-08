@@ -13,31 +13,24 @@ export const manifest = {
 
 export function orchestrateModules() {
     checkForErrors('Main');
-    
-    // 1. Initialize modules and get their core components
+
     const { scene, renderer } = initViewport();
     const { camera, controls } = initCamera();
 
-    // 2. Set up the main animation loop using the modern Three.js method
+    // Render loop
     renderer.setAnimationLoop(() => {
-        // Update controls (for damping/inertia)
         controls.update();
-        
-        // Render the scene with the camera
         renderer.render(scene, camera);
     });
 
-    // 3. Set up a single, central resize handler
+    // Handle resize
     window.addEventListener('resize', () => {
-        // Get the new dimensions from the canvas's CSS
         const canvas = renderer.domElement;
         const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
+        const height = canvas.clientHeight || 1; // avoid divide-by-zero
 
-        // Update the renderer's size
         renderer.setSize(width, height);
 
-        // Update the camera's aspect ratio
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
     });
