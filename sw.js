@@ -12,13 +12,13 @@ const FILES_TO_CACHE = [
     'src/main.js',
     'src/core/viewport.js',
     'src/core/camera.js',
-    'src/core/filemanagement.js',
+    'src_core/filemanagement.js',
     'src/core/procedural/terrain.js',
     'src/core/ui/menu.js',
     'src/core/ui/workspace.js',
     'src/core/selectioncontext.js',
     'src/core/procedural/lighting.js',
-    'src/core/procedural/sky.js' // <-- ADDED
+    'src/core/procedural/sky.js'
     
     // Add icons/ folder here when ready
     // 'icons/icon-192x192.png',
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((keyList) =>
             Promise.all(
                 keyList.map((key) => {
-                    if (key !== CACHE_NoteS) {
+                    if (key !== CACHE_NAME) { // <-- FIX: Was CACHE_NoteS
                         console.log('[ServiceWorker] Removing old cache', key);
                         return caches.delete(key);
                     }
