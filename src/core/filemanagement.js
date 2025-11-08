@@ -3,13 +3,12 @@
 import { renderWorkspaceUI, getIconSVG } from './ui/workspace.js';
 
 // This is the master state for the workspace file tree.
-// We start with a default "Default" folder.
 const state = {
     folders: [
         {
             id: 'default',
             name: 'Default',
-            isOpen: true, // Start open
+            isOpen: false, // <-- THE FIX IS HERE (was true)
             items: []
         }
     ]
