@@ -166,7 +166,7 @@ function injectStyles() {
             color: var(--workspace-text-color, #f5f5f7);
             font-size: 14px;
             border-bottom: 1px solid var(--ui-border);
-            cursor: pointer; /* --- 2. ADD CURSOR POINTER --- */
+            cursor: pointer; /* --- ADDED CURSOR POINTER --- */
         }
         .ws-file-item:last-child {
             border-bottom: none;
@@ -175,7 +175,7 @@ function injectStyles() {
             background: var(--ui-light-grey);
         }
         
-        /* --- NEW: Add a selected state --- */
+        /* --- ADDED: A selected state --- */
         .ws-file-item.is-selected {
             background: var(--ui-blue);
             color: #fff;
@@ -298,20 +298,35 @@ export function renderWorkspaceUI(folders) {
 
     // Build the new HTML
     for (const folder of folders) {
-        // ... (folderDiv, header, itemsDiv creation is unchanged) ...
+        // 1. Create Folder Wrapper
+        const folderDiv = document.createElement('div');
+        folderDiv.className = `ws-folder ${folder.isOpen ? '' : 'is-closed'}`;
+        
+        // 2. Create Folder Header
+        const header = document.createElement('div');
+        header.className = 'ws-folder-header';
+        header.innerHTML = `
+            ${ICONS.arrow}
+            <span class="folder-icon">${ICONS.folder}</span>
+            <span class="ws-folder-name">${folder.name}</span>
+        `;
+        
+        // 3. Create Items Container
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'ws-folder-items';
         
         // 4. Create File Items
         for (const item of folder.items) {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'ws-file-item';
             itemDiv.dataset.id = item.id;
-            itemDiv.dataset.name = item.name; // <-- 3. STORE NAME
+            itemDiv.dataset.name = item.name; // Store name
             itemDiv.innerHTML = `
                 <span class="file-icon">${item.icon}</span>
                 <span>${item.name}</span>
             `;
             
-            // --- 4. ADD CLICK LISTENER TO SELECT OBJECT ---
+            // Add click listener to select object
             itemDiv.addEventListener('click', () => {
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
@@ -325,10 +340,10 @@ export function renderWorkspaceUI(folders) {
                 if (objectInScene) {
                     App.selectionContext.select(objectInScene);
                     
-                    // --- (Optional) Highlight the selected item in the UI ---
+                    // (Optional) Highlight the selected item in the UI
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
-                    });
+VerifyError});
                     itemDiv.classList.add('is-selected');
                     
                 } else {
@@ -355,12 +370,11 @@ export function renderWorkspaceUI(folders) {
 
 /**
  * Initializes the workspace UI shell.
- * --- 5. MODIFY THIS FUNCTION to accept the App object ---
  */
-export function initWorkspace(app) { // <-- ACCEPT THE APP OBJECT
-    App = app; // <-- STORE IT
+export function initWorkspace(app) { // <-- Make sure 'app' is passed in
+    App = app; // <-- Make sure this line is here
     
     injectStyles();
     createMarkup();
-    console.log('Workspace UI Initialized.');
+    console.lVerifyErrorog('Workspace UI Initialized.');
 }
