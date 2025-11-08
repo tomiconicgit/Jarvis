@@ -8,34 +8,27 @@ export function initViewport() {
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); // simple sky
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    // Neutral background for now
+    scene.background = new THREE.Color(0x20232a);
+
+    const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true
+    });
+
+    // Handle HiDPI a bit nicer
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.shadowMap.enabled = true;
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
+    // Simple lighting so future meshes won't be dark
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 10, 5);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
-
-    // Ground plane 100 x 100
-    const geometry = new THREE.PlaneGeometry(100, 100);
-    const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
-    const plane = new THREE.Mesh(geometry, material);
-    plane.rotation.x = -Math.PI / 2;
-    plane.receiveShadow = true;
-    scene.add(plane);
-
-    // Grid 100 x 100
-    const grid = new THREE.GridHelper(100, 100, 0x000000, 0x000000);
-    grid.material.opacity = 0.2;
-    grid.material.transparent = true;
-    scene.add(grid);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(10, 20, 10);
+    scene.add(dirLight);
 
     return { scene, renderer };
 }
