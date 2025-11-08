@@ -8,7 +8,8 @@ export function initViewport() {
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x20232a); // neutral dark
+    // No background set: renderer will show default (black/transparent depending on context)
+    scene.background = null;
 
     const renderer = new THREE.WebGLRenderer({
         canvas,
@@ -17,15 +18,7 @@ export function initViewport() {
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.shadowMap.enabled = true;
-
-    // Simple lighting so future meshes are visible
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambient);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    dirLight.position.set(10, 20, 10);
-    scene.add(dirLight);
+    renderer.shadowMap.enabled = false; // no lights/objects yet
 
     return { scene, renderer };
 }
