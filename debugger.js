@@ -3,40 +3,49 @@ const statusBar = document.getElementById('status-bar');
 let errorLog = [];
 
 export function initDebugger() {
-    window.onerror = (msg, url, line) => {
-        errorLog.push(`Error: ${msg} at ${url}:${line}`);
+    // Global error capture
+    window.onerror = (msg, url, line, col, error) => {
+        errorLog.push(`Error: ${msg} at ${url}:${line}:${col || 0}`);
         updateStatus();
     };
-    setInterval(checkPerformance, 5000); // Constant monitoring
+
+    // Optional global unhandled promise rejection logging
+    window.addEventListener('unhandledrejection', (event) => {
+        errorLog.push(`Unhandled Rejection: ${event.reason}`);
+        updateStatus();
+    });
+
+    // Basic periodic performance / health check
+    setInterval(checkPerformance, 5000);
 }
 
 export function checkForErrors(moduleName) {
-    // Placeholder for syntax/file checks; expand as needed
     try {
-        // Simulate file check
-        if (!moduleName) throw new Error('Invalid module');
+        if (!moduleName) throw new Error('Invalid module name');
     } catch (error) {
-        errorLog.push(`Module ${moduleName} error: ${error.message}`);
+        errorLog.push(`Module ${moduleName || '(unknown)'} error: ${error.message}`);
     }
     updateStatus();
 }
 
 function checkPerformance() {
-    const perf = performance.now();
-    // Placeholder for slowdown detection
-    if (perf > 10000) { // Arbitrary threshold
-        errorLog.push('Performance slowdown detected');
+    // Placeholder heuristic: here purely illustrative
+    const now = performance.now();
+    if (!Number.isFinite(now)) {
+        errorLog.push('Performance API anomaly detected');
     }
-    // Future: Add model file checks (e.g., via fetch or Three.js load errors)
     updateStatus();
 }
 
 function updateStatus() {
+    if (!statusBar) return;
+
     if (errorLog.length > 0) {
-        statusBar.textContent = `Status: Errors detected | Debugger: ${errorLog[errorLog.length - 1]}`;
+        const last = errorLog[errorLog.length - 1];
+        statusBar.textContent = `Status: Errors detected | Debugger: ${last}`;
     } else {
         statusBar.textContent = 'Status: Ready | Debugger: No errors';
     }
 }
 
-// Future expansions: Model errors, etc.
+// Future expansions: model load checks, network checks, etc.
