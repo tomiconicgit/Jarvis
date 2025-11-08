@@ -1,12 +1,26 @@
 // debugger.js
 const statusBar = document.getElementById('status-bar');
 let errorLog = [];
+let showErrorOnLoader = null; // <-- NEW: The callback function
+
+/**
+ * NEW: Allows loading.js to register its error-display function.
+ */
+export function setLoaderErrorCallback(callback) {
+    showErrorOnLoader = callback;
+}
 
 export function initDebugger() {
     window.onerror = (msg, url, line, col, error) => {
         const entry = `Error: ${msg} at ${url}:${line}:${col || 0}`;
         errorLog.push(entry);
         console.error('[Global Error]', entry, error || '');
+        
+        // --- NEW ---
+        if (showErrorOnLoader) {
+            showErrorOnLoader(entry);
+            showErrorOnLoader = null; // Show the FIRST error, then stop.
+        }
         updateStatus();
     };
 
@@ -14,6 +28,12 @@ export function initDebugger() {
         const entry = `Unhandled Rejection: ${event.reason}`;
         errorLog.push(entry);
         console.error('[Unhandled Rejection]', event.reason);
+
+        // --- NEW ---
+        if (showErrorOnLoader) {
+            showErrorOnLoader(entry);
+            showErrorOnLoader = null; // Show the FIRST error, then stop.
+        }
         updateStatus();
     });
 
@@ -27,6 +47,13 @@ export function checkForErrors(moduleName) {
         const entry = `Module ${moduleName || '(unknown)'} error: ${error.message}`;
         errorLog.push(entry);
         console.error(entry);
+        
+        // --- NEW (Optional, but good) ---
+        // This will catch errors from our manual checks
+        if (showErrorOnLoader) {
+            showErrorOnLoader(entry);
+            showErrorOnLoader = null;
+        }
     }
     updateStatus();
 }
