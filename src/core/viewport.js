@@ -8,14 +8,13 @@ export function initViewport() {
     scene.background = new THREE.Color(0x87CEEB); // Blue sky
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    // Set initial size based on canvas's styled dimensions
     renderer.setSize(canvas.clientWidth, canvas.clientHeight); 
     renderer.shadowMap.enabled = true;
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionLigh(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 5);
     directionalLight.castShadow = true;
     scene.add(directionalLight);
@@ -34,9 +33,5 @@ export function initViewport() {
     grid.material.transparent = true;
     scene.add(grid);
 
-    // REMOVED: self-contained animate() loop
-    // REMOVED: window.addEventListener('resize')
-
-    // Return the created objects for the orchestrator (main.js) to use
     return { scene, renderer };
 }
