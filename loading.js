@@ -1,64 +1,65 @@
 // loading.js
-import { initDebugger, checkForErrors } from './debugger.js';
+import { initDebugger, setLoaderErrorCallback } from './debugger.js';
 
 const loadingScreen = document.getElementById('loading-screen');
 const loadingProgress = document.getElementById('loading-progress');
 const loadingInfo = document.getElementById('loading-info');
 
-const modules = [
-    { name: 'Main', path: './src/main.js' },
-    { name: 'Viewport', path: './src/core/viewport.js' },
-    { name: 'Camera', path: './src/core/camera.js' },
-    { name: 'WorkspaceUI', path: './src/core/ui/workspace.js' },
-    { name: 'MenuUI', path: './src/core/ui/menu.js' } // <-- ADD THIS LINE
-];
+/**
+ * This is the new callback function.
+ * debugger.js will call this if a global error occurs.
+ */
+function showLoadingError(message) {
+    loadingInfo.textContent = message;
+    loadingProgress.style.background = '#f00'; // Turn bar red
+    loadingProgress.style.width = '100%';
+}
 
-async function loadModules() {
+/**
+ * This is the main application loader.
+ * It's now completely decoupled from the app's modules.
+ */
+async function loadApp() {
+    // 1. Init debugger and give it our error callback
     initDebugger();
-    let loaded = 0;
-    loadingInfo.textContent = 'Initializing...';
+    setLoaderErrorCallback(showLoadingError);
 
-    for (const mod of modules) {
-        loadingInfo.textContent = `Loading ${mod.name}...`;
-        try {
-            await import(mod.path);
-            checkForErrors(mod.name);
-            loaded++;
-            const percent = (loaded / modules.length) * 100;
-            loadingProgress.style.width = `${percent}%`;
-        } catch (error) {
-            const msg = `Error loading ${mod.name}: ${error.message}`;
-            loadingInfo.textContent = msg;
-            console.error(msg, error);
-            return; // Don't continue; keep loading screen with error message
-        }
-    }
+    // 2. Register Service Worker
+    registerServiceWorker();
 
-    loadingInfo.textContent = 'Loading complete. Starting scene...';
+    loadingInfo.textContent = 'Loading application...';
+    loadingProgress.style.width = '30%'; // Show some progress
 
     try {
-        const mainModule = await import('./src/main.js');
+        // 3. Attempt to load the ENTIRE application
+        // We just import main.js. That's it.
+        // main.js will then handle loading everything else.
+        await import('./src/main.js');
 
-        if (typeof mainModule.orchestrateModules !== 'function') {
-            throw new Error('orchestrateModules() not exported from src/main.js');
-        }
+        // 4. If we get here, main.js and all its imports succeeded
+        loadingInfo.textContent = 'Loading complete. Starting scene...';
+        loadingProgress.style.width = '100%';
 
-        mainModule.orchestrateModules();
-
+        // 5. Hide the loading screen
         setTimeout(() => {
             if (loadingScreen) loadingScreen.style.display = 'none';
+            // Disconnect the loader callback.
+            // Future errors will just go to the status bar.
+            setLoaderErrorCallback(null);
         }, 800);
+
     } catch (error) {
-        const msg = `Error starting application: ${error.message}`;
-        loadingInfo.textContent = msg;
-        console.error('Orchestration failed:', error);
+        // This will catch a FATAL error (e.g., main.js not found or has a syntax error)
+        const msg = `Fatal error: ${error.message}`;
+        console.error(msg, error);
+        showLoadingError(msg);
+        // The loading screen will stay visible with the error
     }
 }
 
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // If you host in a subdirectory (GitHub Pages), change '/sw.js' to 'sw.js'
             navigator.serviceWorker.register('/sw.js')
                 .then((registration) => {
                     console.log('ServiceWorker registration successful with scope:', registration.scope);
@@ -70,5 +71,5 @@ function registerServiceWorker() {
     }
 }
 
-loadModules();
-registerServiceWorker();
+// Start the app
+loadApp();
