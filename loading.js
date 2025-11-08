@@ -1,13 +1,15 @@
 // loading.js
 import { initDebugger, checkForErrors } from './debugger.js';
-import { orchestrateModules } from './src/main.js';
+
+// REMOVED static import of main.js to prevent circular dependency
 
 const loadingScreen = document.getElementById('loading-screen');
 const loadingProgress = document.getElementById('loading-progress');
 const loadingInfo = document.getElementById('loading-info');
 
 const modules = [
-    { name: 'Debugger', path: './debugger.js' },
+    // debugger.js is already loaded via the static import above.
+    // We only need to list modules that are part of the app logic.
     { name: 'Main', path: './src/main.js' },
     { name: 'Viewport', path: './src/core/viewport.js' },
     { name: 'Camera', path: './src/core/camera.js' }
@@ -35,8 +37,22 @@ async function loadModules() {
     }
 
     loadingInfo.textContent = 'Loading complete. Starting orchestration...';
-    orchestrateModules();
-    setTimeout(() => loadingScreen.style.display = 'none', 1000);
+    
+    try {
+        // THIS IS THE FIX:
+        // Now that all modules are loaded, dynamically import main.js...
+        const mainModule = await import('./src/main.js');
+        
+        // ...and call its exported function to start the app.
+        mainModule.orchestrateModules();
+
+        // Hide the loading screen
+        setTimeout(() => loadingScreen.style.display = 'none', 1000);
+
+    } catch (error) {
+        loadingInfo.textContent = `Error starting application: ${error.message}`;
+        console.error("Orchestration failed:", error);
+    }
 }
 
 loadModules();
