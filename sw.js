@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_VERSION = 'v1.0.7'; // <-- BUMPED VERSION
+const CACHE_VERSION = 'v1.0.8'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -20,8 +20,9 @@ const FILES_TO_CACHE = [
     'src/core/procedural/lighting.js',
     'src/core/procedural/sky.js',
     'src/core/ui/tools.js',
-    'src/core/ui/modal.js', // <-- ADDED
-    'src/core/engine/newproject.js' // <-- ADDED
+    'src/core/ui/modal.js',
+    'src/core/engine/newproject.js',
+    'src/core/engine/saveproject.js' // <-- ADDED
     
     // Add icons/ folder here when ready
     // 'icons/icon-192x192.png',
