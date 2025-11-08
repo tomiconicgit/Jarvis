@@ -7,28 +7,93 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="format-detection" content="telephone=no">
     <title>Terra</title>
-    <link rel="manifest" href="manifest.json"> <style>
-        body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; }
-        /* CSS uses clientWidth/Height, which is correct */
-        #viewport { width: 100vw; height: calc(100vh - 80px); } 
-        #toolbar { height: 40px; background: #333; display: flex; align-items: center; justify-content: space-around; } 
-        #status-bar { height: 40px; background: #222; position: fixed; bottom: 0; width: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
-        #loading-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        #loading-bar { width: 80%; height: 20px; background: #333; border-radius: 10px; overflow: hidden; }
-        #loading-progress { height: 100%; background: #0f0; width: 0; transition: width 0.3s; }
-        #loading-info { margin-top: 10px; font-size: 14px; text-align: center; }
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Import map so bare 'three' & OrbitControls resolve correctly -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.min.js",
+        "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+        }
+        #viewport {
+            width: 100vw;
+            height: calc(100vh - 80px);
+        }
+        #toolbar {
+            height: 40px;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+        #status-bar {
+            height: 40px;
+            background: #222;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        #loading-bar {
+            width: 80%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #loading-progress {
+            height: 100%;
+            background: #0f0;
+            width: 0;
+            transition: width 0.3s;
+        }
+        #loading-info {
+            margin-top: 10px;
+            font-size: 14px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div id="loading-screen">
-        <div id="loading-bar"><div id="loading-progress"></div></div>
+        <div id="loading-bar">
+            <div id="loading-progress"></div>
+        </div>
         <div id="loading-info">Loading modules...</div>
     </div>
+
     <div id="toolbar">
         <button>Import</button>
         <button>Library</button>
         <button>Animate</button>
     </div>
+
     <canvas id="viewport"></canvas>
     <div id="status-bar">Status: Ready | Debugger: No errors</div>
 
