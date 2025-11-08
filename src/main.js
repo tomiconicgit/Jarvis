@@ -2,13 +2,15 @@
 import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
 import { checkForErrors } from '../debugger.js';
-import { initWorkspace } from './core/ui/workspace.js'; // <-- 1. IMPORT
+import { initWorkspace } from './core/ui/workspace.js';
+import { initMenu } from './core/ui/menu.js'; // <-- 1. IMPORT
 
 export const manifest = {
     modules: [
         'core/viewport.js',
         'core/camera.js',
-        'core/ui/workspace.js' // <-- 2. ADD TO MANIFEST
+        'core/ui/workspace.js',
+        'core/ui/menu.js' // <-- 2. ADD TO MANIFEST
     ],
     version: '1.0.0'
 };
@@ -21,7 +23,8 @@ export function orchestrateModules() {
     const { camera, controls } = initCamera();
 
     // --- Initialize UI Modules ---
-    initWorkspace(); // <-- 3. CALL IT
+    initWorkspace();
+    initMenu(); // <-- 3. CALL IT
 
     // --- Start Render Loop ---
     renderer.setAnimationLoop(() => {
