@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_VERSION = 'v1.0.6'; // <-- 1. BUMPED VERSION
+const CACHE_VERSION = 'v1.0.7'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -12,14 +12,16 @@ const FILES_TO_CACHE = [
     'src/main.js',
     'src/core/viewport.js',
     'src/core/camera.js',
-    'src/core/filemanagement.js', // <-- 2. FIXED TYPO (was src_core/)
+    'src/core/filemanagement.js',
     'src/core/procedural/terrain.js',
     'src/core/ui/menu.js',
     'src/core/ui/workspace.js',
     'src/core/selectioncontext.js',
     'src/core/procedural/lighting.js',
     'src/core/procedural/sky.js',
-    'src/core/ui/tools.js' // <-- 3. ADD THIS LINE
+    'src/core/ui/tools.js',
+    'src/core/ui/modal.js', // <-- ADDED
+    'src/core/engine/newproject.js' // <-- ADDED
     
     // Add icons/ folder here when ready
     // 'icons/icon-192x192.png',
@@ -43,7 +45,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((keyList) =>
             Promise.all(
                 keyList.map((key) => {
-                    if (key !== CACHE_NAME) { 
+                    if (key !== CACHE_NAME) {
                         console.log('[ServiceWorker] Removing old cache', key);
                         return caches.delete(key);
                     }
