@@ -2,24 +2,23 @@
 
 /**
  * Creates and injects the CSS styles for the workspace UI.
- * This keeps the module self-contained.
  */
 function injectStyles() {
     const styleId = 'workspace-ui-styles';
     if (document.getElementById(styleId)) return; // Styles already injected
 
-    // CSS Variables for easy theming
     const css = `
         :root {
-            --workspace-bg: rgba(28, 28, 30, 0.85);
-            --workspace-header-bg: rgba(44, 44, 46, 0.9);
-            --workspace-content-bg: rgba(20, 20, 20, 0.7);
-            --workspace-border-color: rgba(255, 255, 255, 0.1);
-            --workspace-text-color: #f5f5f7;
-            --workspace-icon-color: #888;
-            --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            /* Shared UI Theme */
+            --ui-blue: #007aff;
+            --ui-grey: #3a3a3c;
+            --ui-light-grey: #4a4a4c;
+            --ui-border: rgba(255, 255, 255, 0.15);
+            --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            --ui-corner-radius: 12px;
             
-            /* Get the height of the status bar (which now includes safe-area) */
+            /* Local variables */
+            --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             --status-bar-height: calc(40px + env(safe-area-inset-bottom));
         }
 
@@ -29,22 +28,19 @@ function injectStyles() {
             left: 0;
             width: 100%;
             height: 45vh; /* 45% of the viewport height */
-            background: var(--workspace-bg);
             
-            /* iOS frosted glass effect */
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            /* --- Style Update --- */
+            background: transparent; /* Container is now a holder */
+            border-top: none; /* Header will have border */
             
-            border-top: 1px solid var(--workspace-border-color);
             z-index: 5;
-            
             display: flex;
             flex-direction: column;
 
             /* Animation setup */
             transform: translateX(0);
             transition: var(--workspace-transition);
-            will-change: transform; /* Performance hint */
+            will-change: transform;
         }
 
         #workspace-container.is-hidden {
@@ -56,21 +52,27 @@ function injectStyles() {
             align-items: center;
             padding: 0 16px;
             height: 48px;
-            background: var(--workspace-header-bg);
-            border-bottom: 1px solid var(--workspace-border-color);
             flex-shrink: 0;
+            
+            /* --- New Blue Header Style --- */
+            background: var(--ui-blue);
+            color: #fff;
+            
+            /* Frosted glass effect */
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(0,0,0,0.2);
         }
 
         .workspace-title {
             font-size: 16px;
             font-weight: 600;
-            color: var(--workspace-text-color);
+            color: #fff; /* <-- Updated */
             margin: 0;
             padding: 0;
         }
 
         .workspace-close-btn {
-            /* Generous tap target */
             width: 44px;
             height: 44px;
             display: grid;
@@ -79,34 +81,41 @@ function injectStyles() {
             border: none;
             cursor: pointer;
             padding: 0;
-            margin-left: -12px; /* Align icon better */
+            margin-left: -12px;
             margin-right: 8px;
         }
         
         .workspace-close-btn svg {
             width: 20px;
             height: 20px;
-            stroke: var(--workspace-text-color);
+            stroke: #fff; /* <-- Updated */
             stroke-width: 2;
         }
 
         .workspace-content {
             flex-grow: 1;
             overflow-y: auto;
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-            background: var(--workspace-content-bg);
+            -webkit-overflow-scrolling: touch;
+            
+            /* --- New Grey Content Style --- */
+            background: var(--ui-grey);
+            color: var(--workspace-text-color, #f5f5f7);
             padding: 8px;
         }
 
-        /* Styling for list items (example) */
         .workspace-item {
             padding: 12px 16px;
-            color: var(--workspace-text-color);
+            color: var(--workspace-text-color, #f5f5f7);
             font-size: 14px;
-            border-bottom: 1px solid var(--workspace-border-color);
+            border-bottom: 1px solid var(--ui-border);
             display: flex;
             align-items: center;
         }
+        
+        .workspace-item:active {
+            background: var(--ui-light-grey);
+        }
+        
         .workspace-item:last-child {
             border-bottom: none;
         }
@@ -116,17 +125,16 @@ function injectStyles() {
             position: fixed;
             left: 0;
             top: 50%; /* Center vertically */
+            transform: translateY(-50%); /* Precise centering */
             
-            /* Button styling */
-            background: var(--workspace-header-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            /* --- New Blue Tab Style --- */
+            background: var(--ui-blue);
+            border: none;
+            box-shadow: var(--ui-shadow);
             
-            border: 1px solid var(--workspace-border-color);
-            border-left: none;
             width: 44px;
             height: 60px;
-            border-radius: 0 12px 12px 0;
+            border-radius: 0 var(--ui-corner-radius) var(--ui-corner-radius) 0;
             
             display: grid;
             place-items: center;
@@ -134,21 +142,25 @@ function injectStyles() {
             z-index: 4;
 
             /* Animation setup */
-            transform: translateX(-100%); /* Start hidden */
+            transform: translateX(-100%) translateY(-50%); /* Start hidden */
             transition: var(--workspace-transition);
             will-change: transform;
         }
 
         #workspace-open-btn.is-visible {
-            transform: translateX(0); /* Slide in */
+            transform: translateX(0) translateY(-50%); /* Slide in */
+        }
+        
+        #workspace-open-btn:active {
+            background: var(--ui-blue-pressed);
         }
         
         #workspace-open-btn svg {
              width: 24px;
              height: 24px;
-             stroke: var(--workspace-text-color);
-             stroke-width: 1.5;
-             transform: translateX(2px); /* Center icon visually */
+             stroke: #fff; /* <-- Updated */
+             stroke-width: 2;
+             transform: translateX(2px);
         }
     `;
 
@@ -162,7 +174,6 @@ function injectStyles() {
  * Creates the HTML markup for the workspace and attaches event listeners.
  */
 function createMarkup() {
-    // --- Icons (Inline SVG for performance and easy styling) ---
     // 'X' icon for close
     const closeIcon = `
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -170,15 +181,13 @@ function createMarkup() {
             <line x1="6" y1="6" x2="18" y2="18" />
         </svg>`;
     
-    // 'Layers' icon for open (fits 'workspace' theme)
+    // --- New "Three Lines" (Hamburger) Icon ---
     const openIcon = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-            <polyline points="2 17 12 22 22 17"></polyline>
-            <polyline points="2 12 12 17 22 12"></polyline>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="3" y1="12" x2="21" y2="12" stroke-linecap="round"/>
+            <line x1="3" y1="6" x2="21" y2="6" stroke-linecap="round"/>
+            <line x1="3" y1="18" x2="21" y2="18" stroke-linecap="round"/>
         </svg>`;
-
-    // --- Create Elements ---
 
     // 1. Main Container
     const container = document.createElement('div');
@@ -203,7 +212,7 @@ function createMarkup() {
     const openBtn = document.createElement('button');
     openBtn.id = 'workspace-open-btn';
     openBtn.setAttribute('aria-label', 'Open Workspace');
-    openBtn.innerHTML = openIcon;
+    openBtn.innerHTML = openIcon; // <-- Using new icon
 
     // 3. Append to body
     document.body.appendChild(container);
