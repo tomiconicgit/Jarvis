@@ -8,21 +8,18 @@ export function initViewport() {
     }
 
     const scene = new THREE.Scene();
-
-    // Neutral background for now
-    scene.background = new THREE.Color(0x20232a);
+    scene.background = new THREE.Color(0x20232a); // neutral dark
 
     const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: true
     });
 
-    // Handle HiDPI a bit nicer
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.shadowMap.enabled = true;
 
-    // Simple lighting so future meshes won't be dark
+    // Simple lighting so future meshes are visible
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambient);
 
