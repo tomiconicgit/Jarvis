@@ -7,26 +7,43 @@ import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
 import { initFileManagement } from './core/filemanagement.js';
 import { initSelectionContext } from './core/selectioncontext.js';
+import { initModal } from './core/ui/modal.js'; // <-- 1. NEW
+import { initEngine } from './core/engine/newproject.js'; // <-- 2. NEW
 
 /**
  * -------------------------------------------------------------------
- * PLUGGABLE MODULE MANIFEST (UI / Tools / Content)
+ * MODULE MANIFESTS
  * -------------------------------------------------------------------
- * Add new module paths here. They will be loaded automatically.
+ * We now separate modules by type for better orchestration.
  */
-const pluggableModules = [
+
+// Core services that provide an API (e.g., App.fileManager)
+const coreServices = [
+    initFileManagement,
+    initSelectionContext,
+    initModal,
+    initEngine // <-- Init engine AFTER its dependencies (modal, fileManager)
+];
+
+// Pluggable UI modules (e.g., menus, panels)
+const uiModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
-    './core/ui/tools.js', // <-- 1. ADD THIS LINE
+    './core/ui/tools.js'
+];
+
+// Default assets that make up a "New Project"
+const defaultSceneModules = [
     './core/procedural/terrain.js',
     './core/procedural/lighting.js',
     './core/procedural/sky.js'
 ];
 
+
 /**
- * Dynamically loads and initializes a single module, passing the App object.
+ * Dynamically loads a module and returns its 'init' function.
  */
-async function loadModule(path, App) {
+async function loadModuleInit(path) {
     try {
         checkForErrors(`Main: Importing ${path}`);
         const module = await import(path);
@@ -36,14 +53,14 @@ async function loadModule(path, App) {
         );
 
         if (initFunction) {
-            console.log(`[Main] Initializing: ${initFunction.name}`);
-            initFunction(App);
-        } else { 
+            return initFunction;
+        } else {
             console.warn(`[Main] No 'init' function found in ${path}`);
+            return null;
         }
     } catch (error) {
         console.error(`[Main] Failed to load module ${path}:`, error);
-        throw error; // Re-throw for global error handler
+        throw error;
     }
 }
 
@@ -53,10 +70,10 @@ async function loadModule(path, App) {
 (async () => {
     checkForErrors('Main');
     
-    // 5. Create the central App object
+    // 1. Create the central App object
     const App = {};
 
-    // 6. Initialize Core Systems and attach to App
+    // 2. Initialize Core Systems and attach to App
     const { scene, renderer } = initViewport();
     App.scene = scene;
     App.renderer = renderer;
@@ -65,33 +82,36 @@ async function loadModule(path, App) {
     App.camera = camera;
     App.controls = controls;
 
-    // 7. Initialize Core Services and attach to App
-    // These must be init'd BEFORE modules that use them.
-    initFileManagement(App);
-    initSelectionContext(App);
+    // 3. Initialize Core Services (File Manager, Selection, Modal, Engine)
+    console.log('[Main] Initializing core services...');
+    coreServices.forEach(initFunc => initFunc(App));
 
-    // 8. Load all pluggable modules in parallel
-    // They all get the same App object.
-    await Promise.all(pluggableModules.map(path => loadModule(path, App)));
+    // 4. Load and initialize all UI modules
+    console.log('[Main] Initializing UI modules...');
+    const uiInits = (await Promise.all(uiModules.map(loadModuleInit))).filter(Boolean);
+    uiInits.forEach(initFunc => initFunc(App));
 
-    // 9. After all modules are loaded, tell the workspace to render.
-    // This builds the workspace UI *after* all files are registered.
-    
-    // --- THE FIX: Call the workspace's render function ---
+    // 5. Load and store the "default scene" init functions
+    console.log('[Main] Loading default scene assets...');
+    App.defaultSceneInits = (await Promise.all(defaultSceneModules.map(loadModuleInit))).filter(Boolean);
+
+    // 6. Run the default scene inits for the first time
+    App.defaultSceneInits.forEach(initFunc => initFunc(App));
+
+    // 7. After all modules are loaded, tell the workspace to render
     if (App.workspace && typeof App.workspace.render === 'function') {
         App.workspace.render();
     } else {
         console.error('[Main] Workspace render function not found.');
     }
-    // --- GONE: App.fileManager.render();
 
-    // 10. Start Render Loop
+    // 8. Start Render Loop
     App.renderer.setAnimationLoop(() => {
         App.controls.update();
         App.renderer.render(App.scene, App.camera);
     });
 
-    // 11. Add Resize Listener
+    // 9. Add Resize Listener
     window.addEventListener('resize', () => {
         const canvas = App.renderer.domElement;
         const width = canvas.clientWidth;
