@@ -17,6 +17,7 @@ import { initSelectionContext } from './core/selectioncontext.js';
 const pluggableModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
+    './core/ui/tools.js', // <-- 1. ADD THIS LINE
     './core/procedural/terrain.js',
     './core/procedural/lighting.js',
     './core/procedural/sky.js'
@@ -37,7 +38,7 @@ async function loadModule(path, App) {
         if (initFunction) {
             console.log(`[Main] Initializing: ${initFunction.name}`);
             initFunction(App);
-        } else { // <-- FIX: Removed the stray 'V'
+        } else { 
             console.warn(`[Main] No 'init' function found in ${path}`);
         }
     } catch (error) {
@@ -87,7 +88,7 @@ async function loadModule(path, App) {
     // 10. Start Render Loop
     App.renderer.setAnimationLoop(() => {
         App.controls.update();
-        App.renderer.render(App.scene, App.camera); // <-- FIX: Was AppF.camera
+        App.renderer.render(App.scene, App.camera);
     });
 
     // 11. Add Resize Listener
