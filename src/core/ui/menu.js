@@ -16,7 +16,7 @@ const ICONS = {
     menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
     workspace: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
     add: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
-    tools: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39 1.04c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.44h-3.84a.5.5 0 0 0-.5.44l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-1.04a.5.5 0 0 0-.61.22l-1.92 3.32a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32a.5.5 0 0 0 .61.22l2.39-1.04c.5.38 1.03-.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.44h3.84a.5.5 0 0 0 .5.44l.36 2.54c.59-.24-1.13-.57-1.62.94l2.39 1.04a.5.5 0 0 0 .61-.22l1.92 3.32a.5.5 0 0 0-.12-.61l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"></path></svg>`,
+    tools: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39 1.04c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.44h-3.84a.5.5 0 0 0-.5.44l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-1.04a.5.5 0 0 0-.61.22l-1.92 3.32a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32a.5.5 0 0 0 .61.22l2.39-1.04c.5.38 1.03-.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.44h3.84a.5.5 0 0 0 .5.44l.36 2.54c.59-.24-1.13-.57-1.62.94l2.39 1.04a.5.5 0 0 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"></path></svg>`,
     play: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
 };
 
@@ -43,15 +43,12 @@ function injectStyles() {
         #bottom-bar {
             position: fixed;
             
-            /* --- UPDATED FOR ROUNDED CORNERS --- */
-            bottom: 5px; /* Push up from bottom */
-            left: 5px;   /* Inset from left */
-            right: 5px;  /* Inset from right */
-            width: auto; /* Let left/right/bottom handle positioning */
-            border-radius: 8px; /* Round the bar's corners */
-            box-shadow: var(--ui-shadow); /* Add shadow to floating bar */
-            border-top: none; /* Remove border-top, use shadow instead */
-            /* --- END UPDATE --- */
+            /* --- REVERTED: Back to fixed bottom edge --- */
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            border-top: 1px solid var(--ui-border);
+            /* --- REMOVED floating styles --- */
 
             height: calc(var(--bottom-bar-height) + var(--ui-safe-bottom));
             background: var(--ui-dark-grey); 
@@ -95,14 +92,16 @@ function injectStyles() {
             color: var(--ui-blue);
             opacity: 1.0;
         }
+
+        /* --- GONE: Special styling for Add button removed --- */
         
         /* --- Menu "Drop-Up" Container --- */
         #menu-items-container {
             position: fixed;
-            /* --- UPDATED: Adjust to new floating bar --- */
-            bottom: calc(var(--bottom-bar-height) + var(--ui-safe-bottom) + 10px); /* 5px bar gap + 5px extra */
-            left: 10px; /* 5px bar gap + 5px extra */
-            /* --- END UPDATE --- */
+            /* --- REVERTED: Positioned relative to the fixed bottom bar --- */
+            bottom: calc(var(--bottom-bar-height) + var(--ui-safe-bottom) + 5px);
+            left: 5px;
+            /* --- END REVERT --- */
             z-index: 10;
             background: var(--ui-grey);
             border-radius: 8px; 
@@ -167,15 +166,18 @@ function injectStyles() {
             transform: rotate(90deg);
         }
         
+        /* --- UPDATED: Submenu fix --- */
         .menu-submenu {
             background: var(--ui-light-grey);
             overflow: hidden;
-            max-height: 0; 
+            max-height: 0; /* This animates the inline expansion */
             transition: max-height 0.3s ease-out;
+            /* GONE: All 'position: absolute' properties */
         }
         .menu-submenu.is-open {
             max-height: 200px;
         }
+        /* --- END UPDATE --- */
         
         .menu-submenu-item {
             background: none;
@@ -346,7 +348,7 @@ function createMarkup() {
         closeMenu();
     });
     
-    toolsBtn.addEventListener('click', () => {
+    toolsBtn.addEventListener('click', ()G);
         const isToolsOpen = document.getElementById('tools-container')?.classList.contains('is-open');
         
         if (isToolsOpen) {
