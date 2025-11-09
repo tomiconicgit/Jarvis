@@ -3,7 +3,7 @@
 // --- Module-level App variable ---
 let App;
 
-// --- NEW: Module-level button variables ---
+// --- Module-level button variables ---
 let menuBtn;
 let workspaceBtn;
 let toolsBtn;
@@ -31,53 +31,56 @@ function injectStyles() {
             --top-bar-height: 44px;
         }
         
-        /* --- UPDATED: Full-width Top Bar --- */
+        /* --- UPDATED: Floating Top Bar --- */
         #top-bar {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%; /* Full width */
-            height: calc(var(--top-bar-height) + var(--ui-safe-top));
+            top: calc(10px + var(--ui-safe-top));
+            left: calc(10px + var(--ui-safe-left));
+            width: auto; /* Fit content */
+            height: var(--top-bar-height);
             
-            /* Solid background */
-            background: var(--ui-grey);
-            border-bottom: 1px solid var(--ui-border);
+            /* Glassmorphism effect */
+            background: rgba(58, 58, 60, 0.8); /* Semi-transparent */
+            backdrop-filter: blur(10px) saturate(180%);
+            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            
+            border: 1px solid var(--ui-border);
+            border-radius: var(--ui-corner-radius);
+            box-shadow: var(--ui-shadow);
             
             z-index: 11;
             display: flex;
             align-items: center;
-            padding-top: var(--ui-safe-top);
-            padding-left: var(--ui-safe-left);
-            padding-right: var(--ui-safe-right);
+            padding: 0 4px; /* Internal padding */
             box-sizing: border-box;
         }
         
         .top-bar-btn {
-            flex: 1; /* <-- NEW: Make buttons equal width */
-            text-align: center; /* <-- NEW: Center text */
             background: none;
             border: none;
             color: #fff; /* <-- UPDATED: All buttons white */
             font-size: 15px;
             font-weight: 500;
             padding: 10px 12px;
-            border-radius: 0; /* No radius on full bar */
+            border-radius: 8px; /* <-- UPDATED: Rounded corners */
             cursor: pointer;
-            transition: background-color 0.2s, color 0.2s;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
         
         .top-bar-btn:active {
             background: var(--ui-light-grey);
         }
         
-        /* --- NEW: Active state for buttons --- */
+        /* --- UPDATED: Active state uses background --- */
         .top-bar-btn.is-active {
-            color: var(--ui-blue);
+            background: var(--ui-blue);
+            color: #fff;
             font-weight: 600;
         }
         
-        /* --- GONE: Special style for menu-btn --- */
+        /* --- GONE: Special color for menu-btn --- */
         
+        /* --- Divider --- */
         .top-bar-divider {
             width: 1px;
             height: 20px;
@@ -88,8 +91,8 @@ function injectStyles() {
         /* --- UPDATED: Menu dropdown position --- */
         #menu-items-container {
             position: fixed;
-            /* Position below the new full-width bar */
-            top: calc(var(--top-bar-height) + var(--ui-safe-top) + 5px);
+            /* Position below the new floating bar */
+            top: calc(var(--top-bar-height) + 15px + var(--ui-safe-top));
             left: calc(10px + var(--ui-safe-left));
             z-index: 10;
             background: var(--ui-grey);
@@ -105,6 +108,7 @@ function injectStyles() {
             min-width: 170px;
         }
         
+        /* ... (all other menu dropdown styles are unchanged) ... */
         #menu-items-container.is-open {
             clip-path: inset(0 0 0 0);
             opacity: 1;
@@ -133,10 +137,10 @@ function injectStyles() {
             padding: 14px 12px 14px 18px;
             cursor: pointer;
             text-align: left;
-            transition: color 0.2s; /* <-- NEW */
+            transition: color 0.2s;
         }
         
-        /* --- NEW: Active state for sub-menu parent items --- */
+        /* --- This handles "File" turning blue when open --- */
         .menu-item.is-open {
             color: var(--ui-blue);
         }
@@ -267,7 +271,7 @@ function createMarkup() {
     const toggleMenu = (event) => {
         if (event) event.stopPropagation(); 
         const isOpen = menuItemsContainer.classList.toggle('is-open');
-        menuBtn.classList.toggle('is-active', isOpen); // <-- UPDATED
+        menuBtn.classList.toggle('is-active', isOpen); // Toggle active state
         
         if (!isOpen) {
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
@@ -282,7 +286,7 @@ function createMarkup() {
     const closeMenu = () => {
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
-            menuBtn.classList.remove('is-active'); // <-- UPDATED
+            menuBtn.classList.remove('is-active'); // Deactivate on close
             
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
@@ -295,15 +299,15 @@ function createMarkup() {
 
     menuBtn.addEventListener('click', toggleMenu);
 
-    // --- UPDATED: Listeners for Workspace and Tools ---
+    // --- (This logic for Workspace/Tools is unchanged from before) ---
     workspaceBtn.addEventListener('click', () => {
         const isWorkspaceOpen = document.getElementById('workspace-container')?.classList.contains('is-open');
         
         if (isWorkspaceOpen) {
-            App.workspace.close(); // Wrapper will remove active class
+            App.workspace.close();
         } else {
-            App.workspace.open();  // Wrapper will add active class
-            App.tools.close();     // Wrapper will remove active class
+            App.workspace.open();
+            App.tools.close();
         }
         closeMenu();
     });
@@ -312,14 +316,15 @@ function createMarkup() {
         const isToolsOpen = document.getElementById('tools-container')?.classList.contains('is-open');
         
         if (isToolsOpen) {
-            App.tools.close();     // Wrapper will remove active class
+            App.tools.close();
         } else {
-            App.tools.open();      // Wrapper will add active class
-            App.workspace.close(); // Wrapper will remove active class
+            App.tools.open();
+            App.workspace.close();
         }
         closeMenu();
     });
 
+    // --- (This logic for menu items is unchanged) ---
     menuItemsContainer.addEventListener('click', (event) => {
         const subItem = event.target.closest('.menu-submenu-item');
         const parentItem = event.target.closest('.menu-item');
@@ -354,7 +359,7 @@ function createMarkup() {
                 console.log(`Sub-Item Clicked: ${subItem.textContent}`);
             }
             
-            closeMenu(); // This now also deactivates the main Menu button
+            closeMenu();
             return;
         }
 
@@ -396,13 +401,12 @@ export function initMenu(app) {
     injectStyles();
     createMarkup(); // This creates the buttons
 
-    // --- NEW: Get button references AFTER they are created ---
+    // --- (This logic is unchanged) ---
+    // It finds the buttons and wraps the panel functions.
+    
     menuBtn = document.getElementById('top-bar-menu-btn');
     workspaceBtn = document.getElementById('top-bar-workspace-btn');
     toolsBtn = document.getElementById('top-bar-tools-btn');
-    
-    // --- NEW: Wrap the panel functions to control active state ---
-    // (This ensures we 'hijack' the functions from workspace.js and tools.js)
     
     if (App.workspace) {
         const originalWorkspaceOpen = App.workspace.open;
@@ -411,7 +415,7 @@ export function initMenu(app) {
         App.workspace.open = () => {
             originalWorkspaceOpen();
             workspaceBtn.classList.add('is-active');
-            toolsBtn.classList.remove('is-active'); // Deactivate other panel
+            toolsBtn.classList.remove('is-active');
         };
         App.workspace.close = () => {
             originalWorkspaceClose();
@@ -426,7 +430,7 @@ export function initMenu(app) {
         App.tools.open = () => {
             originalToolsOpen();
             toolsBtn.classList.add('is-active');
-            workspaceBtn.classList.remove('is-active'); // Deactivate other panel
+            workspaceBtn.classList.remove('is-active');
         };
         App.tools.close = () => {
             originalToolsClose();
