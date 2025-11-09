@@ -8,7 +8,6 @@ export function initViewport() {
     }
 
     const scene = new THREE.Scene();
-    // No background set: renderer will show default (black/transparent depending on context)
     scene.background = null;
 
     const renderer = new THREE.WebGLRenderer({
@@ -18,7 +17,11 @@ export function initViewport() {
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.shadowMap.enabled = false; // no lights/objects yet
+    
+    // --- UPDATED ---
+    renderer.shadowMap.enabled = true; // <-- ENABLE SHADOWS
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // <-- MAKE SHADOWS SMOOTH
+    // --- END UPDATE ---
 
     return { scene, renderer };
 }
