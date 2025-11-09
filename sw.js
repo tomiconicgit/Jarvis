@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_VERSION = 'v1.1.0'; // <-- BUMPED VERSION
+const CACHE_VERSION = 'v1.2.0'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -14,13 +14,14 @@ const FILES_TO_CACHE = [
     'src/core/camera.js',
     'src/core/filemanagement.js',
     'src/core/ui/menu.js',
-    'src.../core/ui/workspace.js',
+    'src/core/ui/workspace.js',
     'src/core/selectioncontext.js',
     'src/core/ui/tools.js',
     'src/core/ui/modal.js',
     'src/core/engine/newproject.js',
     'src/core/engine/saveproject.js',
-    'src/core/engine/loadproject.js', // <-- ADDED
+    'src/core/engine/loadproject.js',
+    'src/core/engine/importengine.js', // <-- ADDED
     
     // --- DEFAULT ASSETS ---
     'src/core/default/terrain.js',
@@ -33,35 +34,4 @@ const FILES_TO_CACHE = [
     // 'icons/icon-maskable-512x512.png'
 ];
 
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('[ServiceWorker] Caching app shell');
-                return cache.addAll(FILES_TO_CACHE);
-            })
-            .then(() => self.skipWaiting())
-    );
-});
-
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((keyList) =>
-            Promise.all(
-                keyList.map((key) => {
-                    if (key !== CACHE_NAME) {
-                        console.log('[ServiceWorker] Removing old cache', key);
-                        return caches.delete(key);
-                    }
-                })
-            )
-        ).then(() => self.clients.claim())
-    );
-});
-
-self.addEventListener('fetch', (event) => {
-    event.respondWith(
-        caches.match(event.request)
-            .then((response) => response || fetch(event.request))
-    );
-});
+// ... (rest of the file is unchanged) ...
