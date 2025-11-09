@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="format-detection" content="telephone=no">
@@ -39,12 +41,17 @@
             color: #fff;
         }
 
-        /* --- UPDATED --- */
-        /* Full screen canvas, accounting for new bottom bar */
+        /*
+          FIX 2: Changed #viewport to be fixed-position and fill the entire screen.
+          This makes it cover the whole display, including behind the notch.
+          Your UI elements (like the bottom bar) will correctly float on top.
+        */
         #viewport {
-            width: 100vw;
-            /* New bottom bar height is approx 60px + safe area */
-            height: calc(100vh - 60px); 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: block;
         }
 
