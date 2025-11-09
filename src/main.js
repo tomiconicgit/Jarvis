@@ -12,7 +12,7 @@ import { initEngine } from './core/engine/newproject.js';
 import { initSaveProject } from './core/engine/saveproject.js';
 import { initLoadProject } from './core/engine/loadproject.js';
 import { initImportEngine } from './core/engine/importengine.js';
-import { initExportEngine } from './core/engine/exportengine.js'; // <-- ADDED
+import { initExportEngine } from './core/engine/exportengine.js';
 
 /**
  * -------------------------------------------------------------------
@@ -29,20 +29,21 @@ const coreServices = [
     initSaveProject,
     initLoadProject,
     initImportEngine,
-    initExportEngine // <-- ADDED
+    initExportEngine
 ];
 
 // Pluggable UI modules
+// --- UPDATED ORDER ---
 const uiModules = [
-    './core/ui/workspace.js',
-    './core/ui/menu.js',
-    './core/ui/tools.js'
+    './core/ui/workspace.js', // <-- Must be before menu
+    './core/ui/tools.js',       // <-- Must be before menu
+    './core/ui/menu.js'         // <-- Loads last
 ];
 
 // Default assets that make up a "New Project"
 const defaultSceneModules = [
-    './core/default/terrain.js',      // <-- UPDATED PATH
-    './core/default/environment.js'   // <-- REPLACED lighting/sky
+    './core/default/terrain.js',
+    './core/default/environment.js'
 ];
 
 
@@ -50,6 +51,7 @@ const defaultSceneModules = [
  * Dynamically loads a module and returns its 'init' function.
  */
 async function loadModuleInit(path) {
+    // ... (This function is unchanged) ...
     try {
         checkForErrors(`Main: Importing ${path}`);
         const module = await import(path);
@@ -94,6 +96,7 @@ async function loadModuleInit(path) {
     // 4. Load and initialize all UI modules
     console.log('[Main] Initializing UI modules...');
     const uiInits = (await Promise.all(uiModules.map(loadModuleInit))).filter(Boolean);
+    // This loop will now run initWorkspace, then initTools, then initMenu
     uiInits.forEach(initFunc => initFunc(App));
 
     // 5. Load and store the "default scene" init functions
