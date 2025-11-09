@@ -158,7 +158,7 @@ function createMarkup() {
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- UPDATED: Added IDs to import and export buttons ---
+    // --- UPDATED: Removed FBX Export ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -199,8 +199,6 @@ function createMarkup() {
             </button>
             <div class="menu-submenu" id="export-submenu">
                 <button class="menu-submenu-item" id="menu-export-glb">GLB</button>
-                <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item" id="menu-export-fbx">FBX</button>
                 <div class="menu-item-separator"></div>
                 <button class="menu-submenu-item" id="menu-export-obj">OBJ</button>
             </div>
@@ -255,7 +253,7 @@ function createMarkup() {
         // Clicked on a final action item
         if (subItem) {
             
-            // --- UPDATED: Handle all File, Import, and Export actions ---
+            // --- UPDATED: Removed menu-export-fbx logic ---
             
             // File Actions
             if (subItem.id === 'menu-file-new') {
@@ -279,12 +277,9 @@ function createMarkup() {
                  if (App && App.engine && App.engine.importModel) App.engine.importModel('obj');
                 else console.error('Engine.importModel() not found.');
             
-            // --- NEW: Export handlers ---
+            // --- Export handlers ---
             } else if (subItem.id === 'menu-export-glb') {
                 if (App && App.engine && App.engine.exportModel) App.engine.exportModel('glb');
-                else console.error('Engine.exportModel() not found.');
-            } else if (subItem.id === 'menu-export-fbx') {
-                 if (App && App.engine && App.engine.exportModel) App.engine.exportModel('fbx');
                 else console.error('Engine.exportModel() not found.');
             } else if (subItem.id === 'menu-export-obj') {
                  if (App && App.engine && App.engine.exportModel) App.engine.exportModel('obj');
