@@ -30,6 +30,29 @@ function registerFile(file) {
 }
 
 /**
+ * NEW: Registers a new folder in the workspace.
+ * @param {object} folder - { id, name, isOpen }
+ */
+function registerFolder(folder) {
+    if (!folder || !folder.id || !folder.name) {
+        console.error('File Manager: Invalid folder object.', folder);
+        return;
+    }
+    
+    if (state.folders.find(f => f.id === folder.id)) {
+        console.warn(`File Manager: Folder with id "${folder.id}" already exists.`);
+        return;
+    }
+
+    state.folders.push({
+        id: folder.id,
+        name: folder.name,
+        isOpen: folder.isOpen || false,
+        items: []
+    });
+}
+
+/**
  * Returns the raw folder data.
  */
 function getFolders() {
@@ -37,12 +60,19 @@ function getFolders() {
 }
 
 /**
- * NEW: Resets the file state to be empty.
+ * UPDATED: Resets the file state.
+ * Removes all non-default folders and clears items from the default folder.
  */
 function reset() {
-    state.folders.forEach(folder => {
-        folder.items = []; // Clear all items from all folders
-    });
+    // Keep only the default folder
+    state.folders = state.folders.filter(f => f.id === 'default');
+    
+    // Reset the default folder
+    if (state.folders[0]) {
+        state.folders[0].items = [];
+        state.folders[0].isOpen = false; // Close it
+    }
+    
     console.log('File Manager: State reset.');
 }
 
@@ -52,8 +82,9 @@ function reset() {
 export function initFileManagement(App) {
     App.fileManager = {
         registerFile: registerFile,
+        registerFolder: registerFolder, // <-- ADDED
         getFolders: getFolders,
-        reset: reset // <-- ADDED
+        reset: reset
     };
 
     console.log('File Management Initialized.');
