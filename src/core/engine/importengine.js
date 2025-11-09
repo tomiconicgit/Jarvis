@@ -73,7 +73,6 @@ async function loadFile(file, type) {
                 loader = new GLTFLoader();
                 const url = URL.createObjectURL(file);
                 
-                // Use a promise to handle async load
                 model = await new Promise((resolve, reject) => {
                     loader.load(url, (gltf) => {
                         URL.revokeObjectURL(url);
@@ -88,7 +87,6 @@ async function loadFile(file, type) {
 
             // --- FBX ---
             case 'fbx': {
-                // FBXLoader needs fflate, which is in the importmap
                 await import('three/examples/jsm/libs/fflate.module.min.js');
                 const { FBXLoader } = await import('three/examples/jsm/loaders/FBXLoader.js');
                 loader = new FBXLoader();
@@ -113,6 +111,38 @@ async function loadFile(file, type) {
         // --- 3. Process and add the model to the scene ---
         if (model) {
             model.name = modelName; // Name the root group
+            
+            // --- Center and Ground the Model ---
+            // We must do this *before* scaling to get the correct original size
+            const box = new THREE.Box3().setFromObject(model);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            const translation = new THREE.Vector3(
+                -center.x,
+                -box.min.y,
+                -center.z
+            );
+            model.position.add(translation);
+            // --- End Center/Ground ---
+            
+            // --- NEW: Auto-Scaling Logic ---
+            // We use the 'box' calculated *before* translation for accurate size.
+            const size = new THREE.Vector3();
+            box.getSize(size);
+
+            // Find the largest dimension
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            // Define a target size (e.g., 10 units for the largest dimension)
+            const TARGET_SIZE = 10.0; 
+
+            // Calculate scale factor, avoiding division by zero
+            if (maxDim > 0 && isFinite(maxDim)) {
+                const scaleFactor = TARGET_SIZE / maxDim;
+                model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            }
+            // --- END NEW ---
+
             App.scene.add(model);
             
             // 4. Register all meshes with the file manager
