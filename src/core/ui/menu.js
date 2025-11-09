@@ -91,6 +91,7 @@ function injectStyles() {
         }
 
         /* --- GONE: Special styling for Add button removed --- */
+        /* The #bottom-bar-add-btn no longer has a special background */
         
         /* --- Menu "Drop-Up" Container --- */
         #menu-items-container {
@@ -99,7 +100,7 @@ function injectStyles() {
             left: 5px;
             z-index: 10;
             background: var(--ui-grey);
-            border-radius: 0;
+            border-radius: 8px; /* <-- UPDATED */
             box-shadow: var(--ui-shadow);
             clip-path: inset(100% 0 0 0);
             opacity: 0;
@@ -107,7 +108,7 @@ function injectStyles() {
             transform-origin: bottom left;
             transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
-            overflow: hidden;
+            overflow: hidden; /* <-- This is correct */
             min-width: 170px;
         }
         
@@ -161,16 +162,16 @@ function injectStyles() {
             transform: rotate(90deg);
         }
         
-        /* --- UPDATED: Submenu logic --- */
+        /* --- UPDATED: Submenu fix --- */
         .menu-submenu {
             background: var(--ui-light-grey);
             overflow: hidden;
-            max-height: 0;
+            max-height: 0; /* This animates the inline expansion */
             transition: max-height 0.3s ease-out;
-            /* GONE: position: absolute and related properties */
+            /* GONE: All 'position: absolute' properties */
         }
         .menu-submenu.is-open {
-            max-height: 200px; /* This now just expands inline */
+            max-height: 200px;
         }
         /* --- END UPDATE --- */
         
@@ -219,7 +220,7 @@ function createMarkup() {
         </button>
         <button id="bottom-bar-add-btn" class="bottom-bar-btn">
             ${ICONS.add}
-            </button>
+        </button>
         <button id="bottom-bar-tools-btn" class="bottom-bar-btn">
             ${ICONS.tools}
             <span>Tools</span>
