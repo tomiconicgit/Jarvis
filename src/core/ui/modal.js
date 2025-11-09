@@ -35,8 +35,8 @@ function injectStyles() {
         }
 
         #modal-dialog {
-            background: var(--ui-grey, #3a3a3c);
-            border-radius: var(--ui-corner-radius, 12px);
+            background: var(--ui-dark-grey, #1c1c1c); /* <-- UPDATED */
+            border-radius: 8px; /* <-- UPDATED */
             box-shadow: var(--ui-shadow, 0 4px 12px rgba(0,0,0,0.15));
             width: 90%;
             max-width: 400px;
@@ -44,7 +44,7 @@ function injectStyles() {
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             flex-direction: column;
-            max-height: 80vh; /* Allow scrolling */
+            max-height: 80vh;
         }
         
         #modal-backdrop.is-visible #modal-dialog {
@@ -65,7 +65,7 @@ function injectStyles() {
             font-size: 14px;
             text-align: center;
             line-height: 1.4;
-            overflow-y: auto; /* Enable scrolling for content */
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
         
@@ -279,7 +279,7 @@ function showCustom({ title, html, onConfirm, onCancel, confirmText = 'OK', canc
             ${html}
         </div>
         <div class="modal-actions">
-            <button class="modal-btn" id="modal-cancel-btn">${cancelText}</button>
+            ${cancelText ? `<button class="modal-btn" id="modal-cancel-btn">${cancelText}</button>` : ''}
             <button class="modal-btn confirm" id="modal-confirm-btn">${confirmText}</button>
         </div>
     `;
@@ -287,16 +287,16 @@ function showCustom({ title, html, onConfirm, onCancel, confirmText = 'OK', canc
     const modalBody = modalDialog.querySelector('#modal-custom-content');
 
     modalDialog.querySelector('#modal-confirm-btn').addEventListener('click', () => {
-        // Pass the modal body to the callback so it can read form values
         if (onConfirmCallback) onConfirmCallback(modalBody);
-        // We don't auto-hide here; the callback is responsible
-        // for hiding if validation passes.
     });
 
-    modalDialog.querySelector('#modal-cancel-btn').addEventListener('click', () => {
-        if (onCancelCallback) onCancelCallback();
-        hide();
-    });
+    const cancelBtn = modalDialog.querySelector('#modal-cancel-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            if (onCancelCallback) onCancelCallback();
+            hide();
+        });
+    }
     
     show();
 }
@@ -310,12 +310,11 @@ export function initModal(app) {
     injectStyles();
     createMarkup();
     
-    // Replace the old placeholder API with the new one
     App.modal = {
         alert: showAlert,
         confirm: showConfirm,
         custom: showCustom,
-        hide: hide // Expose hide for callbacks
+        hide: hide
     };
     
     console.log('Modal UI Initialized.');
