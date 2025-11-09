@@ -21,7 +21,10 @@ function showLoadingError(message) {
  */
 async function loadApp() {
     // 1. Init debugger and give it our error callback
-    initDebugger();
+    // --- UPDATED: Pass an empty object to hold the App.debugger API ---
+    // This is a temporary App object just for the debugger to attach to.
+    const App = {}; 
+    initDebugger(App); 
     setLoaderErrorCallback(showLoadingError);
 
     // 2. Register Service Worker
@@ -34,6 +37,7 @@ async function loadApp() {
         // 3. Attempt to load the ENTIRE application
         // We just import main.js. That's it.
         // main.js will then handle loading everything else.
+        // The real App object will be created inside main.js
         await import('./src/main.js');
 
         // 4. If we get here, main.js and all its imports succeeded
