@@ -10,6 +10,7 @@ import { initSelectionContext } from './core/selectioncontext.js';
 import { initModal } from './core/ui/modal.js';
 import { initEngine } from './core/engine/newproject.js';
 import { initSaveProject } from './core/engine/saveproject.js';
+import { initLoadProject } from './core/engine/loadproject.js'; // <-- ADDED
 
 /**
  * -------------------------------------------------------------------
@@ -23,7 +24,8 @@ const coreServices = [
     initSelectionContext,
     initModal,
     initEngine,
-    initSaveProject 
+    initSaveProject,
+    initLoadProject // <-- ADDED
 ];
 
 // Pluggable UI modules
