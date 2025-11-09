@@ -112,36 +112,41 @@ async function loadFile(file, type) {
         if (model) {
             model.name = modelName; // Name the root group
             
-            // --- Center and Ground the Model ---
-            // We must do this *before* scaling to get the correct original size
-            const box = new THREE.Box3().setFromObject(model);
-            const center = new THREE.Vector3();
-            box.getCenter(center);
-            const translation = new THREE.Vector3(
-                -center.x,
-                -box.min.y,
-                -center.z
-            );
-            model.position.add(translation);
-            // --- End Center/Ground ---
+            // --- UPDATED: Auto-Scaling and Centering Logic ---
             
-            // --- NEW: Auto-Scaling Logic ---
-            // We use the 'box' calculated *before* translation for accurate size.
+            // 1. Force update matrices to get accurate initial box
+            model.updateWorldMatrix(true, true);
+            
+            // 2. Get the *initial* bounding box to calculate scale
+            const initialBox = new THREE.Box3().setFromObject(model);
             const size = new THREE.Vector3();
-            box.getSize(size);
+            initialBox.getSize(size);
 
-            // Find the largest dimension
+            // 3. Calculate and apply scale
             const maxDim = Math.max(size.x, size.y, size.z);
-
-            // Define a target size (e.g., 10 units for the largest dimension)
-            const TARGET_SIZE = 10.0; 
-
-            // Calculate scale factor, avoiding division by zero
+            const TARGET_SIZE = 10.0;
+            
             if (maxDim > 0 && isFinite(maxDim)) {
                 const scaleFactor = TARGET_SIZE / maxDim;
                 model.scale.set(scaleFactor, scaleFactor, scaleFactor);
             }
-            // --- END NEW ---
+
+            // 4. Force update matrices *again* after scaling
+            model.updateWorldMatrix(true, true);
+
+            // 5. Get the *new, scaled* bounding box for centering
+            const scaledBox = new THREE.Box3().setFromObject(model);
+            const scaledCenter = new THREE.Vector3();
+            scaledBox.getCenter(scaledCenter);
+            
+            // 6. Calculate translation and *set* the position
+            // This moves the model's new center to (0,0) and its bottom to y=0
+            model.position.set(
+                -scaledCenter.x,
+                -scaledBox.min.y,
+                -scaledCenter.z
+            );
+            // --- END UPDATED LOGIC ---
 
             App.scene.add(model);
             
