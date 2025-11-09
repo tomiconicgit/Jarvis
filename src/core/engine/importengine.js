@@ -1,6 +1,8 @@
 // src/core/engine/importengine.js
 import * as THREE from 'three';
 
+let App; // <-- ADDED THIS LINE
+
 // ... (getCleanName and openFilePicker functions are unchanged) ...
 function getCleanName(filename) {
     let name = filename.split('.').slice(0, -1).join('.');
