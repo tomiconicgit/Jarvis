@@ -7,7 +7,137 @@ let App;
  * Creates and injects the CSS styles for the main menu UI.
  */
 function injectStyles() {
-    // ... (css is unchanged) ...
+    const styleId = 'menu-ui-styles';
+    if (document.getElementById(styleId)) return;
+    const css = `
+        :root {
+            /* Shared UI Theme */
+            --ui-blue: #007aff;
+            --ui-blue-pressed: #005ecf;
+            --ui-grey: #3a3a3c;
+            --ui-light-grey: #4a4a4c;
+            --ui-border: rgba(255, 255, 255, 0.15);
+            --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            --ui-corner-radius: 12px;
+            --ui-safe-top: env(safe-area-inset-top);
+            --ui-safe-left: env(safe-area-inset-left);
+        }
+        @keyframes button-bounce {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+        #menu-toggle-btn {
+            position: fixed;
+            top: calc(10px + var(--ui-safe-top));
+            left: calc(10px + var(--ui-safe-left));
+            z-index: 11;
+            background: var(--ui-blue);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 10px 16px;
+            border: none;
+            border-radius: var(--ui-corner-radius);
+            box-shadow: var(--ui-shadow);
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        #menu-toggle-btn.is-bouncing {
+            animation: button-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #menu-toggle-btn:active {
+            background: var(--ui-blue-pressed);
+            transform: scale(0.96);
+        }
+        #menu-items-container {
+            position: fixed;
+            top: calc(64px + var(--ui-safe-top));
+            left: calc(10px + var(--ui-safe-left));
+            z-index: 10;
+            background: var(--ui-grey);
+            border-radius: var(--ui-corner-radius);
+            box-shadow: var(--ui-shadow);
+            clip-path: inset(0 0 100% 0);
+            opacity: 0;
+            transform: scale(0.95);
+            transform-origin: top left;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            overflow: hidden;
+            min-width: 170px;
+        }
+        #menu-items-container.is-open {
+            clip-path: inset(0 0 0 0);
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+        .menu-item-separator {
+            height: 1px;
+            background: var(--ui-border);
+            margin: 0 8px;
+        }
+        .menu-item-separator-full {
+             height: 1px;
+             background: var(--ui-border);
+             margin: 0;
+        }
+        .menu-item {
+            background: none;
+            border: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            color: var(--workspace-text-color, #f5f5f7);
+            font-size: 15px;
+            padding: 14px 12px 14px 18px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .menu-item:active {
+            background: var(--ui-light-grey);
+        }
+        .menu-item-arrow {
+            width: 16px;
+            height: 16px;
+            stroke: var(--workspace-text-color, #f5f5f7);
+            stroke-width: 2.5;
+            transition: transform 0.3s ease-out;
+            opacity: 0.7;
+        }
+        .menu-item.is-open .menu-item-arrow {
+            transform: rotate(90deg);
+        }
+        .menu-submenu {
+            background: var(--ui-light-grey);
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out;
+        }
+        .menu-submenu.is-open {
+            max-height: 200px;
+        }
+        .menu-submenu-item {
+            background: none;
+            border: none;
+            display: block;
+            width: 100%;
+            color: var(--workspace-text-color, #f5f5f7);
+            font-size: 14px;
+            padding: 12px 18px 12px 28px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .menu-submenu-item:active {
+            background: var(--ui-grey);
+        }
+    `;
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
 }
 
 /**
@@ -82,7 +212,39 @@ function createMarkup() {
 
     // --- 4. Add Event Listeners ---
     
-    // ... (toggleMenu and closeMenu functions are unchanged) ...
+    const toggleMenu = (event) => {
+        if (event) event.stopPropagation(); 
+        const isOpen = menuItemsContainer.classList.toggle('is-open');
+        menuToggleBtn.classList.toggle('is-open', isOpen);
+        menuToggleBtn.setAttribute('aria-expanded', isOpen);
+        if (isOpen) {
+            menuToggleBtn.classList.add('is-bouncing');
+            setTimeout(() => {
+                menuToggleBtn.classList.remove('is-bouncing');
+            }, 300);
+        } else {
+            menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
+                sm.classList.remove('is-open');
+            });
+            menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
+                btn.classList.remove('is-open');
+            });
+        }
+    };
+
+    const closeMenu = () => {
+        if (menuItemsContainer.classList.contains('is-open')) {
+            menuItemsContainer.classList.remove('is-open');
+            menuToggleBtn.classList.remove('is-open');
+            menuToggleBtn.setAttribute('aria-expanded', 'false');
+            menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
+                sm.classList.remove('is-open');
+            });
+            menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
+                btn.classList.remove('is-open');
+            });
+        }
+    };
 
     menuToggleBtn.addEventListener('click', toggleMenu);
 
@@ -138,18 +300,19 @@ function createMarkup() {
 
         // Clicked on a parent item (e.g., "File")
         if (parentItem) {
-            // ... (rest of this logic is unchanged)
             const submenuId = parentItem.dataset.submenu;
             if (!submenuId) return;
             const submenu = document.getElementById(submenuId);
             if (!submenu) return;
             const isAlreadyOpen = submenu.classList.contains('is-open');
+            
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
             menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
                 btn.classList.remove('is-open');
             });
+            
             if (!isAlreadyOpen) {
                 submenu.classList.add('is-open');
                 parentItem.classList.add('is-open');
