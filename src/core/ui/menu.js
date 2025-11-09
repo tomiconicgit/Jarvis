@@ -158,7 +158,7 @@ function createMarkup() {
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- UPDATED: Added id="menu-file-load" ---
+    // --- UPDATED: Added IDs to import buttons ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -182,11 +182,11 @@ function createMarkup() {
                 ${chevronIcon}
             </button>
             <div class="menu-submenu" id="import-submenu">
-                <button class="menu-submenu-item">GLB</button>
+                <button class="menu-submenu-item" id="menu-import-glb">GLB</button>
                 <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item">FBX</button>
+                <button class="menu-submenu-item" id="menu-import-fbx">FBX</button>
                 <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item">OBJ</button>
+                <button class="menu-submenu-item" id="menu-import-obj">OBJ</button>
             </div>
         </div>
         
@@ -255,7 +255,7 @@ function createMarkup() {
         // Clicked on a final action item
         if (subItem) {
             
-            // --- UPDATED: Handle "New", "Save", and "Load" ---
+            // --- UPDATED: Handle all File and Import actions ---
             if (subItem.id === 'menu-file-new') {
                 if (App && App.engine && App.engine.newProject) {
                     App.engine.newProject();
@@ -268,12 +268,31 @@ function createMarkup() {
                 } else {
                     console.error('Engine.saveProject() not found.');
                 }
-            } else if (subItem.id === 'menu-file-load') { // <-- ADDED
+            } else if (subItem.id === 'menu-file-load') {
                 if (App && App.engine && App.engine.loadProject) {
                     App.engine.loadProject();
                 } else {
                     console.error('Engine.loadProject() not found.');
-Services
+                }
+            
+            // --- NEW: Import handlers ---
+            } else if (subItem.id === 'menu-import-glb') {
+                if (App && App.engine && App.engine.importModel) {
+                    App.engine.importModel('glb');
+                } else {
+                    console.error('Engine.importModel() not found.');
+                }
+            } else if (subItem.id === 'menu-import-fbx') {
+                 if (App && App.engine && App.engine.importModel) {
+                    App.engine.importModel('fbx');
+                } else {
+                    console.error('Engine.importModel() not found.');
+                }
+            } else if (subItem.id === 'menu-import-obj') {
+                 if (App && App.engine && App.engine.importModel) {
+                    App.engine.importModel('obj');
+                } else {
+                    console.error('Engine.importModel() not found.');
                 }
             } else {
                 console.log(`Sub-Item Clicked: ${subItem.textContent}`);
