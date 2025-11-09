@@ -11,7 +11,8 @@ import { initModal } from './core/ui/modal.js';
 import { initEngine } from './core/engine/newproject.js';
 import { initSaveProject } from './core/engine/saveproject.js';
 import { initLoadProject } from './core/engine/loadproject.js';
-import { initImportEngine } from './core/engine/importengine.js'; // <-- ADDED
+import { initImportEngine } from './core/engine/importengine.js';
+import { initExportEngine } from './core/engine/exportengine.js'; // <-- ADDED
 
 /**
  * -------------------------------------------------------------------
@@ -27,7 +28,8 @@ const coreServices = [
     initEngine,
     initSaveProject,
     initLoadProject,
-    initImportEngine // <-- ADDED
+    initImportEngine,
+    initExportEngine // <-- ADDED
 ];
 
 // Pluggable UI modules
