@@ -348,7 +348,9 @@ function createMarkup() {
         closeMenu();
     });
     
-    toolsBtn.addEventListener('click', ()G);
+    // --- THIS IS THE FIX ---
+    toolsBtn.addEventListener('click', () => {
+    // --- END FIX ---
         const isToolsOpen = document.getElementById('tools-container')?.classList.contains('is-open');
         
         if (isToolsOpen) {
@@ -482,7 +484,7 @@ function showDebuggerModal() {
                 font-size: 11px;
                 flex-shrink: 0;
             }
-            .copy-error-btn:active { background: var(--ui-grey, #3a3a3c); }
+            .copy-error-btn:active { background: var(--ui-grey, #3a3a4c); }
         </style>
     `;
 
