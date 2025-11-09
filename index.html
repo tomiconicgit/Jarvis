@@ -32,26 +32,25 @@
     </script>
 
     <style>
-        body {
+        html, body {
             margin: 0;
             padding: 0;
             overflow: hidden;
             font-family: Arial, sans-serif;
             background: #1e1e1e;
             color: #fff;
-        }
-
-        /*
-          FIX 2: Changed #viewport to be fixed-position and fill the entire screen.
-          This makes it cover the whole display, including behind the notch.
-          Your UI elements (like the bottom bar) will correctly float on top.
-        */
-        #viewport {
-            position: fixed;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
+        }
+
+        /* --- UPDATED --- */
+        #viewport {
+            width: 100vw;
+            /*
+              FIX 2: Use 100vh (full screen height) and subtract the bar (60px) 
+              AND the bottom safe area (for the home bar).
+            */
+            height: calc(100vh - (60px + env(safe-area-inset-bottom))); 
             display: block;
         }
 
