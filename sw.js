@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_VERSION = 'v1.2.0'; // <-- BUMPED VERSION
+const CACHE_VERSION = 'v1.3.0'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -21,10 +21,11 @@ const FILES_TO_CACHE = [
     'src/core/engine/newproject.js',
     'src/core/engine/saveproject.js',
     'src/core/engine/loadproject.js',
-    'src/core/engine/importengine.js', // <-- ADDED
+    'src/core/engine/importengine.js',
+    'src/core/engine/exportengine.js', // <-- ADDED
     
     // --- DEFAULT ASSETS ---
-    'src/core/default/terrain.js',
+    'src.../core/default/terrain.js',
     'src/core/default/environment.js',
     'src/core/default/environment.hdr',
     
@@ -50,7 +51,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((keyList) =>
             Promise.all(
                 keyList.map((key) => {
-                    if (key !== CACHE_NAME) {
+                    if (key !== CACHE_VERSION) {
                         console.log('[ServiceWorker] Removing old cache', key);
                         return caches.delete(key);
                     }
