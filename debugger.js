@@ -1,5 +1,4 @@
 // debugger.js
-// --- GONE: All UI element variables ---
 let errorLog = [];
 let showErrorOnLoader = null; // The callback function
 
@@ -11,15 +10,14 @@ export function setLoaderErrorCallback(callback) {
 }
 
 /**
- * UPDATED: initDebugger now attaches the error log to the App object.
+ * initDebugger now attaches the error log to the App object.
  * All direct UI manipulation is removed.
  * @param {object} App - The main application object.
  */
 export function initDebugger(App) {
-    // --- NEW: Expose the error log via the App object ---
+    // Expose the error log via the App object
     if (!App.debugger) App.debugger = {};
     App.debugger.getErrorLog = () => errorLog;
-    // ---
 
     window.onerror = (msg, url, line, col, error) => {
         const entry = `Error: ${msg} at ${url}:${line}:${col || 0}`;
@@ -28,9 +26,8 @@ export function initDebugger(App) {
         
         if (showErrorOnLoader) {
             showErrorOnLoader(entry);
-            showErrorOnLoader = null; // Show the FIRST error, then stop.
+            showErrorOnLoader = null;
         }
-        // GONE: updateStatus() and renderErrorLog()
     };
 
     window.addEventListener('unhandledrejection', (event) => {
@@ -40,9 +37,8 @@ export function initDebugger(App) {
 
         if (showErrorOnLoader) {
             showErrorOnLoader(entry);
-            showErrorOnLoader = null; // Show the FIRST error, then stop.
+            showErrorOnLoader = null;
         }
-        // GONE: updateStatus() and renderErrorLog()
     });
 
     setInterval(checkPerformance, 5000);
@@ -60,7 +56,6 @@ export function checkForErrors(moduleName) {
             showErrorOnLoader(entry);
             showErrorOnLoader = null;
         }
-        // GONE: updateStatus() and renderErrorLog()
     }
 }
 
@@ -70,11 +65,5 @@ function checkPerformance() {
         const entry = 'Performance API anomaly detected';
         errorLog.push(entry);
         console.warn(entry);
-        // GONE: renderErrorLog()
     }
-    // GONE: updateStatus()
 }
-
-// --- GONE: updateStatus() function ---
-// --- GONE: toggleDebugPanel() function ---
-// --- GONE: renderErrorLog() function ---
