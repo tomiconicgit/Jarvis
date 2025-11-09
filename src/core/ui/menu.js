@@ -7,10 +7,21 @@ let App;
 let menuBtn;
 let workspaceBtn;
 let toolsBtn;
+let addBtn;
+let playBtn;
 let menuItemsContainer;
 
+// --- NEW: SVG Icons for the tab bar ---
+const ICONS = {
+    menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
+    workspace: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
+    add: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+    tools: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39 1.04c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.44h-3.84a.5.5 0 0 0-.5.44l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-1.04a.5.5 0 0 0-.61.22l-1.92 3.32a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32a.5.5 0 0 0 .61.22l2.39-1.04c.5.38 1.03.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.44h3.84a.5.5 0 0 0 .5-.44l.36 2.54c.59-.24 1.13-.57-1.62.94l2.39 1.04a.5.5 0 0 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"></path></svg>`,
+    play: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
+};
+
 /**
- * Creates and injects the CSS styles for the new top bar and menu.
+ * Creates and injects the CSS styles for the new bottom bar and menu.
  */
 function injectStyles() {
     const styleId = 'menu-ui-styles';
@@ -18,97 +29,99 @@ function injectStyles() {
     const css = `
         :root {
             --ui-blue: #007aff;
-            --ui-blue-pressed: #005ecf;
             --ui-grey: #3a3a3c;
             --ui-light-grey: #4a4a4c;
+            --ui-dark-grey: #2a2a2a; /* New darker grey */
             --ui-border: rgba(255, 255, 255, 0.15);
-            --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            --ui-corner-radius: 12px;
-            --ui-safe-top: env(safe-area-inset-top);
-            --ui-safe-left: env(safe-area-inset-left);
-            --ui-safe-right: env(safe-area-inset-right);
+            --ui-shadow: 0 -4px 12px rgba(0,0,0,0.15); /* Shadow on top */
+            --ui-safe-bottom: env(safe-area-inset-bottom);
             
-            --top-bar-height: 44px;
+            --bottom-bar-height: 60px;
         }
         
-        /* --- UPDATED: Floating Top Bar --- */
-        #top-bar {
+        /* --- NEW: Bottom Tab Bar --- */
+        #bottom-bar {
             position: fixed;
-            top: calc(10px + var(--ui-safe-top));
-            left: calc(10px + var(--ui-safe-left));
-            width: auto; /* Fit content */
-            height: var(--top-bar-height);
-            
-            /* Glassmorphism effect */
-            background: rgba(58, 58, 60, 0.8); /* Semi-transparent */
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-            
-            border: 1px solid var(--ui-border);
-            border-radius: var(--ui-corner-radius);
-            box-shadow: var(--ui-shadow);
-            
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: calc(var(--bottom-bar-height) + var(--ui-safe-bottom));
+            background: var(--ui-dark-grey);
+            border-top: 1px solid var(--ui-border);
             z-index: 11;
             display: flex;
-            align-items: center;
-            padding: 0 4px; /* Internal padding */
+            align-items: flex-start; /* Align to top */
+            padding-top: 5px; /* Padding for icons */
+            padding-bottom: var(--ui-safe-bottom);
             box-sizing: border-box;
+            justify-content: space-around;
         }
         
-        .top-bar-btn {
+        .bottom-bar-btn {
             background: none;
             border: none;
-            color: #fff; /* <-- UPDATED: All buttons white */
-            font-size: 15px;
+            color: #fff;
+            opacity: 0.7;
+            font-size: 11px; /* Small text for icons */
             font-weight: 500;
-            padding: 10px 12px;
-            border-radius: 8px; /* <-- UPDATED: Rounded corners */
             cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease;
+            transition: opacity 0.2s, color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+        }
+        .bottom-bar-btn svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 2px;
         }
         
-        .top-bar-btn:active {
+        .bottom-bar-btn:active {
             background: var(--ui-light-grey);
         }
         
-        /* --- UPDATED: Active state uses background --- */
-        .top-bar-btn.is-active {
-            background: var(--ui-blue);
-            color: #fff;
-            font-weight: 600;
+        .bottom-bar-btn.is-active {
+            color: var(--ui-blue);
+            opacity: 1.0;
+        }
+
+        /* Middle "Add" button */
+        #bottom-bar-add-btn {
+            background: var(--ui-light-grey);
+            opacity: 1.0;
+            border-radius: 16px;
+            width: 50px;
+            height: 50px;
+            transform: translateY(-5px); /* Makes it pop */
+        }
+        #bottom-bar-add-btn:active {
+            background: var(--ui-grey);
         }
         
-        /* --- GONE: Special color for menu-btn --- */
-        
-        /* --- Divider --- */
-        .top-bar-divider {
-            width: 1px;
-            height: 20px;
-            background: var(--ui-border);
-            opacity: 0.5;
-        }
-        
-        /* --- UPDATED: Menu dropdown position --- */
+        /* --- UPDATED: Menu "Drop-Up" Container --- */
         #menu-items-container {
             position: fixed;
-            /* Position below the new floating bar */
-            top: calc(var(--top-bar-height) + 15px + var(--ui-safe-top));
-            left: calc(10px + var(--ui-safe-left));
+            /* Position above the new bottom bar */
+            bottom: calc(var(--bottom-bar-height) + var(--ui-safe-bottom) + 5px);
+            left: 5px; /* Align with bar */
             z-index: 10;
             background: var(--ui-grey);
-            border-radius: var(--ui-corner-radius);
+            border-radius: 0; /* No curved corners */
             box-shadow: var(--ui-shadow);
-            clip-path: inset(0 0 100% 0);
+            clip-path: inset(100% 0 0 0); /* Animates from bottom up */
             opacity: 0;
             transform: scale(0.95);
-            transform-origin: top left;
+            transform-origin: bottom left; /* Origin for animation */
             transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
             overflow: hidden;
             min-width: 170px;
         }
         
-        /* ... (all other menu dropdown styles are unchanged) ... */
         #menu-items-container.is-open {
             clip-path: inset(0 0 0 0);
             opacity: 1;
@@ -140,7 +153,6 @@ function injectStyles() {
             transition: color 0.2s;
         }
         
-        /* --- This handles "File" turning blue when open --- */
         .menu-item.is-open {
             color: var(--ui-blue);
         }
@@ -164,6 +176,14 @@ function injectStyles() {
             overflow: hidden;
             max-height: 0;
             transition: max-height 0.3s ease-out;
+            
+            /* --- NEW: Position to the side for drop-up --- */
+            position: absolute;
+            bottom: 0;
+            left: 100%; /* Show to the right */
+            min-width: 170px;
+            border-radius: 0;
+            box-shadow: var(--ui-shadow);
         }
         .menu-submenu.is-open {
             max-height: 200px;
@@ -199,19 +219,35 @@ function createMarkup() {
             <path d="M9 18l6-6-6-6"></path>
         </svg>`;
 
-    const topBar = document.createElement('div');
-    topBar.id = 'top-bar';
-    topBar.innerHTML = `
-        <button id="top-bar-menu-btn" class="top-bar-btn">Menu</button>
-        <div class="top-bar-divider"></div>
-        <button id="top-bar-workspace-btn" class="top-bar-btn">Workspace</button>
-        <div class="top-bar-divider"></div>
-        <button id="top-bar-tools-btn" class="top-bar-btn">Tools</button>
+    // --- NEW: Create Bottom Bar ---
+    const bottomBar = document.createElement('div');
+    bottomBar.id = 'bottom-bar';
+    bottomBar.innerHTML = `
+        <button id="bottom-bar-menu-btn" class="bottom-bar-btn">
+            ${ICONS.menu}
+            <span>Menu</span>
+        </button>
+        <button id="bottom-bar-workspace-btn" class="bottom-bar-btn">
+            ${ICONS.workspace}
+            <span>Workspace</span>
+        </button>
+        <button id="bottom-bar-add-btn" class="bottom-bar-btn">
+            ${ICONS.add}
+        </button>
+        <button id="bottom-bar-tools-btn" class="bottom-bar-btn">
+            ${ICONS.tools}
+            <span>Tools</span>
+        </button>
+        <button id="bottom-bar-play-btn" class="bottom-bar-btn">
+            ${ICONS.play}
+            <span>Play</span>
+        </button>
     `;
 
     menuItemsContainer = document.createElement('div'); // Use module-level var
     menuItemsContainer.id = 'menu-items-container';
     
+    // --- UPDATED: Added Debugger button ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -256,17 +292,27 @@ function createMarkup() {
                 <button class="menu-submenu-item" id="menu-export-obj">OBJ</button>
             </div>
         </div>
+        
+        <div class="menu-item-separator-full"></div>
+        
+        <div class="menu-item-wrapper">
+            <button class="menu-item" id="menu-debugger-btn">
+                <span>Debugger</span>
+            </button>
+        </div>
     `;
 
-    document.body.appendChild(topBar);
+    document.body.appendChild(bottomBar);
     document.body.appendChild(menuItemsContainer);
 
     // --- 4. Add Event Listeners ---
     
     // Assign module-level buttons
-    menuBtn = document.getElementById('top-bar-menu-btn');
-    workspaceBtn = document.getElementById('top-bar-workspace-btn');
-    toolsBtn = document.getElementById('top-bar-tools-btn');
+    menuBtn = document.getElementById('bottom-bar-menu-btn');
+    workspaceBtn = document.getElementById('bottom-bar-workspace-btn');
+    toolsBtn = document.getElementById('bottom-bar-tools-btn');
+    addBtn = document.getElementById('bottom-bar-add-btn');
+    playBtn = document.getElementById('bottom-bar-play-btn');
     
     const toggleMenu = (event) => {
         if (event) event.stopPropagation(); 
@@ -299,15 +345,14 @@ function createMarkup() {
 
     menuBtn.addEventListener('click', toggleMenu);
 
-    // --- (This logic for Workspace/Tools is unchanged from before) ---
     workspaceBtn.addEventListener('click', () => {
         const isWorkspaceOpen = document.getElementById('workspace-container')?.classList.contains('is-open');
         
         if (isWorkspaceOpen) {
-            App.workspace.close();
+            App.workspace.close(); // Wrapper will remove active class
         } else {
-            App.workspace.open();
-            App.tools.close();
+            App.workspace.open();  // Wrapper will add active class
+            App.tools.close();     // Wrapper will remove active class
         }
         closeMenu();
     });
@@ -316,47 +361,54 @@ function createMarkup() {
         const isToolsOpen = document.getElementById('tools-container')?.classList.contains('is-open');
         
         if (isToolsOpen) {
-            App.tools.close();
+            App.tools.close();     // Wrapper will remove active class
         } else {
-            App.tools.open();
-            App.workspace.close();
+            App.tools.open();      // Wrapper will add active class
+            App.workspace.close(); // Wrapper will remove active class
         }
         closeMenu();
     });
 
-    // --- (This logic for menu items is unchanged) ---
+    // --- Placeholders ---
+    addBtn.addEventListener('click', () => {
+        App.modal.alert("Add function not yet implemented.");
+        closeMenu();
+    });
+    playBtn.addEventListener('click', () => {
+        App.modal.alert("Play function not yet implemented.");
+        closeMenu();
+    });
+
     menuItemsContainer.addEventListener('click', (event) => {
         const subItem = event.target.closest('.menu-submenu-item');
         const parentItem = event.target.closest('.menu-item');
+        const debuggerBtn = event.target.closest('#menu-debugger-btn');
+
+        // --- NEW: Handle Debugger Button ---
+        if (debuggerBtn) {
+            showDebuggerModal();
+            closeMenu();
+            return;
+        }
 
         if (subItem) {
             // (sub-item click logic is unchanged)
             if (subItem.id === 'menu-file-new') {
                 if (App && App.engine && App.engine.newProject) App.engine.newProject();
-                else console.error('Engine.newProject() not found.');
             } else if (subItem.id === 'menu-file-save') {
                 if (App && App.engine && App.engine.saveProject) App.engine.saveProject();
-                else console.error('Engine.saveProject() not found.');
             } else if (subItem.id === 'menu-file-load') {
                 if (App && App.engine && App.engine.loadProject) App.engine.loadProject();
-                else console.error('Engine.loadProject() not found.');
             } else if (subItem.id === 'menu-import-glb') {
                 if (App && App.engine && App.engine.importModel) App.engine.importModel('glb');
-                else console.error('Engine.importModel() not found.');
             } else if (subItem.id === 'menu-import-fbx') {
                  if (App && App.engine && App.engine.importModel) App.engine.importModel('fbx');
-                else console.error('Engine.importModel() not found.');
             } else if (subItem.id === 'menu-import-obj') {
                  if (App && App.engine && App.engine.importModel) App.engine.importModel('obj');
-                else console.error('Engine.importModel() not found.');
             } else if (subItem.id === 'menu-export-glb') {
                 if (App && App.engine && App.engine.exportModel) App.engine.exportModel('glb');
-                else console.error('Engine.exportModel() not found.');
             } else if (subItem.id === 'menu-export-obj') {
                  if (App && App.engine && App.engine.exportModel) App.engine.exportModel('obj');
-                else console.error('Engine.exportModel() not found.');
-            } else {
-                console.log(`Sub-Item Clicked: ${subItem.textContent}`);
             }
             
             closeMenu();
@@ -380,18 +432,96 @@ function createMarkup() {
             
             if (!isAlreadyOpen) {
                 submenu.classList.add('is-open');
-                parentItem.classList.add('is-open'); // This applies the blue text
+                parentItem.classList.add('is-open');
             }
         }
     });
 
     document.addEventListener('pointerdown', (event) => {
-        const topBar = document.getElementById('top-bar');
-        if (topBar && !topBar.contains(event.target) && !menuItemsContainer.contains(event.target)) {
+        const bottomBar = document.getElementById('bottom-bar');
+        if (bottomBar && !bottomBar.contains(event.target) && !menuItemsContainer.contains(event.target)) {
             closeMenu();
         }
     });
 }
+
+/**
+ * --- NEW: Function to show the debugger modal ---
+ */
+function showDebuggerModal() {
+    if (!App || !App.debugger || !App.modal) {
+        console.error('Debugger or Modal service not available.');
+        return;
+    }
+    
+    const errorLog = App.debugger.getErrorLog();
+    let logHtml = '';
+    
+    if (errorLog.length === 0) {
+        logHtml = `<div style="text-align: center; opacity: 0.7;">No errors recorded.</div>`;
+    } else {
+        logHtml = errorLog.slice().reverse().map((entry, index) => `
+            <div class="debug-entry">
+                <span>[${errorLog.length - index}] ${entry}</span>
+                <button class="copy-error-btn" data-error-text="${CSS.escape(entry)}">Copy</button>
+            </div>
+        `).join('');
+    }
+    
+    // Define CSS for the modal log (to avoid putting it in modal.js)
+    const modalCSS = `
+        <style>
+            .debug-entry {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid var(--ui-border, #555);
+                font-family: monospace;
+                font-size: 13px;
+                white-space: pre-wrap;
+                word-break: break-all;
+                text-align: left;
+            }
+            .debug-entry span { padding-right: 15px; }
+            .copy-error-btn {
+                background: var(--ui-light-grey, #4a4a4c);
+                border: 1px solid var(--ui-border, #555);
+                color: #fff;
+                padding: 4px 10px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 11px;
+                flex-shrink: 0;
+            }
+            .copy-error-btn:active { background: var(--ui-grey, #3a3a3c); }
+        </style>
+    `;
+
+    App.modal.custom({
+        title: "Debugger Log",
+        html: modalCSS + logHtml,
+        confirmText: "Close",
+        onConfirm: (modalBody) => {
+            App.modal.hide(); // Just close the modal
+        },
+        onCancel: null // Hide the cancel button
+    });
+    
+    // Add listeners for the new copy buttons inside the modal
+    document.querySelectorAll('.copy-error-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const textToCopy = e.target.dataset.errorText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                e.target.textContent = 'Copied!';
+                setTimeout(() => { e.target.textContent = 'Copy'; }, 2000);
+            }).catch(err => {
+                console.warn('Failed to copy error to clipboard:', err);
+            });
+        });
+    });
+}
+
 
 /**
  * Initializes the main menu UI.
@@ -404,9 +534,9 @@ export function initMenu(app) {
     // --- (This logic is unchanged) ---
     // It finds the buttons and wraps the panel functions.
     
-    menuBtn = document.getElementById('top-bar-menu-btn');
-    workspaceBtn = document.getElementById('top-bar-workspace-btn');
-    toolsBtn = document.getElementById('top-bar-tools-btn');
+    menuBtn = document.getElementById('bottom-bar-menu-btn');
+    workspaceBtn = document.getElementById('bottom-bar-workspace-btn');
+    toolsBtn = document.getElementById('bottom-bar-tools-btn');
     
     if (App.workspace) {
         const originalWorkspaceOpen = App.workspace.open;
