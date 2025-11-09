@@ -14,26 +14,24 @@ function injectStyles() {
     if (document.getElementById(styleId)) return;
 
     const css = `
-        /* --- UPDATED: New variable --- */
         :root {
             --ui-blue: #007aff;
             --ui-grey: #3a3a3c;
             --ui-light-grey: #4a4a4c;
+            --ui-dark-grey: #1c1c1c; /* <-- ADDED */
             --ui-border: rgba(255, 255, 255, 0.15);
             --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
             --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            /* --- UPDATED: New variable for bottom bar height --- */
             --bottom-bar-height: calc(60px + env(safe-area-inset-bottom));
         }
 
         /* --- Styles for the slide-out panel --- */
         #tools-container {
             position: fixed;
-            /* --- UPDATED: Sits above the new bottom bar --- */
             bottom: var(--bottom-bar-height);
             right: 0;
             width: 100%;
-            height: 40vh; /* <-- UPDATED: Shortened panel */
+            height: 40vh;
             background: transparent;
             z-index: 5;
             display: flex;
@@ -123,7 +121,7 @@ function injectStyles() {
             flex-grow: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            background: var(--ui-grey);
+            background: var(--ui-dark-grey); /* <-- UPDATED */
             color: var(--workspace-text-color, #f5f5f7);
             padding: 8px;
         }
@@ -143,7 +141,7 @@ function createMarkup() {
     const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
     
     // 1. Main Container
-    toolsContainer = document.createElement('div'); // Use module-level var
+    toolsContainer = document.createElement('div');
     toolsContainer.id = 'tools-container';
     toolsContainer.innerHTML = `
         <div class="tools-header">
@@ -178,9 +176,8 @@ function closeToolsPanel() {
  * Initializes the tools UI.
  */
 export function initTools(app) {
-    App = app; // Store App object
+    App = app;
     
-    // --- (Public API unchanged) ---
     if (!App.tools) App.tools = {};
     App.tools.open = openToolsPanel;
     App.tools.close = closeToolsPanel;
