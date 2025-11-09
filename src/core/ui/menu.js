@@ -11,7 +11,7 @@ let addBtn;
 let playBtn;
 let menuItemsContainer;
 
-// --- NEW: SVG Icons for the tab bar ---
+// --- SVG Icons for the tab bar ---
 const ICONS = {
     menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
     workspace: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
@@ -31,27 +31,28 @@ function injectStyles() {
             --ui-blue: #007aff;
             --ui-grey: #3a3a3c;
             --ui-light-grey: #4a4a4c;
-            --ui-dark-grey: #2a2a2a; /* New darker grey */
+            /* --- UPDATED: Darker grey --- */
+            --ui-dark-grey: #1c1c1c; 
             --ui-border: rgba(255, 255, 255, 0.15);
-            --ui-shadow: 0 -4px 12px rgba(0,0,0,0.15); /* Shadow on top */
+            --ui-shadow: 0 -4px 12px rgba(0,0,0,0.15);
             --ui-safe-bottom: env(safe-area-inset-bottom);
             
             --bottom-bar-height: 60px;
         }
         
-        /* --- NEW: Bottom Tab Bar --- */
+        /* --- Bottom Tab Bar --- */
         #bottom-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
             height: calc(var(--bottom-bar-height) + var(--ui-safe-bottom));
-            background: var(--ui-dark-grey);
+            background: var(--ui-dark-grey); /* <-- UPDATED */
             border-top: 1px solid var(--ui-border);
             z-index: 11;
             display: flex;
-            align-items: flex-start; /* Align to top */
-            padding-top: 5px; /* Padding for icons */
+            align-items: flex-start;
+            padding-top: 5px;
             padding-bottom: var(--ui-safe-bottom);
             box-sizing: border-box;
             justify-content: space-around;
@@ -62,7 +63,7 @@ function injectStyles() {
             border: none;
             color: #fff;
             opacity: 0.7;
-            font-size: 11px; /* Small text for icons */
+            font-size: 11px;
             font-weight: 500;
             cursor: pointer;
             transition: opacity 0.2s, color 0.2s;
@@ -89,33 +90,21 @@ function injectStyles() {
             opacity: 1.0;
         }
 
-        /* Middle "Add" button */
-        #bottom-bar-add-btn {
-            background: var(--ui-light-grey);
-            opacity: 1.0;
-            border-radius: 16px;
-            width: 50px;
-            height: 50px;
-            transform: translateY(-5px); /* Makes it pop */
-        }
-        #bottom-bar-add-btn:active {
-            background: var(--ui-grey);
-        }
+        /* --- GONE: Special styling for Add button removed --- */
         
-        /* --- UPDATED: Menu "Drop-Up" Container --- */
+        /* --- Menu "Drop-Up" Container --- */
         #menu-items-container {
             position: fixed;
-            /* Position above the new bottom bar */
             bottom: calc(var(--bottom-bar-height) + var(--ui-safe-bottom) + 5px);
-            left: 5px; /* Align with bar */
+            left: 5px;
             z-index: 10;
             background: var(--ui-grey);
-            border-radius: 0; /* No curved corners */
+            border-radius: 0;
             box-shadow: var(--ui-shadow);
-            clip-path: inset(100% 0 0 0); /* Animates from bottom up */
+            clip-path: inset(100% 0 0 0);
             opacity: 0;
             transform: scale(0.95);
-            transform-origin: bottom left; /* Origin for animation */
+            transform-origin: bottom left;
             transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
             overflow: hidden;
@@ -171,23 +160,20 @@ function injectStyles() {
         .menu-item.is-open .menu-item-arrow {
             transform: rotate(90deg);
         }
+        
+        /* --- UPDATED: Submenu logic --- */
         .menu-submenu {
             background: var(--ui-light-grey);
             overflow: hidden;
             max-height: 0;
             transition: max-height 0.3s ease-out;
-            
-            /* --- NEW: Position to the side for drop-up --- */
-            position: absolute;
-            bottom: 0;
-            left: 100%; /* Show to the right */
-            min-width: 170px;
-            border-radius: 0;
-            box-shadow: var(--ui-shadow);
+            /* GONE: position: absolute and related properties */
         }
         .menu-submenu.is-open {
-            max-height: 200px;
+            max-height: 200px; /* This now just expands inline */
         }
+        /* --- END UPDATE --- */
+        
         .menu-submenu-item {
             background: none;
             border: none;
@@ -219,7 +205,7 @@ function createMarkup() {
             <path d="M9 18l6-6-6-6"></path>
         </svg>`;
 
-    // --- NEW: Create Bottom Bar ---
+    // --- Create Bottom Bar ---
     const bottomBar = document.createElement('div');
     bottomBar.id = 'bottom-bar';
     bottomBar.innerHTML = `
@@ -233,7 +219,7 @@ function createMarkup() {
         </button>
         <button id="bottom-bar-add-btn" class="bottom-bar-btn">
             ${ICONS.add}
-        </button>
+            </button>
         <button id="bottom-bar-tools-btn" class="bottom-bar-btn">
             ${ICONS.tools}
             <span>Tools</span>
@@ -247,7 +233,7 @@ function createMarkup() {
     menuItemsContainer = document.createElement('div'); // Use module-level var
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- UPDATED: Added Debugger button ---
+    // --- (innerHTML for menuItemsContainer is unchanged) ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -317,7 +303,7 @@ function createMarkup() {
     const toggleMenu = (event) => {
         if (event) event.stopPropagation(); 
         const isOpen = menuItemsContainer.classList.toggle('is-open');
-        menuBtn.classList.toggle('is-active', isOpen); // Toggle active state
+        menuBtn.classList.toggle('is-active', isOpen);
         
         if (!isOpen) {
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
@@ -332,7 +318,7 @@ function createMarkup() {
     const closeMenu = () => {
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
-            menuBtn.classList.remove('is-active'); // Deactivate on close
+            menuBtn.classList.remove('is-active');
             
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
@@ -349,10 +335,10 @@ function createMarkup() {
         const isWorkspaceOpen = document.getElementById('workspace-container')?.classList.contains('is-open');
         
         if (isWorkspaceOpen) {
-            App.workspace.close(); // Wrapper will remove active class
+            App.workspace.close();
         } else {
-            App.workspace.open();  // Wrapper will add active class
-            App.tools.close();     // Wrapper will remove active class
+            App.workspace.open();
+            App.tools.close();
         }
         closeMenu();
     });
@@ -361,15 +347,14 @@ function createMarkup() {
         const isToolsOpen = document.getElementById('tools-container')?.classList.contains('is-open');
         
         if (isToolsOpen) {
-            App.tools.close();     // Wrapper will remove active class
+            App.tools.close();
         } else {
-            App.tools.open();      // Wrapper will add active class
-            App.workspace.close(); // Wrapper will remove active class
+            App.tools.open();
+            App.workspace.close();
         }
         closeMenu();
     });
 
-    // --- Placeholders ---
     addBtn.addEventListener('click', () => {
         App.modal.alert("Add function not yet implemented.");
         closeMenu();
@@ -384,7 +369,6 @@ function createMarkup() {
         const parentItem = event.target.closest('.menu-item');
         const debuggerBtn = event.target.closest('#menu-debugger-btn');
 
-        // --- NEW: Handle Debugger Button ---
         if (debuggerBtn) {
             showDebuggerModal();
             closeMenu();
@@ -446,7 +430,7 @@ function createMarkup() {
 }
 
 /**
- * --- NEW: Function to show the debugger modal ---
+ * --- (Function to show the debugger modal is unchanged) ---
  */
 function showDebuggerModal() {
     if (!App || !App.debugger || !App.modal) {
@@ -468,7 +452,6 @@ function showDebuggerModal() {
         `).join('');
     }
     
-    // Define CSS for the modal log (to avoid putting it in modal.js)
     const modalCSS = `
         <style>
             .debug-entry {
@@ -503,12 +486,11 @@ function showDebuggerModal() {
         html: modalCSS + logHtml,
         confirmText: "Close",
         onConfirm: (modalBody) => {
-            App.modal.hide(); // Just close the modal
+            App.modal.hide();
         },
-        onCancel: null // Hide the cancel button
+        onCancel: null
     });
     
-    // Add listeners for the new copy buttons inside the modal
     document.querySelectorAll('.copy-error-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const textToCopy = e.target.dataset.errorText;
@@ -529,10 +511,9 @@ function showDebuggerModal() {
 export function initMenu(app) {
     App = app;
     injectStyles();
-    createMarkup(); // This creates the buttons
+    createMarkup();
 
-    // --- (This logic is unchanged) ---
-    // It finds the buttons and wraps the panel functions.
+    // --- (This logic for wrapping panel functions is unchanged) ---
     
     menuBtn = document.getElementById('bottom-bar-menu-btn');
     workspaceBtn = document.getElementById('bottom-bar-workspace-btn');
