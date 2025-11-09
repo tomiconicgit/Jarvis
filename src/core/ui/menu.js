@@ -22,26 +22,30 @@ function injectStyles() {
             --ui-safe-left: env(safe-area-inset-left);
             --ui-safe-right: env(safe-area-inset-right);
             
-            /* --- NEW: Top bar height --- */
             --top-bar-height: 44px;
         }
         
-        /* --- NEW: Top Bar --- */
+        /* --- UPDATED: Floating Top Bar --- */
         #top-bar {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: calc(var(--top-bar-height) + var(--ui-safe-top));
-            background: var(--ui-grey);
-            border-bottom: 1px solid var(--ui-border);
+            top: calc(10px + var(--ui-safe-top));
+            left: calc(10px + var(--ui-safe-left));
+            width: auto; /* Fit content */
+            height: var(--top-bar-height);
+            
+            /* Glassmorphism effect */
+            background: rgba(58, 58, 60, 0.8); /* Semi-transparent */
+            backdrop-filter: blur(10px) saturate(180%);
+            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            
+            border: 1px solid var(--ui-border);
+            border-radius: var(--ui-corner-radius);
+            box-shadow: var(--ui-shadow);
+            
             z-index: 11;
             display: flex;
             align-items: center;
-            padding: 0 8px;
-            padding-top: var(--ui-safe-top);
-            padding-left: calc(8px + var(--ui-safe-left));
-            padding-right: calc(8px + var(--ui-safe-right));
+            padding: 0 4px; /* Internal padding */
             box-sizing: border-box;
         }
         
@@ -66,8 +70,12 @@ function injectStyles() {
              color: var(--ui-blue);
         }
         
-        #top-bar-tools-btn {
-            margin-left: auto; /* Push tools to the right */
+        /* --- NEW: Divider --- */
+        .top-bar-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--ui-border);
+            opacity: 0.5;
         }
         
         /* --- GONE: #menu-toggle-btn styles --- */
@@ -75,8 +83,8 @@ function injectStyles() {
         /* --- UPDATED: Menu dropdown position --- */
         #menu-items-container {
             position: fixed;
-            /* Position below the new top bar */
-            top: calc(var(--top-bar-height) + var(--ui-safe-top) + 5px);
+            /* Position below the new floating bar */
+            top: calc(var(--top-bar-height) + 15px + var(--ui-safe-top));
             left: calc(10px + var(--ui-safe-left));
             z-index: 10;
             background: var(--ui-grey);
@@ -179,9 +187,12 @@ function createMarkup() {
     // --- NEW: Create Top Bar ---
     const topBar = document.createElement('div');
     topBar.id = 'top-bar';
+    // --- UPDATED: Added dividers ---
     topBar.innerHTML = `
         <button id="top-bar-menu-btn" class="top-bar-btn">Menu</button>
+        <div class="top-bar-divider"></div>
         <button id="top-bar-workspace-btn" class="top-bar-btn">Workspace</button>
+        <div class="top-bar-divider"></div>
         <button id="top-bar-tools-btn" class="top-bar-btn">Tools</button>
     `;
     
@@ -250,12 +261,9 @@ function createMarkup() {
     const toggleMenu = (event) => {
         if (event) event.stopPropagation(); 
         const isOpen = menuItemsContainer.classList.toggle('is-open');
-        menuBtn.classList.toggle('is-open', isOpen); // Use menuBtn
-        
-        // --- GONE: Bouncing animation ---
+        menuBtn.classList.toggle('is-open', isOpen);
         
         if (!isOpen) {
-            // Close submenus when closing main menu
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
@@ -268,9 +276,8 @@ function createMarkup() {
     const closeMenu = () => {
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
-            menuBtn.classList.remove('is-open'); // Use menuBtn
+            menuBtn.classList.remove('is-open');
             
-            // Close submenus
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
@@ -283,7 +290,7 @@ function createMarkup() {
     // --- Attach listener to new menu button ---
     menuBtn.addEventListener('click', toggleMenu);
 
-    // --- NEW: Listeners for Workspace and Tools ---
+    // --- Listeners for Workspace and Tools ---
     workspaceBtn.addEventListener('click', () => {
         if (App && App.workspace && App.workspace.open) {
             App.workspace.open();
