@@ -3,6 +3,10 @@
 // --- 1. App VARIABLE ---
 let App;
 
+// --- 2. Module-level elements ---
+let workspaceContainer;
+// --- GONE: let workspaceOpenBtn; ---
+
 // --- ICONS and getIconSVG (unchanged) ---
 const ICONS = {
     mesh: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 6.5-10 6.5-10-6.5L12 2zM2 15l10 6.5L22 15M2 8.5l10 6.5L22 8.5"></path></svg>`,
@@ -22,7 +26,7 @@ function injectStyles() {
 
     const css = `
         :root {
-            /* ... (omitting all the existing theme variables for brevity) ... */
+            /* ... (theme variables unchanged) ... */
             --ui-blue: #007aff;
             --ui-grey: #3a3a3c;
             --ui-light-grey: #4a4a4c;
@@ -44,14 +48,19 @@ function injectStyles() {
             z-index: 5;
             display: flex;
             flex-direction: column;
-            transform: translateX(0);
+            
+            /* --- UPDATED: Start hidden by default --- */
+            transform: translateX(-100%);
             transition: var(--workspace-transition);
             will-change: transform;
         }
 
-        #workspace-container.is-hidden {
-            transform: translateX(-100%);
+        /* --- NEW: Open state --- */
+        #workspace-container.is-open {
+            transform: translateX(0);
         }
+        
+        /* --- GONE: .is-hidden state removed --- */
 
         .workspace-header {
             display: flex;
@@ -103,8 +112,7 @@ function injectStyles() {
             padding: 8px;
         }
         
-        /* --- STYLES FOR FOLDERS/FILES --- */
-        
+        /* ... (folder/file styles are unchanged) ... */
         .ws-folder-header {
             display: flex;
             align-items: center;
@@ -114,13 +122,10 @@ function injectStyles() {
         .ws-folder-header:active {
              background: var(--ui-light-grey);
         }
-        
-        /* --- NEW: Selected state for folder --- */
         .ws-folder-header.is-selected {
             background: var(--ui-blue);
             color: #fff;
         }
-        
         .ws-folder-header .folder-arrow {
             width: 16px;
             height: 16px;
@@ -128,42 +133,35 @@ function injectStyles() {
             opacity: 0.7;
             margin-right: 6px;
             transition: transform 0.2s ease;
-            
-            /* --- NEW: Make arrow easier to tap --- */
-            padding: 4px; /* Hit area */
-            margin-left: -4px; /* Keep alignment */
+            padding: 4px;
+            margin-left: -4px;
         }
-        
         .ws-folder-header .folder-icon {
             width: 20px;
             height: 20px;
             stroke: #fff;
             margin-right: 8px;
             opacity: 0.8;
-            pointer-events: none; /* Make sure click goes to header */
+            pointer-events: none;
         }
-
         .ws-folder-name {
             font-size: 14px;
             font-weight: 600;
             color: #fff;
-            pointer-events: none; /* Make sure click goes to header */
+            pointer-events: none;
         }
-        
-        /* Folder open/closed states */
         .ws-folder-items {
             overflow: hidden;
-            max-height: 500px; /* Animate to */
+            max-height: 500px;
             transition: max-height 0.3s ease-out;
             padding-left: 12px;
         }
         .ws-folder.is-closed .ws-folder-items {
-            max-height: 0; /* Animate from */
+            max-height: 0;
         }
         .ws-folder.is-closed .folder-arrow {
             transform: rotate(-90deg);
         }
-
         .ws-file-item {
             display: flex;
             align-items: center;
@@ -179,12 +177,10 @@ function injectStyles() {
         .ws-file-item:active {
             background: var(--ui-light-grey);
         }
-        
         .ws-file-item.is-selected {
             background: var(--ui-blue);
             color: #fff;
         }
-        
         .ws-file-item .file-icon {
             width: 18px;
             height: 18px;
@@ -193,42 +189,7 @@ function injectStyles() {
             opacity: 0.7;
         }
 
-        /* --- STYLES FOR OPEN BUTTON (unchanged) --- */
-        #workspace-open-btn {
-            position: fixed;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--ui-blue);
-            border: none;
-            box-shadow: var(--ui-shadow);
-            width: 44px;
-            height: 60px;
-            border-radius: 0 var(--ui-corner-radius) var(--ui-corner-radius) 0;
-            display: grid;
-            place-items: center;
-            cursor: pointer;
-            z-index: 4;
-            transform: translateX(-100%) translateY(-50%);
-            transition: var(--workspace-transition);
-            will-change: transform;
-        }
-
-        #workspace-open-btn.is-visible {
-            transform: translateX(0) translateY(-50%);
-        }
-        
-        #workspace-open-btn:active {
-            background: var(--ui-blue-pressed);
-        }
-        
-        #workspace-open-btn svg {
-             width: 24px;
-             height: 24px;
-             stroke: #fff;
-             stroke-width: 2;
-             transform: translateX(2px);
-        }
+        /* --- GONE: All styles for #workspace-open-btn removed --- */
     `;
 
     const styleEl = document.createElement('style');
@@ -237,18 +198,31 @@ function injectStyles() {
     document.head.appendChild(styleEl);
 }
 
+// --- NEW: Moved functions to module scope ---
+function closeWorkspace() {
+    if (workspaceContainer) {
+        workspaceContainer.classList.remove('is-open');
+    }
+    // --- GONE: openBtn logic ---
+}
+
+function openWorkspace() {
+    if (workspaceContainer) {
+        workspaceContainer.classList.add('is-open');
+    }
+    // --- GONE: openBtn logic ---
+}
+
 function createMarkup() {
-    // ... (createMarkup function is unchanged) ...
     // 'X' icon for close
     const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
     
-    // "Three Lines" (Hamburger) Icon
-    const openIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="3" y1="12" x2="21" y2="12" stroke-linecap="round"/><line x1="3" y1="6" x2="21" y2="6" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke-linecap="round"/></svg>`;
+    // --- GONE: openIcon ---
 
     // 1. Main Container
-    const container = document.createElement('div');
-    container.id = 'workspace-container';
-    container.innerHTML = `
+    workspaceContainer = document.createElement('div'); // <-- Use module-level var
+    workspaceContainer.id = 'workspace-container';
+    workspaceContainer.innerHTML = `
         <div class="workspace-header">
             <button class="workspace-close-btn" aria-label="Close Workspace">
                 ${closeIcon}
@@ -259,37 +233,25 @@ function createMarkup() {
             </div>
     `;
 
-    // 2. Open Button
-    const openBtn = document.createElement('button');
-    openBtn.id = 'workspace-open-btn';
-    openBtn.setAttribute('aria-label', 'Open Workspace');
-    openBtn.innerHTML = openIcon;
+    // 2. --- GONE: Open Button ---
 
     // 3. Append to body
-    document.body.appendChild(container);
-    document.body.appendChild(openBtn);
+    document.body.appendChild(workspaceContainer);
 
     // --- Add Event Listeners ---
-    const closeBtn = container.querySelector('.workspace-close-btn');
-
-    const closeWorkspace = () => {
-        container.classList.add('is-hidden');
-        openBtn.classList.add('is-visible');
-    };
-
-    const openWorkspace = () => {
-        container.classList.remove('is-hidden');
-        openBtn.classList.remove('is-visible');
-    };
-
+    const closeBtn = workspaceContainer.querySelector('.workspace-close-btn');
+    
+    // --- Listeners now call module-scope functions ---
     closeBtn.addEventListener('click', closeWorkspace);
-    openBtn.addEventListener('click', openWorkspace);
+    
+    // --- GONE: openBtn listener ---
 }
 
 /**
  * Renders the dynamic content of the workspace.
  */
 export function renderWorkspaceUI() {
+    // ... (This function is unchanged) ...
     const content = document.querySelector('.workspace-content');
     if (!content) return;
 
@@ -301,13 +263,10 @@ export function renderWorkspaceUI() {
 
     content.innerHTML = ''; // Clear old content
 
-    // Build the new HTML
     for (const folder of folders) {
-        // ... (1. Folder Wrapper) ...
         const folderDiv = document.createElement('div');
         folderDiv.className = `ws-folder ${folder.isOpen ? '' : 'is-closed'}`;
         
-        // ... (2. Folder Header) ...
         const header = document.createElement('div');
         header.className = 'ws-folder-header';
         header.innerHTML = `
@@ -316,11 +275,9 @@ export function renderWorkspaceUI() {
             <span class="ws-folder-name">${folder.name}</span>
         `;
         
-        // ... (3. Items Container) ...
         const itemsDiv = document.createElement('div');
         itemsDiv.className = 'ws-folder-items';
         
-        // 4. Create File Items
         for (const item of folder.items) {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'ws-file-item';
@@ -330,7 +287,6 @@ export function renderWorkspaceUI() {
                 <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
             `;
             
-            // --- UPDATED CLICK LISTENER for file items ---
             itemDiv.addEventListener('click', () => {
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
@@ -343,7 +299,6 @@ export function renderWorkspaceUI() {
                 if (objectInScene) {
                     App.selectionContext.select(objectInScene);
                     
-                    // Clear all other selections (files AND folders)
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
                     });
@@ -362,32 +317,27 @@ export function renderWorkspaceUI() {
             itemsDiv.appendChild(itemDiv);
         }
         
-        // 5. Assemble
         folderDiv.appendChild(header);
         folderDiv.appendChild(itemsDiv);
         content.appendChild(folderDiv);
         
-        // 6. --- UPDATED CLICK LISTENER for folder headers ---
         header.addEventListener('click', (event) => {
             const folderArrow = event.target.closest('.folder-arrow');
 
             if (folderArrow) {
-                // Clicked on the arrow: Toggle the dropdown
                 folderDiv.classList.toggle('is-closed');
             } else {
-                // Clicked on the header (but not the arrow): Select the model
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
                     return;
                 }
                 
-                const objectName = folder.name; // Folder name matches root model name
+                const objectName = folder.name;
                 const objectInScene = App.scene.getObjectByName(objectName);
                 
                 if (objectInScene) {
                     App.selectionContext.select(objectInScene);
                     
-                    // Clear all other selections (files AND folders)
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
                     });
@@ -395,7 +345,6 @@ export function renderWorkspaceUI() {
                         el.classList.remove('is-selected');
                     });
                     
-                    // Add selection to this header
                     header.classList.add('is-selected');
                     
                 } else {
@@ -414,8 +363,11 @@ export function renderWorkspaceUI() {
 export function initWorkspace(app) {
     App = app;
     
+    // --- UPDATED: Attach public API to the App object ---
     if (!App.workspace) App.workspace = {};
-    App.workspace.render = renderWorkspaceUI; // Expose the render function
+    App.workspace.render = renderWorkspaceUI;
+    App.workspace.open = openWorkspace;   // <-- NEW
+    App.workspace.close = closeWorkspace; // <-- NEW
     
     injectStyles();
     createMarkup();
