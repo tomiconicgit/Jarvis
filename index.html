@@ -44,23 +44,125 @@
         }
 
         #status-bar {
-            /* --- UPDATED SECTION --- */
-            height: 40px; /* Base height */
+            /* --- UPDATED --- */
+            height: 40px; 
             background: #222;
             position: fixed;
             bottom: 0;
             width: 100%;
-            display: flex;
+            display: flex; /* <-- Use flexbox */
             align-items: center;
-            justify-content: center;
+            justify-content: space-between; /* <-- Space items out */
             font-size: 12px;
             z-index: 10;
-            
-            /* Account for iPhone home bar */
             box-sizing: border-box; 
+            padding: 0 10px 0 15px; /* <-- Add padding */
             padding-bottom: env(safe-area-inset-bottom);
             height: calc(40px + env(safe-area-inset-bottom));
         }
+        
+        /* --- NEW: Status text span --- */
+        #status-text {
+            flex-grow: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* --- NEW: Debugger toggle button --- */
+        #debugger-toggle-btn {
+            background: #3a3a3c;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            flex-shrink: 0; /* Don't let it shrink */
+            margin-left: 10px;
+        }
+        #debugger-toggle-btn:active {
+            background: #4a4a4c;
+        }
+
+        /* --- NEW: Debugger Panel --- */
+        #debugger-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50vh; /* Halfway up the screen */
+            background: #2a2a2a;
+            border-top: 1px solid #444;
+            z-index: 90; /* Above canvas, below modal */
+            display: flex;
+            flex-direction: column;
+            /* Start hidden */
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        #debugger-panel.is-open {
+            transform: translateY(0);
+        }
+        
+        .debugger-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #333;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+        
+        #debugger-close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            font-weight: 300;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        
+        #debugger-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 10px;
+        }
+        
+        .debug-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 5px;
+            border-bottom: 1px solid #444;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap; /* Wrap long error messages */
+            word-break: break-all;
+        }
+        .debug-entry span {
+            padding-right: 15px;
+        }
+        
+        .copy-error-btn {
+            background: #444;
+            border: 1px solid #666;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        .copy-error-btn:active {
+            background: #555;
+        }
+
+        /* --- END NEW --- */
 
         #loading-screen {
             position: fixed;
@@ -103,9 +205,21 @@
         <div id="loading-info">Loading modules...</div>
     </div>
 
+    <div id="debugger-panel">
+        <div class="debugger-header">
+            <span>Error Log</span>
+            <button id="debugger-close-btn">&times;</button>
+        </div>
+        <div id="debugger-content">
+            </div>
+    </div>
+
     <canvas id="viewport"></canvas>
 
-    <div id="status-bar">Status: Ready | Debugger: No errors</div>
+    <div id="status-bar">
+        <span id="status-text">Status: Ready | Debugger: No errors</span>
+        <button id="debugger-toggle-btn">Show Log</button>
+    </div>
 
     <script type="module" src="launcher.js"></script>
 </body>
