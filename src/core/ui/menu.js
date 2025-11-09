@@ -1,17 +1,16 @@
 // src/core/ui/menu.js
 
-// --- ADD: Module-level App variable ---
+// --- Module-level App variable ---
 let App;
 
 /**
- * Creates and injects the CSS styles for the main menu UI.
+ * Creates and injects the CSS styles for the new top bar and menu.
  */
 function injectStyles() {
     const styleId = 'menu-ui-styles';
     if (document.getElementById(styleId)) return;
     const css = `
         :root {
-            /* Shared UI Theme */
             --ui-blue: #007aff;
             --ui-blue-pressed: #005ecf;
             --ui-grey: #3a3a3c;
@@ -21,38 +20,63 @@ function injectStyles() {
             --ui-corner-radius: 12px;
             --ui-safe-top: env(safe-area-inset-top);
             --ui-safe-left: env(safe-area-inset-left);
+            --ui-safe-right: env(safe-area-inset-right);
+            
+            /* --- NEW: Top bar height --- */
+            --top-bar-height: 44px;
         }
-        @keyframes button-bounce {
-            0%   { transform: scale(1); }
-            50%  { transform: scale(1.08); }
-            100% { transform: scale(1); }
-        }
-        #menu-toggle-btn {
+        
+        /* --- NEW: Top Bar --- */
+        #top-bar {
             position: fixed;
-            top: calc(10px + var(--ui-safe-top));
-            left: calc(10px + var(--ui-safe-left));
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(var(--top-bar-height) + var(--ui-safe-top));
+            background: var(--ui-grey);
+            border-bottom: 1px solid var(--ui-border);
             z-index: 11;
-            background: var(--ui-blue);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            padding-top: var(--ui-safe-top);
+            padding-left: calc(8px + var(--ui-safe-left));
+            padding-right: calc(8px + var(--ui-safe-right));
+            box-sizing: border-box;
+        }
+        
+        .top-bar-btn {
+            background: none;
+            border: none;
             color: #fff;
             font-size: 15px;
-            font-weight: 600;
-            padding: 10px 16px;
-            border: none;
-            border-radius: var(--ui-corner-radius);
-            box-shadow: var(--ui-shadow);
+            font-weight: 500;
+            padding: 10px 12px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
+            transition: background-color 0.2s ease;
         }
-        #menu-toggle-btn.is-bouncing {
-            animation: button-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        
+        .top-bar-btn:active {
+            background: var(--ui-light-grey);
         }
-        #menu-toggle-btn:active {
-            background: var(--ui-blue-pressed);
-            transform: scale(0.96);
+        
+        #top-bar-menu-btn {
+             font-weight: 600;
+             color: var(--ui-blue);
         }
+        
+        #top-bar-tools-btn {
+            margin-left: auto; /* Push tools to the right */
+        }
+        
+        /* --- GONE: #menu-toggle-btn styles --- */
+
+        /* --- UPDATED: Menu dropdown position --- */
         #menu-items-container {
             position: fixed;
-            top: calc(64px + var(--ui-safe-top));
+            /* Position below the new top bar */
+            top: calc(var(--top-bar-height) + var(--ui-safe-top) + 5px);
             left: calc(10px + var(--ui-safe-left));
             z-index: 10;
             background: var(--ui-grey);
@@ -67,6 +91,8 @@ function injectStyles() {
             overflow: hidden;
             min-width: 170px;
         }
+        
+        /* ... (all other menu dropdown styles are unchanged) ... */
         #menu-items-container.is-open {
             clip-path: inset(0 0 0 0);
             opacity: 1;
@@ -150,15 +176,21 @@ function createMarkup() {
             <path d="M9 18l6-6-6-6"></path>
         </svg>`;
 
-    const menuToggleBtn = document.createElement('button');
-    menuToggleBtn.id = 'menu-toggle-btn';
-    menuToggleBtn.setAttribute('aria-label', 'Open Menu');
-    menuToggleBtn.textContent = 'Menu';
+    // --- NEW: Create Top Bar ---
+    const topBar = document.createElement('div');
+    topBar.id = 'top-bar';
+    topBar.innerHTML = `
+        <button id="top-bar-menu-btn" class="top-bar-btn">Menu</button>
+        <button id="top-bar-workspace-btn" class="top-bar-btn">Workspace</button>
+        <button id="top-bar-tools-btn" class="top-bar-btn">Tools</button>
+    `;
     
+    // --- GONE: menuToggleBtn ---
+
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- UPDATED: Removed FBX Export ---
+    // --- (innerHTML for menuItemsContainer is unchanged) ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -205,22 +237,25 @@ function createMarkup() {
         </div>
     `;
 
-    document.body.appendChild(menuToggleBtn);
+    document.body.appendChild(topBar);
     document.body.appendChild(menuItemsContainer);
 
     // --- 4. Add Event Listeners ---
     
+    // --- Get new top bar buttons ---
+    const menuBtn = document.getElementById('top-bar-menu-btn');
+    const workspaceBtn = document.getElementById('top-bar-workspace-btn');
+    const toolsBtn = document.getElementById('top-bar-tools-btn');
+    
     const toggleMenu = (event) => {
         if (event) event.stopPropagation(); 
         const isOpen = menuItemsContainer.classList.toggle('is-open');
-        menuToggleBtn.classList.toggle('is-open', isOpen);
-        menuToggleBtn.setAttribute('aria-expanded', isOpen);
-        if (isOpen) {
-            menuToggleBtn.classList.add('is-bouncing');
-            setTimeout(() => {
-                menuToggleBtn.classList.remove('is-bouncing');
-            }, 300);
-        } else {
+        menuBtn.classList.toggle('is-open', isOpen); // Use menuBtn
+        
+        // --- GONE: Bouncing animation ---
+        
+        if (!isOpen) {
+            // Close submenus when closing main menu
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
@@ -233,8 +268,9 @@ function createMarkup() {
     const closeMenu = () => {
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
-            menuToggleBtn.classList.remove('is-open');
-            menuToggleBtn.setAttribute('aria-expanded', 'false');
+            menuBtn.classList.remove('is-open'); // Use menuBtn
+            
+            // Close submenus
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
@@ -244,18 +280,36 @@ function createMarkup() {
         }
     };
 
-    menuToggleBtn.addEventListener('click', toggleMenu);
+    // --- Attach listener to new menu button ---
+    menuBtn.addEventListener('click', toggleMenu);
 
+    // --- NEW: Listeners for Workspace and Tools ---
+    workspaceBtn.addEventListener('click', () => {
+        if (App && App.workspace && App.workspace.open) {
+            App.workspace.open();
+        } else {
+            console.error('App.workspace.open() not found.');
+        }
+        closeMenu(); // Close menu dropdown if open
+    });
+    
+    toolsBtn.addEventListener('click', () => {
+        if (App && App.tools && App.tools.open) {
+            App.tools.open();
+        } else {
+            console.error('App.tools.open() not found.');
+        }
+        closeMenu(); // Close menu dropdown if open
+    });
+
+
+    // --- (This logic for handling submenus is unchanged) ---
     menuItemsContainer.addEventListener('click', (event) => {
         const subItem = event.target.closest('.menu-submenu-item');
         const parentItem = event.target.closest('.menu-item');
 
-        // Clicked on a final action item
         if (subItem) {
-            
-            // --- UPDATED: Removed menu-export-fbx logic ---
-            
-            // File Actions
+            // ... (sub-item click logic is unchanged) ...
             if (subItem.id === 'menu-file-new') {
                 if (App && App.engine && App.engine.newProject) App.engine.newProject();
                 else console.error('Engine.newProject() not found.');
@@ -265,8 +319,6 @@ function createMarkup() {
             } else if (subItem.id === 'menu-file-load') {
                 if (App && App.engine && App.engine.loadProject) App.engine.loadProject();
                 else console.error('Engine.loadProject() not found.');
-            
-            // Import Actions
             } else if (subItem.id === 'menu-import-glb') {
                 if (App && App.engine && App.engine.importModel) App.engine.importModel('glb');
                 else console.error('Engine.importModel() not found.');
@@ -276,25 +328,22 @@ function createMarkup() {
             } else if (subItem.id === 'menu-import-obj') {
                  if (App && App.engine && App.engine.importModel) App.engine.importModel('obj');
                 else console.error('Engine.importModel() not found.');
-            
-            // --- Export handlers ---
             } else if (subItem.id === 'menu-export-glb') {
                 if (App && App.engine && App.engine.exportModel) App.engine.exportModel('glb');
                 else console.error('Engine.exportModel() not found.');
             } else if (subItem.id === 'menu-export-obj') {
                  if (App && App.engine && App.engine.exportModel) App.engine.exportModel('obj');
                 else console.error('Engine.exportModel() not found.');
-            
             } else {
                 console.log(`Sub-Item Clicked: ${subItem.textContent}`);
             }
             
-            closeMenu(); // Close the whole menu
+            closeMenu();
             return;
         }
 
-        // Clicked on a parent item (e.g., "File")
         if (parentItem) {
+            // ... (parent-item click logic is unchanged) ...
             const submenuId = parentItem.dataset.submenu;
             if (!submenuId) return;
             const submenu = document.getElementById(submenuId);
@@ -315,8 +364,10 @@ function createMarkup() {
         }
     });
 
+    // --- UPDATED: This listener now checks for the top bar too ---
     document.addEventListener('pointerdown', (event) => {
-        if (!menuToggleBtn.contains(event.target) && !menuItemsContainer.contains(event.target)) {
+        const topBar = document.getElementById('top-bar');
+        if (topBar && !topBar.contains(event.target) && !menuItemsContainer.contains(event.target)) {
             closeMenu();
         }
     });
