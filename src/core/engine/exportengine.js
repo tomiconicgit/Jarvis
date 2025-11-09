@@ -355,7 +355,9 @@ async function executeObjExport(modalBody) {
         zip.file(`${options.filename}.obj`, objString);
         
         if (options.includeMaterials && mtlString) {
-            zip.file(`${options.filename}.mtl`, mMtlString);
+            // --- THIS IS THE FIX ---
+            zip.file(`${options.filename}.mtl`, mTLString); // <-- CORRECTED
+            // --- END FIX ---
             
             // Add all textures
             const texturePromises = [];
