@@ -5,7 +5,6 @@ let App;
 
 // --- 2. Module-level elements ---
 let toolsContainer;
-// --- GONE: let toolsOpenBtn; ---
 
 /**
  * Creates and injects the CSS styles for the tools UI.
@@ -15,31 +14,40 @@ function injectStyles() {
     if (document.getElementById(styleId)) return;
 
     const css = `
+        /* --- UPDATED: New variable --- */
+        :root {
+            --ui-blue: #007aff;
+            --ui-grey: #3a3a3c;
+            --ui-light-grey: #4a4a4c;
+            --ui-border: rgba(255, 255, 255, 0.15);
+            --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            /* --- UPDATED: New variable for bottom bar height --- */
+            --bottom-bar-height: calc(60px + env(safe-area-inset-bottom));
+        }
+
         /* --- Styles for the slide-out panel --- */
         #tools-container {
             position: fixed;
-            bottom: var(--status-bar-height);
-            right: 0; /* Positioned on the right */
+            /* --- UPDATED: Sits above the new bottom bar --- */
+            bottom: var(--bottom-bar-height);
+            right: 0;
             width: 100%;
-            height: 45vh;
+            height: 40vh; /* <-- UPDATED: Shortened panel */
             background: transparent;
             z-index: 5;
             display: flex;
             flex-direction: column;
-            
-            /* --- UPDATED: Start hidden off-screen to the right --- */
             transform: translateX(100%); 
             transition: var(--workspace-transition);
             will-change: transform;
         }
 
-        /* --- UPDATED: Open state --- */
         #tools-container.is-open {
             transform: translateX(0);
         }
 
         .tools-header {
-            /* ... (styles unchanged) ... */
             display: flex;
             align-items: center;
             padding: 0 16px;
@@ -53,7 +61,6 @@ function injectStyles() {
         }
 
         .tools-title {
-            /* ... (styles unchanged) ... */
             font-size: 16px;
             font-weight: 600;
             color: #fff;
@@ -63,7 +70,6 @@ function injectStyles() {
         }
 
         .tools-close-btn {
-            /* ... (styles unchanged) ... */
             width: 44px;
             height: 44px;
             display: grid;
@@ -77,15 +83,14 @@ function injectStyles() {
         }
         
         .tools-close-btn svg {
-            /* ... (styles unchanged) ... */
             width: 20px;
             height: 20px;
             stroke: #fff;
             stroke-width: 2;
         }
         
+        /* --- Tab Bar Styles --- */
         .tools-tab-bar {
-            /* ... (styles unchanged) ... */
             display: flex;
             flex-shrink: 0;
             background: var(--ui-light-grey);
@@ -93,7 +98,6 @@ function injectStyles() {
         }
         
         .tools-tab-btn {
-            /* ... (styles unchanged) ... */
             flex: 1;
             background: none;
             border: none;
@@ -107,18 +111,15 @@ function injectStyles() {
         }
         
         .tools-tab-btn.is-active {
-            /* ... (styles unchanged) ... */
             color: #fff;
             border-bottom-color: var(--ui-blue);
         }
         
         .tools-tab-btn:active {
-            /* ... (styles unchanged) ... */
             background: var(--ui-grey);
         }
 
         .tools-content {
-            /* ... (styles unchanged) ... */
             flex-grow: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
@@ -126,8 +127,6 @@ function injectStyles() {
             color: var(--workspace-text-color, #f5f5f7);
             padding: 8px;
         }
-
-        /* --- GONE: All styles for #tools-open-btn removed --- */
     `;
 
     const styleEl = document.createElement('style');
@@ -143,10 +142,8 @@ function createMarkup() {
     // 'X' icon for close
     const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
     
-    // --- GONE: cogIcon ---
-
     // 1. Main Container
-    toolsContainer = document.createElement('div'); // <-- Use module-level var
+    toolsContainer = document.createElement('div'); // Use module-level var
     toolsContainer.id = 'tools-container';
     toolsContainer.innerHTML = `
         <div class="tools-header">
@@ -163,9 +160,7 @@ function createMarkup() {
             </div>
     `;
 
-    // 2. --- GONE: Open Button ---
-
-    // 3. Append to body
+    // 2. Append to body
     document.body.appendChild(toolsContainer);
 }
 
@@ -173,12 +168,10 @@ function createMarkup() {
 
 function openToolsPanel() {
     toolsContainer.classList.add('is-open');
-    // --- GONE: toolsOpenBtn logic ---
 }
 
 function closeToolsPanel() {
     toolsContainer.classList.remove('is-open');
-    // --- GONE: toolsOpenBtn logic ---
 }
 
 /**
@@ -187,11 +180,10 @@ function closeToolsPanel() {
 export function initTools(app) {
     App = app; // Store App object
     
-    // --- NEW: Create tools namespace and add API ---
+    // --- (Public API unchanged) ---
     if (!App.tools) App.tools = {};
     App.tools.open = openToolsPanel;
     App.tools.close = closeToolsPanel;
-    // ---
     
     injectStyles();
     createMarkup();
@@ -200,12 +192,9 @@ export function initTools(app) {
     const closeBtn = toolsContainer.querySelector('.tools-close-btn');
     closeBtn.addEventListener('click', closeToolsPanel);
     
-    // --- GONE: toolsOpenBtn listener ---
-    
     // Tab switching logic
     const tabBar = toolsContainer.querySelector('.tools-tab-bar');
     tabBar.addEventListener('click', (e) => {
-        // ... (this logic is unchanged) ...
         const target = e.target.closest('.tools-tab-btn');
         if (!target) return;
         
