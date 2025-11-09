@@ -1,9 +1,9 @@
 // src/core/ui/workspace.js
 
-// --- 1. App VARIABLE (already present) ---
+// --- 1. App VARIABLE ---
 let App;
 
-// --- ICONS and getIconSVG (already present) ---
+// --- ICONS and getIconSVG (unchanged) ---
 const ICONS = {
     mesh: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 6.5-10 6.5-10-6.5L12 2zM2 15l10 6.5L22 15M2 8.5l10 6.5L22 8.5"></path></svg>`,
     folder: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
@@ -16,7 +16,6 @@ export function getIconSVG(iconName) {
     return ICONS[iconName] || '';
 }
 
-// ... (injectStyles and createMarkup are unchanged) ...
 function injectStyles() {
     const styleId = 'workspace-ui-styles';
     if (document.getElementById(styleId)) return;
@@ -104,7 +103,7 @@ function injectStyles() {
             padding: 8px;
         }
         
-        /* --- NEW STYLES FOR FOLDERS/FILES --- */
+        /* --- STYLES FOR FOLDERS/FILES --- */
         
         .ws-folder-header {
             display: flex;
@@ -116,6 +115,12 @@ function injectStyles() {
              background: var(--ui-light-grey);
         }
         
+        /* --- NEW: Selected state for folder --- */
+        .ws-folder-header.is-selected {
+            background: var(--ui-blue);
+            color: #fff;
+        }
+        
         .ws-folder-header .folder-arrow {
             width: 16px;
             height: 16px;
@@ -123,6 +128,10 @@ function injectStyles() {
             opacity: 0.7;
             margin-right: 6px;
             transition: transform 0.2s ease;
+            
+            /* --- NEW: Make arrow easier to tap --- */
+            padding: 4px; /* Hit area */
+            margin-left: -4px; /* Keep alignment */
         }
         
         .ws-folder-header .folder-icon {
@@ -131,12 +140,14 @@ function injectStyles() {
             stroke: #fff;
             margin-right: 8px;
             opacity: 0.8;
+            pointer-events: none; /* Make sure click goes to header */
         }
 
         .ws-folder-name {
             font-size: 14px;
             font-weight: 600;
             color: #fff;
+            pointer-events: none; /* Make sure click goes to header */
         }
         
         /* Folder open/closed states */
@@ -182,7 +193,7 @@ function injectStyles() {
             opacity: 0.7;
         }
 
-        /* --- STYLES FOR OPEN BUTTON --- */
+        /* --- STYLES FOR OPEN BUTTON (unchanged) --- */
         #workspace-open-btn {
             position: fixed;
             left: 0;
@@ -227,6 +238,7 @@ function injectStyles() {
 }
 
 function createMarkup() {
+    // ... (createMarkup function is unchanged) ...
     // 'X' icon for close
     const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
     
@@ -276,19 +288,16 @@ function createMarkup() {
 
 /**
  * Renders the dynamic content of the workspace.
- * This is now called by main.js, NOT by the file manager.
  */
-export function renderWorkspaceUI() { // <-- FIX: No 'folders' argument
+export function renderWorkspaceUI() {
     const content = document.querySelector('.workspace-content');
     if (!content) return;
 
-    // --- FIX: Get data from the App object ---
     if (!App || !App.fileManager) {
         console.error('Workspace: App.fileManager not ready for render.');
         return;
     }
     const folders = App.fileManager.getFolders();
-    // ---
 
     content.innerHTML = ''; // Clear old content
 
@@ -321,7 +330,7 @@ export function renderWorkspaceUI() { // <-- FIX: No 'folders' argument
                 <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
             `;
             
-            // Add click listener to select object
+            // --- UPDATED CLICK LISTENER for file items ---
             itemDiv.addEventListener('click', () => {
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
@@ -334,9 +343,14 @@ export function renderWorkspaceUI() { // <-- FIX: No 'folders' argument
                 if (objectInScene) {
                     App.selectionContext.select(objectInScene);
                     
+                    // Clear all other selections (files AND folders)
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
                     });
+                    document.querySelectorAll('.ws-folder-header.is-selected').forEach(el => {
+                        el.classList.remove('is-selected');
+                    });
+                    
                     itemDiv.classList.add('is-selected');
                     
                 } else {
@@ -353,9 +367,42 @@ export function renderWorkspaceUI() { // <-- FIX: No 'folders' argument
         folderDiv.appendChild(itemsDiv);
         content.appendChild(folderDiv);
         
-        // 6. Add click listener for toggle
-        header.addEventListener('click', () => {
-            folderDiv.classList.toggle('is-closed');
+        // 6. --- UPDATED CLICK LISTENER for folder headers ---
+        header.addEventListener('click', (event) => {
+            const folderArrow = event.target.closest('.folder-arrow');
+
+            if (folderArrow) {
+                // Clicked on the arrow: Toggle the dropdown
+                folderDiv.classList.toggle('is-closed');
+            } else {
+                // Clicked on the header (but not the arrow): Select the model
+                if (!App || !App.selectionContext) {
+                    console.warn('SelectionContext not available on App');
+                    return;
+                }
+                
+                const objectName = folder.name; // Folder name matches root model name
+                const objectInScene = App.scene.getObjectByName(objectName);
+                
+                if (objectInScene) {
+                    App.selectionContext.select(objectInScene);
+                    
+                    // Clear all other selections (files AND folders)
+                    document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
+                        el.classList.remove('is-selected');
+                    });
+                    document.querySelectorAll('.ws-folder-header.is-selected').forEach(el => {
+                        el.classList.remove('is-selected');
+                    });
+                    
+                    // Add selection to this header
+                    header.classList.add('is-selected');
+                    
+                } else {
+                    console.warn(`Could not find object in scene named: "${objectName}"`);
+                    App.selectionContext.clear();
+                }
+            }
         });
     }
 }
@@ -367,10 +414,8 @@ export function renderWorkspaceUI() { // <-- FIX: No 'folders' argument
 export function initWorkspace(app) {
     App = app;
     
-    // --- FIX: Attach public API to the App object ---
     if (!App.workspace) App.workspace = {};
     App.workspace.render = renderWorkspaceUI; // Expose the render function
-    // ---
     
     injectStyles();
     createMarkup();
