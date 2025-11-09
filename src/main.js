@@ -1,6 +1,6 @@
 // src/main.js
 
-import { checkForErrors, initDebugger } from '../debugger.js';
+import { checkForErrors, initDebugger } from '../debugger.js'; // <-- Import initDebugger
 
 // --- Core modules (load these first) ---
 import { initViewport } from './core/viewport.js';
@@ -22,6 +22,7 @@ import { initExportEngine } from './core/engine/exportengine.js';
 
 // Core services that provide an API
 const coreServices = [
+    // initDebugger is now called manually first
     initFileManagement,
     initSelectionContext,
     initModal,
@@ -40,11 +41,10 @@ const uiModules = [
 ];
 
 // Default assets that make up a "New Project"
-// --- UPDATED ---
 const defaultSceneModules = [
     './core/default/terrain.js',
     './core/default/environment.js',
-    './core/default/lighting.js' // <-- ADDED
+    './core/default/lighting.js' // <-- Includes shadow light
 ];
 
 
@@ -81,7 +81,9 @@ async function loadModuleInit(path) {
     // 1. Create the central App object
     const App = {};
 
-    // 2. Init Debugger FIRST
+    // 2. --- UPDATED: Init Debugger FIRST ---
+    // Pass the *real* App object so the debugger can attach to it.
+    // This replaces the temporary one from launcher.js
     initDebugger(App);
 
     // 3. Initialize Core Systems
