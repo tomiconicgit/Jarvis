@@ -17,19 +17,22 @@ export function initTerrain(App) {
     });
     const terrainMesh = new THREE.Mesh(geometry, material);
     terrainMesh.rotation.x = -Math.PI / 2; // Lay it flat
-    terrainMesh.name = "Default Terrain"; // Give it a name
+    terrainMesh.name = "Default Terrain";
+    
+    // --- NEW ---
+    terrainMesh.receiveShadow = true; // <-- This surface will receive shadows
+    // --- END NEW ---
     
     // 2. Add it to the scene
     App.scene.add(terrainMesh);
 
     // 3. Register it with the File Manager
-    // This tells the workspace UI to add an item.
     if (App.fileManager) {
         App.fileManager.registerFile({
-            id: 'terrain-default',      // A unique ID
-            name: 'Default Terrain',    // The display name
-            icon: 'mesh',               // The icon name
-            parentId: 'default'         // The folder ID to put it in
+            id: 'terrain-default',
+            name: 'Default Terrain',
+            icon: 'mesh',
+            parentId: 'default'
         });
     }
 
