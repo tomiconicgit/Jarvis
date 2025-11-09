@@ -3,6 +3,12 @@
 // --- Module-level App variable ---
 let App;
 
+// --- NEW: Module-level button variables ---
+let menuBtn;
+let workspaceBtn;
+let toolsBtn;
+let menuItemsContainer;
+
 /**
  * Creates and injects the CSS styles for the new top bar and menu.
  */
@@ -25,52 +31,53 @@ function injectStyles() {
             --top-bar-height: 44px;
         }
         
-        /* --- UPDATED: Floating Top Bar --- */
+        /* --- UPDATED: Full-width Top Bar --- */
         #top-bar {
             position: fixed;
-            top: calc(10px + var(--ui-safe-top));
-            left: calc(10px + var(--ui-safe-left));
-            width: auto; /* Fit content */
-            height: var(--top-bar-height);
+            top: 0;
+            left: 0;
+            width: 100%; /* Full width */
+            height: calc(var(--top-bar-height) + var(--ui-safe-top));
             
-            /* Glassmorphism effect */
-            background: rgba(58, 58, 60, 0.8); /* Semi-transparent */
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-            
-            border: 1px solid var(--ui-border);
-            border-radius: var(--ui-corner-radius);
-            box-shadow: var(--ui-shadow);
+            /* Solid background */
+            background: var(--ui-grey);
+            border-bottom: 1px solid var(--ui-border);
             
             z-index: 11;
             display: flex;
             align-items: center;
-            padding: 0 4px; /* Internal padding */
+            padding-top: var(--ui-safe-top);
+            padding-left: var(--ui-safe-left);
+            padding-right: var(--ui-safe-right);
             box-sizing: border-box;
         }
         
         .top-bar-btn {
+            flex: 1; /* <-- NEW: Make buttons equal width */
+            text-align: center; /* <-- NEW: Center text */
             background: none;
             border: none;
-            color: #fff;
+            color: #fff; /* <-- UPDATED: All buttons white */
             font-size: 15px;
             font-weight: 500;
             padding: 10px 12px;
-            border-radius: 8px;
+            border-radius: 0; /* No radius on full bar */
             cursor: pointer;
-            transition: background-color 0.2s ease;
+            transition: background-color 0.2s, color 0.2s;
         }
         
         .top-bar-btn:active {
             background: var(--ui-light-grey);
         }
         
-        #top-bar-menu-btn {
-             font-weight: 600;
-             color: var(--ui-blue);
+        /* --- NEW: Active state for buttons --- */
+        .top-bar-btn.is-active {
+            color: var(--ui-blue);
+            font-weight: 600;
         }
         
-        /* --- NEW: Divider --- */
+        /* --- GONE: Special style for menu-btn --- */
+        
         .top-bar-divider {
             width: 1px;
             height: 20px;
@@ -78,13 +85,11 @@ function injectStyles() {
             opacity: 0.5;
         }
         
-        /* --- GONE: #menu-toggle-btn styles --- */
-
         /* --- UPDATED: Menu dropdown position --- */
         #menu-items-container {
             position: fixed;
-            /* Position below the new floating bar */
-            top: calc(var(--top-bar-height) + 15px + var(--ui-safe-top));
+            /* Position below the new full-width bar */
+            top: calc(var(--top-bar-height) + var(--ui-safe-top) + 5px);
             left: calc(10px + var(--ui-safe-left));
             z-index: 10;
             background: var(--ui-grey);
@@ -100,7 +105,6 @@ function injectStyles() {
             min-width: 170px;
         }
         
-        /* ... (all other menu dropdown styles are unchanged) ... */
         #menu-items-container.is-open {
             clip-path: inset(0 0 0 0);
             opacity: 1;
@@ -129,7 +133,14 @@ function injectStyles() {
             padding: 14px 12px 14px 18px;
             cursor: pointer;
             text-align: left;
+            transition: color 0.2s; /* <-- NEW */
         }
+        
+        /* --- NEW: Active state for sub-menu parent items --- */
+        .menu-item.is-open {
+            color: var(--ui-blue);
+        }
+        
         .menu-item:active {
             background: var(--ui-light-grey);
         }
@@ -184,10 +195,8 @@ function createMarkup() {
             <path d="M9 18l6-6-6-6"></path>
         </svg>`;
 
-    // --- NEW: Create Top Bar ---
     const topBar = document.createElement('div');
     topBar.id = 'top-bar';
-    // --- UPDATED: Added dividers ---
     topBar.innerHTML = `
         <button id="top-bar-menu-btn" class="top-bar-btn">Menu</button>
         <div class="top-bar-divider"></div>
@@ -195,13 +204,10 @@ function createMarkup() {
         <div class="top-bar-divider"></div>
         <button id="top-bar-tools-btn" class="top-bar-btn">Tools</button>
     `;
-    
-    // --- GONE: menuToggleBtn ---
 
-    const menuItemsContainer = document.createElement('div');
+    menuItemsContainer = document.createElement('div'); // Use module-level var
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- (innerHTML for menuItemsContainer is unchanged) ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -253,15 +259,15 @@ function createMarkup() {
 
     // --- 4. Add Event Listeners ---
     
-    // --- Get new top bar buttons ---
-    const menuBtn = document.getElementById('top-bar-menu-btn');
-    const workspaceBtn = document.getElementById('top-bar-workspace-btn');
-    const toolsBtn = document.getElementById('top-bar-tools-btn');
+    // Assign module-level buttons
+    menuBtn = document.getElementById('top-bar-menu-btn');
+    workspaceBtn = document.getElementById('top-bar-workspace-btn');
+    toolsBtn = document.getElementById('top-bar-tools-btn');
     
     const toggleMenu = (event) => {
         if (event) event.stopPropagation(); 
         const isOpen = menuItemsContainer.classList.toggle('is-open');
-        menuBtn.classList.toggle('is-open', isOpen);
+        menuBtn.classList.toggle('is-active', isOpen); // <-- UPDATED
         
         if (!isOpen) {
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
@@ -276,7 +282,7 @@ function createMarkup() {
     const closeMenu = () => {
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
-            menuBtn.classList.remove('is-open');
+            menuBtn.classList.remove('is-active'); // <-- UPDATED
             
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
@@ -287,36 +293,39 @@ function createMarkup() {
         }
     };
 
-    // --- Attach listener to new menu button ---
     menuBtn.addEventListener('click', toggleMenu);
 
-    // --- Listeners for Workspace and Tools ---
+    // --- UPDATED: Listeners for Workspace and Tools ---
     workspaceBtn.addEventListener('click', () => {
-        if (App && App.workspace && App.workspace.open) {
-            App.workspace.open();
+        const isWorkspaceOpen = document.getElementById('workspace-container')?.classList.contains('is-open');
+        
+        if (isWorkspaceOpen) {
+            App.workspace.close(); // Wrapper will remove active class
         } else {
-            console.error('App.workspace.open() not found.');
+            App.workspace.open();  // Wrapper will add active class
+            App.tools.close();     // Wrapper will remove active class
         }
-        closeMenu(); // Close menu dropdown if open
+        closeMenu();
     });
     
     toolsBtn.addEventListener('click', () => {
-        if (App && App.tools && App.tools.open) {
-            App.tools.open();
+        const isToolsOpen = document.getElementById('tools-container')?.classList.contains('is-open');
+        
+        if (isToolsOpen) {
+            App.tools.close();     // Wrapper will remove active class
         } else {
-            console.error('App.tools.open() not found.');
+            App.tools.open();      // Wrapper will add active class
+            App.workspace.close(); // Wrapper will remove active class
         }
-        closeMenu(); // Close menu dropdown if open
+        closeMenu();
     });
 
-
-    // --- (This logic for handling submenus is unchanged) ---
     menuItemsContainer.addEventListener('click', (event) => {
         const subItem = event.target.closest('.menu-submenu-item');
         const parentItem = event.target.closest('.menu-item');
 
         if (subItem) {
-            // ... (sub-item click logic is unchanged) ...
+            // (sub-item click logic is unchanged)
             if (subItem.id === 'menu-file-new') {
                 if (App && App.engine && App.engine.newProject) App.engine.newProject();
                 else console.error('Engine.newProject() not found.');
@@ -345,12 +354,12 @@ function createMarkup() {
                 console.log(`Sub-Item Clicked: ${subItem.textContent}`);
             }
             
-            closeMenu();
+            closeMenu(); // This now also deactivates the main Menu button
             return;
         }
 
         if (parentItem) {
-            // ... (parent-item click logic is unchanged) ...
+            // (This logic for toggling submenus is unchanged)
             const submenuId = parentItem.dataset.submenu;
             if (!submenuId) return;
             const submenu = document.getElementById(submenuId);
@@ -366,12 +375,11 @@ function createMarkup() {
             
             if (!isAlreadyOpen) {
                 submenu.classList.add('is-open');
-                parentItem.classList.add('is-open');
+                parentItem.classList.add('is-open'); // This applies the blue text
             }
         }
     });
 
-    // --- UPDATED: This listener now checks for the top bar too ---
     document.addEventListener('pointerdown', (event) => {
         const topBar = document.getElementById('top-bar');
         if (topBar && !topBar.contains(event.target) && !menuItemsContainer.contains(event.target)) {
@@ -386,6 +394,45 @@ function createMarkup() {
 export function initMenu(app) {
     App = app;
     injectStyles();
-    createMarkup();
+    createMarkup(); // This creates the buttons
+
+    // --- NEW: Get button references AFTER they are created ---
+    menuBtn = document.getElementById('top-bar-menu-btn');
+    workspaceBtn = document.getElementById('top-bar-workspace-btn');
+    toolsBtn = document.getElementById('top-bar-tools-btn');
+    
+    // --- NEW: Wrap the panel functions to control active state ---
+    // (This ensures we 'hijack' the functions from workspace.js and tools.js)
+    
+    if (App.workspace) {
+        const originalWorkspaceOpen = App.workspace.open;
+        const originalWorkspaceClose = App.workspace.close;
+        
+        App.workspace.open = () => {
+            originalWorkspaceOpen();
+            workspaceBtn.classList.add('is-active');
+            toolsBtn.classList.remove('is-active'); // Deactivate other panel
+        };
+        App.workspace.close = () => {
+            originalWorkspaceClose();
+            workspaceBtn.classList.remove('is-active');
+        };
+    }
+    
+    if (App.tools) {
+        const originalToolsOpen = App.tools.open;
+        const originalToolsClose = App.tools.close;
+        
+        App.tools.open = () => {
+            originalToolsOpen();
+            toolsBtn.classList.add('is-active');
+            workspaceBtn.classList.remove('is-active'); // Deactivate other panel
+        };
+        App.tools.close = () => {
+            originalToolsClose();
+            toolsBtn.classList.remove('is-active');
+        };
+    }
+
     console.log('Menu UI Initialized.');
 }
