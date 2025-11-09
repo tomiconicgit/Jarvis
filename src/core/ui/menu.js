@@ -7,7 +7,6 @@ let App;
  * Creates and injects the CSS styles for the main menu UI.
  */
 function injectStyles() {
-    // ... (css is unchanged)
     const styleId = 'menu-ui-styles';
     if (document.getElementById(styleId)) return;
     const css = `
@@ -159,7 +158,7 @@ function createMarkup() {
     const menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
     
-    // --- UPDATED: Added id="menu-file-save" ---
+    // --- UPDATED: Added id="menu-file-load" ---
     menuItemsContainer.innerHTML = `
         <div class="menu-item-wrapper">
             <button class="menu-item" data-submenu="file-submenu">
@@ -171,7 +170,7 @@ function createMarkup() {
                 <div class="menu-item-separator"></div>
                 <button class="menu-submenu-item" id="menu-file-save">Save Project</button>
                 <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item">Load Project</button>
+                <button class="menu-submenu-item" id="menu-file-load">Load Project</button>
             </div>
         </div>
         
@@ -214,7 +213,6 @@ function createMarkup() {
     // --- 4. Add Event Listeners ---
     
     const toggleMenu = (event) => {
-        // ... (function is unchanged)
         if (event) event.stopPropagation(); 
         const isOpen = menuItemsContainer.classList.toggle('is-open');
         menuToggleBtn.classList.toggle('is-open', isOpen);
@@ -235,7 +233,6 @@ function createMarkup() {
     };
 
     const closeMenu = () => {
-        // ... (function is unchanged)
         if (menuItemsContainer.classList.contains('is-open')) {
             menuItemsContainer.classList.remove('is-open');
             menuToggleBtn.classList.remove('is-open');
@@ -258,7 +255,7 @@ function createMarkup() {
         // Clicked on a final action item
         if (subItem) {
             
-            // --- UPDATED: Handle "New" and "Save" ---
+            // --- UPDATED: Handle "New", "Save", and "Load" ---
             if (subItem.id === 'menu-file-new') {
                 if (App && App.engine && App.engine.newProject) {
                     App.engine.newProject();
@@ -271,6 +268,13 @@ function createMarkup() {
                 } else {
                     console.error('Engine.saveProject() not found.');
                 }
+            } else if (subItem.id === 'menu-file-load') { // <-- ADDED
+                if (App && App.engine && App.engine.loadProject) {
+                    App.engine.loadProject();
+                } else {
+                    console.error('Engine.loadProject() not found.');
+Services
+                }
             } else {
                 console.log(`Sub-Item Clicked: ${subItem.textContent}`);
             }
@@ -281,18 +285,19 @@ function createMarkup() {
 
         // Clicked on a parent item (e.g., "File")
         if (parentItem) {
-            // ... (rest of this logic is unchanged)
             const submenuId = parentItem.dataset.submenu;
             if (!submenuId) return;
             const submenu = document.getElementById(submenuId);
             if (!submenu) return;
             const isAlreadyOpen = submenu.classList.contains('is-open');
+            
             menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
                 sm.classList.remove('is-open');
             });
             menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
                 btn.classList.remove('is-open');
             });
+            
             if (!isAlreadyOpen) {
                 submenu.classList.add('is-open');
                 parentItem.classList.add('is-open');
