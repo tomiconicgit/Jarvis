@@ -48,7 +48,6 @@ async function loadApp() {
         setTimeout(() => {
             if (loadingScreen) loadingScreen.style.display = 'none';
             // Disconnect the loader callback.
-            // Future errors will just go to the status bar.
             setLoaderErrorCallback(null);
         }, 800);
 
