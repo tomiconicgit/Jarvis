@@ -1,17 +1,47 @@
 // src/core/engine/testplay.js
 
+// Module-level App object
 let App;
-let stopButton;
-// --- GONE: UI elements are found just-in-time ---
+
+// --- GONE: Removed all module-level UI element variables ---
+// let stopButton;
 
 /**
  * Injects the CSS for the stop button.
  */
 function injectStyles() {
-    // ... (css is unchanged) ...
     const styleId = 'testplay-ui-styles';
     if (document.getElementById(styleId)) return;
-    const css = `...`;
+
+    const css = `
+        #testplay-stop-btn {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 101; /* Above loading, below modal */
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        #testplay-stop-btn svg {
+            width: 24px;
+            height: 24px;
+            stroke: #fff;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+        }
+        #testplay-stop-btn:active {
+            background: rgba(0,0,0,0.7);
+        }
+    `;
     const styleEl = document.createElement('style');
     styleEl.id = styleId;
     styleEl.textContent = css;
@@ -22,11 +52,13 @@ function injectStyles() {
  * Creates the HTML for the stop button.
  */
 function createMarkup() {
-    // ... (markup is unchanged) ...
-    stopButton = document.createElement('button');
+    // --- UPDATED: No longer assigns to module-level var ---
+    const stopButton = document.createElement('button');
     stopButton.id = 'testplay-stop-btn';
     stopButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>`;
+    
     document.body.appendChild(stopButton);
+    
     stopButton.addEventListener('click', stopTestMode);
 }
 
@@ -35,26 +67,30 @@ function createMarkup() {
  */
 function startTestMode() {
     if (!App) return;
-    
+
+    // --- UPDATED: Find all elements just-in-time ---
     const bottomBar = document.getElementById('bottom-bar');
+    const editorBar = document.getElementById('editor-bar');
+    const stopButton = document.getElementById('testplay-stop-btn');
     
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
 
+    // 1. Store editor camera state
     App.editorCameraState = {
         position: App.camera.position.clone(),
         target: App.controls.target.clone(),
     };
 
-    // --- UPDATED: Hide all editor UI ---
+    // 2. Hide Editor UI
     if (bottomBar) bottomBar.style.display = 'none';
+    if (editorBar) editorBar.style.display = 'none'; // Hide the bar directly
     App.workspace.close();
-    App.editorBar.hide(); // Hide the new bar
-    App.editorBar.closeAllPanels(); // Close its panels
-    App.gizmo.detach(); // Detach gizmo
+    App.editorBar.closeAllPanels(); // Still call this to close any open panels
+    App.gizmo.detach();
 
     // 3. Show Test Mode UI
-    stopButton.style.display = 'flex';
+    if (stopButton) stopButton.style.display = 'flex'; // Show the button
     App.joystick.show();
 
     // 4. Activate Player/First Person View
@@ -68,7 +104,10 @@ function startTestMode() {
 function stopTestMode() {
     if (!App) return;
 
+    // --- UPDATED: Find all elements just-in-time ---
     const bottomBar = document.getElementById('bottom-bar');
+    const editorBar = document.getElementById('editor-bar');
+    const stopButton = document.getElementById('testplay-stop-btn');
 
     console.log('[Engine] Stopping Test Mode...');
     App.engine.isTesting = false;
@@ -78,12 +117,12 @@ function stopTestMode() {
     App.firstPersonControls.deactivate();
 
     // 2. Hide Test Mode UI
-    stopButton.style.display = 'none';
+    if (stopButton) stopButton.style.display = 'none'; // Hide the button
     App.joystick.hide();
     
     // 3. Show Editor UI
     if (bottomBar) bottomBar.style.display = 'flex';
-    App.editorBar.show(); // Show the new bar
+    if (editorBar) editorBar.style.display = 'flex'; // Show the bar directly
     
     // 4. Restore editor camera
     if (App.editorCameraState) {
