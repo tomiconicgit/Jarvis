@@ -3,6 +3,9 @@
 let App;
 let panelContainer;
 
+// --- ADDED: Arrow icon, same as workspace ---
+const ARROW_ICON = `<svg class="prop-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>`;
+
 /**
  * Creates and injects the CSS styles for the properties panel.
  */
@@ -16,56 +19,75 @@ function injectStyles() {
             height: 100%;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            padding: 8px; /* Add padding to match workspace */
         }
         
         #properties-panel-content.is-active {
             display: block;
         }
 
-        .prop-list {
-            padding: 0; 
-        }
-
-        .prop-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0; /* Remove padding from item itself */
-            font-size: 14px;
-            
-            /* --- FIX 1: Add border-bottom to every item --- */
+        /* --- NEW: Styles based on workspace.js --- */
+        
+        .prop-group {
+            /* This is the main container for a property and its content */
             border-bottom: 1px solid var(--ui-border);
         }
-        
-        /* Remove border from the very last item in the panel */
-        .prop-list .prop-item:last-child {
+        .prop-group:last-child {
             border-bottom: none;
         }
 
-        .prop-label {
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 500;
-            flex: 1; 
-            text-align: left;
-            padding: 12px; /* Add padding here */
-            
-            /* --- FIX 2: Add vertical border --- */
-            border-right: 1px solid var(--ui-border);
+        .prop-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 8px;
+            cursor: pointer;
         }
-
-        .prop-value {
-            color: #fff;
-            font-weight: 600;
-            min-width: 50px;
-            text-align: right;
-            opacity: 0.5;
-            font-style: italic;
-            flex: 1; 
-            padding: 12px; /* Add padding here */
+        .prop-header:active {
+             background: var(--ui-light-grey);
         }
         
-        /* --- FIX 3: Remove divider style, it's no longer used --- */
-        /* .prop-divider style GONE */
+        .prop-header .prop-arrow {
+            width: 16px;
+            height: 16px;
+            stroke: #fff;
+            opacity: 0.7;
+            margin-right: 6px;
+            transition: transform 0.2s ease;
+            padding: 4px;
+            margin-left: -4px;
+        }
+
+        .prop-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            pointer-events: none;
+        }
+        
+        .prop-content {
+            overflow: hidden;
+            max-height: 500px;
+            transition: max-height 0.3s ease-out;
+            padding-left: 12px;
+            
+            /* --- This is the empty space for parameters --- */
+            min-height: 50px; /* Placeholder height */
+            font-size: 13px;
+            color: rgba(255,255,255,0.4);
+            font-style: italic;
+            padding: 10px 10px 16px 28px;
+        }
+
+        /* --- Toggling logic --- */
+        .prop-group.is-closed .prop-content {
+            max-height: 0;
+            min-height: 0; /* Collapse min-height */
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .prop-group.is-closed .prop-arrow {
+            transform: rotate(-90deg);
+        }
     `;
 
     const styleEl = document.createElement('style');
@@ -88,41 +110,89 @@ function createMarkup() {
     panelContainer.id = 'properties-panel-content';
     panelContainer.className = 'is-active'; 
 
-    // --- FIX 4: Removed all .prop-divider divs and put items in one list ---
     panelContainer.innerHTML = `
-        <div class="prop-list">
-            <div class="prop-item">
-                <span class="prop-label">Object Name</span>
-                <span class="prop-value">...</span>
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Object Name</span>
             </div>
-            <div class="prop-item">
-                <span class="prop-label">Unique ID</span>
-                <span class="prop-value">...</span>
+            <div class="prop-content">
+                (Parameters for Object Name)
             </div>
-            <div class="prop-item">
-                <span class="prop-label">Vertices</span>
-                <span class="prop-value">...</span>
+        </div>
+
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Unique ID</span>
             </div>
-            <div class="prop-item">
-                <span class="prop-label">Polygons</span>
-                <span class="prop-value">...</span>
+            <div class="prop-content">
+                (Parameters for Unique ID)
             </div>
-            <div class="prop-item">
-                <span class="prop-label">Object Position</span>
-                <span class="prop-value">...</span>
+        </div>
+        
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Vertices</span>
             </div>
-            <div class="prop-item">
-                <span class="prop-label">Uniform Scale</span>
-                <span class="prop-value">...</span>
+            <div class="prop-content">
+                (Parameters for Vertices)
             </div>
-            <div class="prop-item">
-                <span class="prop-label">Parent</span>
-                <span class="prop-value">...</span>
+        </div>
+
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Polygons</span>
+            </div>
+            <div class="prop-content">
+                (Parameters for Polygons)
+            </div>
+        </div>
+
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Object Position</span>
+            </div>
+            <div class="prop-content">
+                (Parameters for Object Position)
+            </div>
+        </div>
+        
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Uniform Scale</span>
+            </div>
+            <div class="prop-content">
+                (Parameters for Uniform Scale)
+            </div>
+        </div>
+        
+        <div class="prop-group is-closed">
+            <div class="prop-header">
+                ${ARROW_ICON}
+                <span class="prop-name">Parent</span>
+            </div>
+            <div class="prop-content">
+                (Parameters for Parent)
             </div>
         </div>
     `;
 
     toolsContent.appendChild(panelContainer);
+
+    // --- ADDED: Toggle logic ---
+    panelContainer.querySelectorAll('.prop-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const group = header.closest('.prop-group');
+            if (group) {
+                group.classList.toggle('is-closed');
+            }
+        });
+    });
 }
 
 function showPanel() {
