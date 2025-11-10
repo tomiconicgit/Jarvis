@@ -54,7 +54,8 @@ const uiModules = [
     './core/ui/tools.js',
     './core/ui/menu.js',
     './core/ui/propertiespanel.js',
-    './core/ui/transformpanel.js' // <-- ADDED THIS LINE
+    './core/ui/transformpanel.js',
+    './core/ui/gizmo.js' // <-- ADDED THIS LINE
 ];
 
 // Default assets that make up a "New Project"
