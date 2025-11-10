@@ -52,7 +52,8 @@ const coreServices = [
 const uiModules = [
     './core/ui/workspace.js',
     './core/ui/tools.js',
-    './core/ui/menu.js'
+    './core/ui/menu.js',
+    './core/ui/propertiespanel.js' // <-- ADDED THIS LINE
 ];
 
 // Default assets that make up a "New Project"
@@ -116,7 +117,10 @@ async function loadModuleInit(path) {
     // 5. Load and initialize all UI modules
     console.log('[Main] Initializing UI modules...');
     const uiInits = (await Promise.all(uiModules.map(loadModuleInit))).filter(Boolean);
-    uiInits.forEach(initFunc => initFunc(App));
+    // --- UPDATED: Run init functions sequentially to respect dependencies ---
+    for (const initFunc of uiInits) {
+        initFunc(App);
+    }
 
     // 6. Load and store the "default scene" init functions
     console.log('[Main] Loading default scene assets...');
