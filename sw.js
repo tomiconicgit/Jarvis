@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_VERSION = 'v1.6.0'; // <-- BUMPED VERSION
+const CACHE_VERSION = 'v1.7.0'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -16,7 +16,6 @@ const FILES_TO_CACHE = [
     'src/core/ui/menu.js',
     'src/core/ui/workspace.js',
     'src/core/selectioncontext.js',
-    'src/core/ui/tools.js',
     'src/core/ui/modal.js',
     'src/core/engine/newproject.js',
     'src/core/engine/saveproject.js',
@@ -24,13 +23,24 @@ const FILES_TO_CACHE = [
     'src/core/engine/importengine.js',
     'src/core/engine/exportengine.js',
     
+    // --- UPDATED MODULES ---
+    'src/core/events.js',
+    'src/core/engine/player.js',
+    'src/core/engine/testplay.js',
+    'src/core/firstpersonview.js',
+    'src/core/joystick.js',
+    'src/core/ui/editorbar.js',
+    'src/core/ui/gizmo.js',
+    'src/core/ui/gizmotools.js',
+    'src/core/ui/propertiespanel.js',
+    'src/core/ui/transformpanel.js',
+    
     // --- DEFAULT ASSETS ---
     'src/core/default/terrain.js',
     'src/core/default/environment.js',
     'src/core/default/environment.hdr',
-    'src/core/default/lighting.js', // <-- ADDED
+    'src/core/default/lighting.js',
     
-    // Add icons/ folder here when ready
     // 'icons/icon-192x192.png',
     // 'icons/icon-512x512.png',
     // 'icons/icon-maskable-512x512.png'
@@ -41,7 +51,10 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('[ServiceWorker] Caching app shell');
-                return cache.addAll(FILES_TO_CACHE);
+                // Use addAll with a catch to prevent one bad file from failing all
+                return cache.addAll(FILES_TO_CACHE).catch(err => {
+                    console.error('[ServiceWorker] Failed to cache all files:', err);
+                });
             })
             .then(() => self.skipWaiting())
     );
