@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 let App;
-let panelContainer;
+let panelContainer; // This is now the main slide-up panel
 
 /**
  * Creates and injects the CSS styles for the transform panel.
@@ -11,19 +11,17 @@ function injectStyles() {
     const styleId = 'transform-panel-ui-styles';
     if (document.getElementById(styleId)) return;
 
+    // --- UPDATED: Styles are now for the inner content ---
     const css = `
+        /* The #transform-panel-container is created by editorbar.js */
+        
         #transform-panel-content {
-            display: none; /* Hidden by default */
             height: 100%;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding: 8px;
         }
         
-        #transform-panel-content.is-active {
-            display: block;
-        }
-
         .transform-empty-state {
             font-size: 14px;
             color: rgba(255,255,255,0.4);
@@ -44,7 +42,6 @@ function injectStyles() {
             margin-top: 12px;
         }
 
-        /* --- NEW: Stepper Component Styles --- */
         .stepper-row {
             display: flex;
             align-items: center;
@@ -91,15 +88,11 @@ function injectStyles() {
     document.head.appendChild(styleEl);
 }
 
-/**
- * Updates the 3D object from a stepper action
- */
+// --- (updateObjectFromStepper and updateObjectFromPrompt are UNCHANGED) ---
 function updateObjectFromStepper(prop, axis, step) {
     const object = App.selectionContext.getSelected();
     if (!object || !object[prop]) return;
-
     let value = object[prop][axis];
-    
     if (prop === 'rotation') {
         value = THREE.MathUtils.radToDeg(value);
         value += step;
@@ -108,38 +101,27 @@ function updateObjectFromStepper(prop, axis, step) {
         value += step;
         object[prop][axis] = value;
     }
-    
     updateTransformPanel(object);
     App.gizmo.update();
 }
-
-/**
- * Updates the 3D object from a prompt
- */
 function updateObjectFromPrompt(prop, axis) {
     const object = App.selectionContext.getSelected();
     if (!object || !object[prop]) return;
-
     let currentValue = object[prop][axis];
     if (prop === 'rotation') {
         currentValue = THREE.MathUtils.radToDeg(currentValue);
     }
-    
     const newValueStr = window.prompt(`Enter new value for ${prop} ${axis.toUpperCase()}:`, currentValue.toFixed(3));
     if (newValueStr === null) return;
-
     let newValue = parseFloat(newValueStr);
     if (isNaN(newValue)) {
         App.modal.alert("Invalid input. Please enter a number.");
         return;
     }
-
     if (prop === 'rotation') {
         newValue = THREE.MathUtils.degToRad(newValue);
     }
-    
     object[prop][axis] = newValue;
-    
     updateTransformPanel(object);
     App.gizmo.update();
 }
@@ -149,21 +131,22 @@ function updateObjectFromPrompt(prop, axis) {
  * Creates the HTML markup for the transform panel.
  */
 function createMarkup() {
-    const toolsContent = document.querySelector('.tools-content');
-    if (!toolsContent) {
-        console.error('TransformPanel: .tools-content not found!');
+    // --- UPDATED: Find the container created by editorbar.js ---
+    panelContainer = document.getElementById('transform-panel-container');
+    if (!panelContainer) {
+        console.error('TransformPanel: #transform-panel-container not found!');
         return;
     }
-
-    panelContainer = document.createElement('div');
-    panelContainer.id = 'transform-panel-content';
+    
+    // Create the inner content wrapper
+    const content = document.createElement('div');
+    content.id = 'transform-panel-content';
+    panelContainer.appendChild(content);
 
     clearPanelData("Select a Mesh object to transform.");
-    toolsContent.appendChild(panelContainer);
     
-    panelContainer.addEventListener('click', (event) => {
+    content.addEventListener('click', (event) => {
         const target = event.target;
-        
         if (target.classList.contains('stepper-btn')) {
             const row = target.closest('.stepper-row');
             const prop = row.dataset.prop;
@@ -171,7 +154,6 @@ function createMarkup() {
             const step = parseFloat(target.dataset.step);
             updateObjectFromStepper(prop, axis, step);
         }
-        
         if (target.classList.contains('stepper-value')) {
             const row = target.closest('.stepper-row');
             const prop = row.dataset.prop;
@@ -185,22 +167,21 @@ function createMarkup() {
  * Updates all steppers from the object's current state
  */
 function updateTransformPanel(object) {
-    if (!object || !panelContainer) return;
+    const content = panelContainer.querySelector('#transform-panel-content');
+    if (!object || !content) return;
     
-    panelContainer.querySelectorAll('.stepper-row').forEach(row => {
+    content.querySelectorAll('.stepper-row').forEach(row => {
+        // ... (function logic is unchanged) ...
         const prop = row.dataset.prop;
         const axis = row.dataset.axis;
         const valueEl = row.querySelector('.stepper-value');
-        
         if (object[prop] && valueEl) {
             let value = object[prop][axis];
             let fixed = 3;
-            
             if (prop === 'rotation') {
                 value = THREE.MathUtils.radToDeg(value);
                 fixed = 1;
             }
-            
             valueEl.textContent = value.toFixed(fixed);
         }
     });
@@ -210,6 +191,9 @@ function updateTransformPanel(object) {
  * Fills the panel with data from the selected object
  */
 function updatePanelData(object) {
+    const content = panelContainer.querySelector('#transform-panel-content');
+    if (!content) return;
+    
     if (!object || !object.isMesh) {
         clearPanelData("Select a Mesh object to transform.");
         return;
@@ -243,8 +227,7 @@ function updatePanelData(object) {
         ${createStepper('Z', 'scale', 'z', 0.01)}
     `;
     
-    panelContainer.innerHTML = html;
-    
+    content.innerHTML = html;
     updateTransformPanel(object);
 }
 
@@ -252,33 +235,25 @@ function updatePanelData(object) {
  * Clears the panel and shows an empty state
  */
 function clearPanelData(message = "No object selected") {
-    panelContainer.innerHTML = `
+    const content = panelContainer.querySelector('#transform-panel-content');
+    if (!content) return;
+    content.innerHTML = `
         <div class="transform-empty-state">
             ${message}
         </div>
     `;
 }
 
-function showPanel() {
-    if (panelContainer) panelContainer.classList.add('is-active');
-}
-
-function hidePanel() {
-    if (panelContainer) panelContainer.classList.remove('is-active');
-}
+// --- GONE: showPanel and hidePanel are now controlled by editorbar.js ---
 
 /**
  * Initializes the Transform Panel module.
  */
 export function initTransformPanel(app) {
     App = app;
-
     injectStyles();
     setTimeout(createMarkup, 100); 
-
-    if (!App.transformPanel) App.transformPanel = {};
-    App.transformPanel.show = showPanel;
-    App.transformPanel.hide = hidePanel;
+    // --- GONE: No public API needed ---
     
     App.events.subscribe('selectionChanged', updatePanelData);
     App.events.subscribe('selectionCleared', () => clearPanelData("No object selected."));
