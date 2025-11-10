@@ -32,7 +32,6 @@ function injectStyles() {
             padding-top: 20px;
         }
 
-        /* --- NEW: Category Header Style --- */
         .transform-header {
             font-size: 16px;
             font-weight: 600;
@@ -45,49 +44,44 @@ function injectStyles() {
             margin-top: 12px;
         }
 
-        /* Styles for slider rows */
-        .slider-row {
+        /* --- NEW: Stepper Component Styles --- */
+        .stepper-row {
             display: flex;
             align-items: center;
             margin-bottom: 10px;
         }
-        .slider-label {
+        .stepper-label {
             font-size: 14px;
             font-weight: 600;
             color: rgba(255,255,255,0.7);
             flex: 0 0 20px; /* 'X', 'Y', 'Z' */
         }
-        .slider-input {
-            flex: 1;
-            margin: 0 10px;
-            -webkit-appearance: none;
-            height: 8px;
-            background: var(--ui-dark-grey);
-            border: 1px solid var(--ui-border);
-            border-radius: 4px;
-            outline: none;
-        }
-        .slider-input::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
+        .stepper-btn {
             background: var(--ui-light-grey);
             border: 1px solid var(--ui-border);
+            color: #fff;
+            font-size: 20px;
+            line-height: 20px;
+            font-weight: 600;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             cursor: pointer;
         }
-        .slider-number {
-            width: 65px;
+        .stepper-btn:active {
+            background: var(--ui-grey);
+        }
+        .stepper-value {
+            flex: 1;
             background: var(--ui-dark-grey);
             color: #fff;
             border: 1px solid var(--ui-border);
             border-radius: 4px;
             padding: 6px 8px;
-            font-size: 13px;
-            text-align: right;
-            -webkit-appearance: none;
-            -moz-appearance: textfield;
+            font-size: 14px;
+            text-align: center;
+            margin: 0 8px;
+            cursor: pointer;
         }
     `;
 
@@ -96,6 +90,64 @@ function injectStyles() {
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 }
+
+/**
+ * --- NEW: Updates the 3D object from a stepper action ---
+ */
+function updateObjectFromStepper(prop, axis, step) {
+    const object = App.selectionContext.getSelected();
+    if (!object || !object[prop]) return;
+
+    let value = object[prop][axis];
+    
+    if (prop === 'rotation') {
+        value = THREE.MathUtils.radToDeg(value);
+        value += step;
+        object[prop][axis] = THREE.MathUtils.degToRad(value);
+    } else {
+        value += step;
+        object[prop][axis] = value;
+    }
+    
+    // Update the UI
+    updateTransformPanel(object);
+    // Tell the gizmo to update
+    App.gizmo.update();
+}
+
+/**
+ * --- NEW: Updates the 3D object from a prompt ---
+ */
+function updateObjectFromPrompt(prop, axis) {
+    const object = App.selectionContext.getSelected();
+    if (!object || !object[prop]) return;
+
+    let currentValue = object[prop][axis];
+    if (prop === 'rotation') {
+        currentValue = THREE.MathUtils.radToDeg(currentValue);
+    }
+    
+    const newValueStr = window.prompt(`Enter new value for ${prop} ${axis.toUpperCase()}:`, currentValue.toFixed(3));
+    if (newValueStr === null) return; // User cancelled
+
+    let newValue = parseFloat(newValueStr);
+    if (isNaN(newValue)) {
+        App.modal.alert("Invalid input. Please enter a number.");
+        return;
+    }
+
+    if (prop === 'rotation') {
+        newValue = THREE.MathUtils.degToRad(newValue);
+    }
+    
+    object[prop][axis] = newValue;
+    
+    // Update the UI
+    updateTransformPanel(object);
+    // Tell the gizmo to update
+    App.gizmo.update();
+}
+
 
 /**
  * Creates the HTML markup for the transform panel.
@@ -113,93 +165,51 @@ function createMarkup() {
     clearPanelData("Select a Mesh object to transform.");
     toolsContent.appendChild(panelContainer);
     
-    // Event listener for all sliders and inputs
-    panelContainer.addEventListener('input', (event) => {
+    // --- UPDATED: Event delegation for steppers ---
+    panelContainer.addEventListener('click', (event) => {
         const target = event.target;
-        if (target.classList.contains('slider-input') || target.classList.contains('slider-number')) {
-            const row = target.closest('.slider-row');
+        
+        // Handle +/- button clicks
+        if (target.classList.contains('stepper-btn')) {
+            const row = target.closest('.stepper-row');
             const prop = row.dataset.prop;
             const axis = row.dataset.axis;
-            let value = parseFloat(target.value);
-
-            if (isNaN(value)) return;
-
-            // Update the object
-            const object = App.selectionContext.getSelected();
-            if (object && object[prop]) {
-                if (prop === 'rotation') {
-                    value = THREE.MathUtils.degToRad(value);
-                }
-                
-                object[prop][axis] = value;
-                
-                // If this was a number input, we need to update the slider's range
-                if (target.classList.contains('slider-number')) {
-                    updateSliders(object);
-                } else {
-                    // If it was a slider, just sync the number input
-                    row.querySelector('.slider-number').value = value.toFixed(prop === 'rotation' ? 1 : 3);
-                }
-                
-                // Tell the gizmo its object moved
-                App.gizmo.update();
-            }
+            const step = parseFloat(target.dataset.step);
+            updateObjectFromStepper(prop, axis, step);
+        }
+        
+        // Handle value box click
+        if (target.classList.contains('stepper-value')) {
+            const row = target.closest('.stepper-row');
+            const prop = row.dataset.prop;
+            const axis = row.dataset.axis;
+            updateObjectFromPrompt(prop, axis);
         }
     });
 }
 
 /**
- * --- NEW: DYNAMIC SLIDER LOGIC ---
- * Calculates the min/max/value for a slider based on the "repeating" logic
+ * Updates all steppers from the object's current state
  */
-function getSliderRange(value, minStep, maxStep, isRotation = false) {
-    if (isRotation) {
-        // Rotation is simple, always -180 to 180
-        return { min: -180, max: 180, val: THREE.MathUtils.radToDeg(value).toFixed(1) };
-    }
-    
-    // Logic for Position and Scale
-    const baseStep = (minStep + maxStep); // e.g., 100
-    const base = Math.floor(value / baseStep) * baseStep;
-    
-    return {
-        min: base + minStep,
-        max: base + maxStep,
-        val: value.toFixed(3)
-    };
-}
-
-/**
- * --- NEW: Updates all sliders from the object's current state ---
- * This is called by the gizmo event
- */
-function updateSliders(object) {
+function updateTransformPanel(object) {
     if (!object || !panelContainer) return;
     
-    // Loop through all slider rows in the panel
-    panelContainer.querySelectorAll('.slider-row').forEach(row => {
-        const prop = row.dataset.prop; // 'position'
-        const axis = row.dataset.axis; // 'x'
-        const isRotation = (prop === 'rotation');
+    panelContainer.querySelectorAll('.stepper-row').forEach(row => {
+        const prop = row.dataset.prop;
+        const axis = row.dataset.axis;
+        const valueEl = row.querySelector('.stepper-value');
         
-        const currentValue = object[prop][axis];
-        
-        let range;
-        if (isRotation) {
-            range = getSliderRange(currentValue, 0, 0, true);
-        } else if (prop === 'scale') {
-            range = getSliderRange(currentValue, 0.01, 100.0, false);
-        } else {
-            range = getSliderRange(currentValue, -100.0, 100.0, false);
+        if (object[prop] && valueEl) {
+            let value = object[prop][axis];
+            let fixed = 3;
+            
+            if (prop === 'rotation') {
+                value = THREE.MathUtils.radToDeg(value);
+                fixed = 1;
+            }
+            
+            valueEl.textContent = value.toFixed(fixed);
         }
-        
-        // Update the slider and number input
-        const slider = row.querySelector('.slider-input');
-        slider.min = range.min;
-        slider.max = range.max;
-        slider.value = range.val;
-        
-        row.querySelector('.slider-number').value = range.val;
     });
 }
 
@@ -212,39 +222,39 @@ function updatePanelData(object) {
         return;
     }
 
-    // Helper to create one slider row
-    const createSlider = (label, prop, axis, min, max, step) => {
-        // Note: Value is set by updateSliders
+    // --- NEW: Helper to create one stepper row ---
+    const createStepper = (label, prop, axis, step) => {
         return `
-            <div class="slider-row" data-prop="${prop}" data-axis="${axis}">
-                <span class="slider-label">${label}</span>
-                <input type="range" class="slider-input" min="${min}" max="${max}" step="${step}" value="0">
-                <input type="number" class="slider-number" min="${min}" max="${max}" step="${step}" value="0">
+            <div class="stepper-row" data-prop="${prop}" data-axis="${axis}">
+                <span class="stepper-label">${label}</span>
+                <button class="stepper-btn" data-step="-${step}">-</button>
+                <div class="stepper-value">0.000</div>
+                <button class="stepper-btn" data-step="${step}">+</button>
             </div>
         `;
     };
 
     let html = `
         <div class="transform-header">Position</div>
-        ${createSlider('X', 'position', 'x', -100, 100, 0.01)}
-        ${createSlider('Y', 'position', 'y', -100, 100, 0.01)}
-        ${createSlider('Z', 'position', 'z', -100, 100, 0.01)}
+        ${createStepper('X', 'position', 'x', 0.01)}
+        ${createStepper('Y', 'position', 'y', 0.01)}
+        ${createStepper('Z', 'position', 'z', 0.01)}
 
         <div class="transform-header">Rotation</div>
-        ${createSlider('X', 'rotation', 'x', -180, 180, 1)}
-        ${createSlider('Y', 'rotation', 'y', -180, 180, 1)}
-        ${createSlider('Z', 'rotation', 'z', -180, 180, 1)}
+        ${createStepper('X', 'rotation', 'x', 1.0)}
+        ${createStepper('Y', 'rotation', 'y', 1.0)}
+        ${createStepper('Z', 'rotation', 'z', 1.0)}
 
         <div class="transform-header">Scale</div>
-        ${createSlider('X', 'scale', 'x', 0.01, 100, 0.01)}
-        ${createSlider('Y', 'scale', 'y', 0.01, 100, 0.01)}
-        ${createSlider('Z', 'scale', 'z', 0.01, 100, 0.01)}
+        ${createStepper('X', 'scale', 'x', 0.01)}
+        ${createStepper('Y', 'scale', 'y', 0.01)}
+        ${createStepper('Z', 'scale', 'z', 0.01)}
     `;
     
     panelContainer.innerHTML = html;
     
-    // Now that HTML is built, update sliders to object's current values
-    updateSliders(object);
+    // Now that HTML is built, update steppers to object's current values
+    updateTransformPanel(object);
 }
 
 /**
@@ -283,8 +293,8 @@ export function initTransformPanel(app) {
     App.events.subscribe('selectionChanged', updatePanelData);
     App.events.subscribe('selectionCleared', () => clearPanelData("No object selected."));
     
-    // --- NEW: Listen for gizmo changes ---
-    App.events.subscribe('objectTransformed', updateSliders);
+    // Listen for gizmo changes
+    App.events.subscribe('objectTransformed', updateTransformPanel);
 
     console.log('Transform Panel Initialized.');
 }
