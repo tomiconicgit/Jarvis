@@ -6,25 +6,20 @@ let App;
 // --- 2. Module-level elements ---
 let workspaceContainer;
 
-// --- ICONS (unchanged) ---
+// --- ICONS ---
 const ICONS = {
     mesh: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 6.5-10 6.5-10-6.5L12 2zM2 15l10 6.5L22 15M2 8.5l10 6.5L22 8.5"></path></svg>`,
     folder: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
     arrow: `<svg class="folder-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>`,
     light: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`,
     sky: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`,
-    // --- NEW: Player Icon ---
     player: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`
 };
 
 export function getIconSVG(iconName) {
-    // --- UPDATED: Handle 'player' icon ---
-    return ICONS[iconName] || ICONS.mesh; // Default to mesh icon
+    return ICONS[iconName] || ICONS.mesh;
 }
 
-/**
- * --- (injectStyles function is unchanged) ---
- */
 function injectStyles() {
     const styleId = 'workspace-ui-styles';
     if (document.getElementById(styleId)) return;
@@ -48,7 +43,8 @@ function injectStyles() {
             width: 100%;
             height: 40vh;
             background: transparent;
-            z-index: 5;
+            /* --- UPDATED: z-index must be highest of the panels --- */
+            z-index: 12; 
             display: flex;
             flex-direction: column;
             transform: translateX(-100%);
@@ -197,15 +193,42 @@ function injectStyles() {
     document.head.appendChild(styleEl);
 }
 
-// --- (closeWorkspace, openWorkspace, createMarkup are unchanged) ---
-function closeWorkspace() { /* ... */ }
-function openWorkspace() { /* ... */ }
-function createMarkup() { /* ... */ }
+// --- (rest of file is unchanged) ---
+function closeWorkspace() {
+    if (workspaceContainer) {
+        workspaceContainer.classList.remove('is-open');
+    }
+}
 
-/**
- * Renders the dynamic content of the workspace.
- */
-export function renderWorkspaceUI() {
+function openWorkspace() {
+    if (workspaceContainer) {
+        workspaceContainer.classList.add('is-open');
+    }
+}
+
+function createMarkup() {
+    const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
+
+    workspaceContainer = document.createElement('div');
+    workspaceContainer.id = 'workspace-container';
+    workspaceContainer.innerHTML = `
+        <div class="workspace-header">
+            <button class="workspace-close-btn" aria-label="Close Workspace">
+                ${closeIcon}
+            </button>
+            <h2 class="workspace-title">Workspace</h2>
+        </div>
+        <div class="workspace-content">
+            </div>
+    `;
+
+    document.body.appendChild(workspaceContainer);
+
+    const closeBtn = workspaceContainer.querySelector('.workspace-close-btn');
+    closeBtn.addEventListener('click', closeWorkspace);
+}
+
+function renderWorkspaceUI() {
     const content = document.querySelector('.workspace-content');
     if (!content) return;
 
@@ -230,7 +253,7 @@ export function renderWorkspaceUI() {
         `;
         
         const itemsDiv = document.createElement('div');
-itemsDiv.className = 'ws-folder-items';
+        itemsDiv.className = 'ws-folder-items';
         
         for (const item of folder.items) {
             const itemDiv = document.createElement('div');
@@ -241,14 +264,12 @@ itemsDiv.className = 'ws-folder-items';
                 <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
             `;
             
-            // File click listener
             itemDiv.addEventListener('click', () => {
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
                     return;
                 }
                 
-                // --- UPDATED: Use file ID to find object ---
                 const objectInScene = App.scene.getObjectByProperty('uuid', item.id);
                 
                 if (objectInScene) {
@@ -311,10 +332,6 @@ itemsDiv.className = 'ws-folder-items';
     }
 }
 
-
-/**
- * Initializes the workspace UI shell.
- */
 export function initWorkspace(app) {
     App = app;
     
