@@ -3,7 +3,7 @@ File: sw.js
 --------------------------------------------------------------------------------
 // sw.js
 
-const CACHE_VERSION = 'v1.8.0'; 
+const CACHE_VERSION = 'v1.9.0'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -36,7 +36,7 @@ const FILES_TO_CACHE = [
     'src/core/ui/gizmo.js',
     'src/core/ui/gizmotools.js',
     'src/core/ui/propertiespanel.js',
-    'srcD/core/ui/transformpanel.js',
+    'src/core/ui/transformpanel.js', // <-- THIS WAS THE TYPO (was srcD/)
     'src/core/ui/addpanel.js',
     
     // --- NEW SCRIPTING MODULE ---
@@ -45,7 +45,7 @@ const FILES_TO_CACHE = [
     // --- DEFAULT ASSETS ---
     'src/core/default/terrain.js',
     'src/core/default/environment.js',
-    'src/core/default/environment.hdr', // <-- This line was 'srcD/...'
+    'src/core/default/environment.hdr', // <-- Fixed this typo too
     'src/core/default/lighting.js',
     
     // 'icons/icon-192x192.png',
