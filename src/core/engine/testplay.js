@@ -64,10 +64,11 @@ function createMarkup() {
 function startTestMode() {
     if (!App) return;
 
-    // --- UPDATED: Find all elements just-in-time ---
+    // --- Find all elements just-in-time ---
     const bottomBar = document.getElementById('bottom-bar');
     const editorBar = document.getElementById('editor-bar');
     const stopButton = document.getElementById('testplay-stop-btn');
+    const viewport = document.getElementById('viewport');
     
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
@@ -92,6 +93,11 @@ function startTestMode() {
     // 4. Activate Player/First Person View
     if (App.player) App.player.activate();
     if (App.firstPersonControls) App.firstPersonControls.activate();
+    
+    // --- 5. NEW: Resize Viewport to Fullscreen ---
+    if (viewport) {
+        viewport.style.height = '100vh';
+    }
 }
 
 /**
@@ -100,10 +106,11 @@ function startTestMode() {
 function stopTestMode() {
     if (!App) return;
 
-    // --- UPDATED: Find all elements just-in-time ---
+    // --- Find all elements just-in-time ---
     const bottomBar = document.getElementById('bottom-bar');
     const editorBar = document.getElementById('editor-bar');
     const stopButton = document.getElementById('testplay-stop-btn');
+    const viewport = document.getElementById('viewport');
 
     console.log('[Engine] Stopping Test Mode...');
     App.engine.isTesting = false;
@@ -120,7 +127,12 @@ function stopTestMode() {
     if (bottomBar) bottomBar.style.display = 'flex';
     if (editorBar) editorBar.style.display = 'flex'; 
     
-    // 4. Restore editor camera
+    // --- 4. NEW: Resize Viewport back to Editor size ---
+    if (viewport) {
+        viewport.style.height = 'calc(100vh - (110px + env(safe-area-inset-bottom)))';
+    }
+    
+    // 5. Restore editor camera
     if (App.editorCameraState) {
         App.camera.position.copy(App.editorCameraState.position);
         App.controls.target.copy(App.editorCameraState.target);
@@ -129,7 +141,7 @@ function stopTestMode() {
     
     App.controls.enabled = true;
     
-    // 5. Re-select object to show gizmo
+    // 6. Re-select object to show gizmo
     const selected = App.selectionContext.getSelected();
     if (selected) {
         App.events.publish('selectionChanged', selected);
