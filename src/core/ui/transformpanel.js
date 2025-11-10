@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 let App;
-let panelContainer; // This is now the main slide-up panel
+let panelContainer;
 
 /**
  * Creates and injects the CSS styles for the transform panel.
@@ -11,15 +11,12 @@ function injectStyles() {
     const styleId = 'transform-panel-ui-styles';
     if (document.getElementById(styleId)) return;
 
-    // --- UPDATED: Styles are now for the inner content ---
     const css = `
-        /* The #transform-panel-container is created by editorbar.js */
-        
         #transform-panel-content {
             height: 100%;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 8px;
+            /* Padding is no longer needed here */
         }
         
         .transform-empty-state {
@@ -30,46 +27,61 @@ function injectStyles() {
             padding-top: 20px;
         }
 
-        .transform-header {
-            font-size: 16px;
-            font-weight: 600;
-            color: #fff;
-            padding: 10px 4px 8px;
-            border-bottom: 1px solid var(--ui-border);
-            margin-bottom: 12px;
-        }
-        .transform-header:not(:first-child) {
-            margin-top: 12px;
+        /* --- REMOVED: .transform-header --- */
+
+        /* --- NEW: Styles based on propertiespanel.js --- */
+        .transform-list {
+            padding: 0;
         }
 
-        .stepper-row {
+        .transform-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--ui-border);
+        }
+        
+        .transform-list:last-child {
+            border-bottom: none;
+        }
+        
+        .transform-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            flex-shrink: 0;
+            padding-right: 10px;
+        }
+
+        .stepper-container {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
+            justify-content: flex-end;
+            flex-grow: 1;
         }
-        .stepper-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: rgba(255,255,255,0.7);
-            flex: 0 0 20px; /* 'X', 'Y', 'Z' */
-        }
+
         .stepper-btn {
-            background: var(--ui-light-grey);
-            border: 1px solid var(--ui-border);
-            color: #fff;
-            font-size: 20px;
-            line-height: 20px;
+            /* --- UPDATED: No background/border --- */
+            background: none;
+            border: none;
+            color: var(--ui-blue); /* Make them blue like links */
+            font-size: 24px;
+            line-height: 24px;
             font-weight: 600;
             width: 32px;
             height: 32px;
             border-radius: 50%;
             cursor: pointer;
+            opacity: 0.8;
         }
         .stepper-btn:active {
-            background: var(--ui-grey);
+            background: var(--ui-light-grey);
+            opacity: 1.0;
         }
+        
         .stepper-value {
-            flex: 1;
+            width: 80px; /* Give it a fixed width */
             background: var(--ui-dark-grey);
             color: #fff;
             border: 1px solid var(--ui-border);
@@ -88,11 +100,15 @@ function injectStyles() {
     document.head.appendChild(styleEl);
 }
 
-// --- (updateObjectFromStepper and updateObjectFromPrompt are UNCHANGED) ---
+/**
+ * Updates the 3D object from a stepper action
+ */
 function updateObjectFromStepper(prop, axis, step) {
     const object = App.selectionContext.getSelected();
     if (!object || !object[prop]) return;
+
     let value = object[prop][axis];
+    
     if (prop === 'rotation') {
         value = THREE.MathUtils.radToDeg(value);
         value += step;
@@ -101,27 +117,38 @@ function updateObjectFromStepper(prop, axis, step) {
         value += step;
         object[prop][axis] = value;
     }
+    
     updateTransformPanel(object);
     App.gizmo.update();
 }
+
+/**
+ * Updates the 3D object from a prompt
+ */
 function updateObjectFromPrompt(prop, axis) {
     const object = App.selectionContext.getSelected();
     if (!object || !object[prop]) return;
+
     let currentValue = object[prop][axis];
     if (prop === 'rotation') {
         currentValue = THREE.MathUtils.radToDeg(currentValue);
     }
+    
     const newValueStr = window.prompt(`Enter new value for ${prop} ${axis.toUpperCase()}:`, currentValue.toFixed(3));
-    if (newValueStr === null) return;
+    if (newValueStr === null) return; // User cancelled
+
     let newValue = parseFloat(newValueStr);
     if (isNaN(newValue)) {
         App.modal.alert("Invalid input. Please enter a number.");
         return;
     }
+
     if (prop === 'rotation') {
         newValue = THREE.MathUtils.degToRad(newValue);
     }
+    
     object[prop][axis] = newValue;
+    
     updateTransformPanel(object);
     App.gizmo.update();
 }
@@ -131,33 +158,33 @@ function updateObjectFromPrompt(prop, axis) {
  * Creates the HTML markup for the transform panel.
  */
 function createMarkup() {
-    // --- UPDATED: Find the container created by editorbar.js ---
     panelContainer = document.getElementById('transform-panel-container');
     if (!panelContainer) {
         console.error('TransformPanel: #transform-panel-container not found!');
         return;
     }
     
-    // Create the inner content wrapper
     const content = document.createElement('div');
     content.id = 'transform-panel-content';
     panelContainer.appendChild(content);
 
     clearPanelData("Select a Mesh object to transform.");
     
+    // --- UPDATED: Event listener targets ---
     content.addEventListener('click', (event) => {
         const target = event.target;
+        const item = target.closest('.transform-item');
+        if (!item) return;
+
+        const prop = item.dataset.prop;
+        const axis = item.dataset.axis;
+
         if (target.classList.contains('stepper-btn')) {
-            const row = target.closest('.stepper-row');
-            const prop = row.dataset.prop;
-            const axis = row.dataset.axis;
             const step = parseFloat(target.dataset.step);
             updateObjectFromStepper(prop, axis, step);
         }
+        
         if (target.classList.contains('stepper-value')) {
-            const row = target.closest('.stepper-row');
-            const prop = row.dataset.prop;
-            const axis = row.dataset.axis;
             updateObjectFromPrompt(prop, axis);
         }
     });
@@ -170,18 +197,20 @@ function updateTransformPanel(object) {
     const content = panelContainer.querySelector('#transform-panel-content');
     if (!object || !content) return;
     
-    content.querySelectorAll('.stepper-row').forEach(row => {
-        // ... (function logic is unchanged) ...
+    content.querySelectorAll('.transform-item').forEach(row => {
         const prop = row.dataset.prop;
         const axis = row.dataset.axis;
         const valueEl = row.querySelector('.stepper-value');
+        
         if (object[prop] && valueEl) {
             let value = object[prop][axis];
             let fixed = 3;
+            
             if (prop === 'rotation') {
                 value = THREE.MathUtils.radToDeg(value);
                 fixed = 1;
             }
+            
             valueEl.textContent = value.toFixed(fixed);
         }
     });
@@ -199,35 +228,37 @@ function updatePanelData(object) {
         return;
     }
 
+    // --- NEW: Helper to create one stepper row ---
     const createStepper = (label, prop, axis, step) => {
+        const stepStr = step.toString(); 
+        
         return `
-            <div class="stepper-row" data-prop="${prop}" data-axis="${axis}">
-                <span class="stepper-label">${label}</span>
-                <button class="stepper-btn" data-step="-${step}">-</button>
-                <div class="stepper-value">0.000</div>
-                <button class="stepper-btn" data-step="${step}">+</button>
+            <div class="transform-item" data-prop="${prop}" data-axis="${axis}">
+                <span class="transform-label">${label}</span>
+                <div class="stepper-container">
+                    <button class="stepper-btn" data-step="-${stepStr}">-</button>
+                    <div class="stepper-value">0.000</div>
+                    <button class="stepper-btn" data-step="${stepStr}">+</button>
+                </div>
             </div>
         `;
     };
 
-    let html = `
-        <div class="transform-header">Position</div>
-        ${createStepper('X', 'position', 'x', 0.1)}
-        ${createStepper('Y', 'position', 'y', 0.1)}
-        ${createStepper('Z', 'position', 'z', 0.1)}
-
-        <div class="transform-header">Rotation</div>
-        ${createStepper('X', 'rotation', 'x', 1.0)}
-        ${createStepper('Y', 'rotation', 'y', 1.0)}
-        ${createStepper('Z', 'rotation', 'z', 1.0)}
-
-        <div class="transform-header">Scale</div>
-        ${createStepper('X', 'scale', 'x', 0.01)}
-        ${createStepper('Y', 'scale', 'y', 0.01)}
-        ${createStepper('Z', 'scale', 'z', 0.01)}
-    `;
+    // --- UPDATED: Build a single list ---
+    let html = '<div class="transform-list">';
+    html += createStepper('Position X', 'position', 'x', 0.1);
+    html += createStepper('Position Y', 'position', 'y', 0.1);
+    html += createStepper('Position Z', 'position', 'z', 0.1);
+    html += createStepper('Rotation X', 'rotation', 'x', 1.0);
+    html += createStepper('Rotation Y', 'rotation', 'y', 1.0);
+    html += createStepper('Rotation Z', 'rotation', 'z', 1.0);
+    html += createStepper('Scale X', 'scale', 'x', 0.01);
+    html += createStepper('Scale Y', 'scale', 'y', 0.01);
+    html += createStepper('Scale Z', 'scale', 'z', 0.01);
+    html += '</div>';
     
     content.innerHTML = html;
+    
     updateTransformPanel(object);
 }
 
@@ -236,7 +267,10 @@ function updatePanelData(object) {
  */
 function clearPanelData(message = "No object selected") {
     const content = panelContainer.querySelector('#transform-panel-content');
-    if (!content) return;
+    if (!content) {
+        setTimeout(() => clearPanelData(message), 50);
+        return;
+    }
     content.innerHTML = `
         <div class="transform-empty-state">
             ${message}
@@ -244,16 +278,14 @@ function clearPanelData(message = "No object selected") {
     `;
 }
 
-// --- GONE: showPanel and hidePanel are now controlled by editorbar.js ---
-
 /**
  * Initializes the Transform Panel module.
  */
 export function initTransformPanel(app) {
     App = app;
+
     injectStyles();
     setTimeout(createMarkup, 100); 
-    // --- GONE: No public API needed ---
     
     App.events.subscribe('selectionChanged', updatePanelData);
     App.events.subscribe('selectionCleared', () => clearPanelData("No object selected."));
