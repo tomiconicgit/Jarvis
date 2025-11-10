@@ -11,7 +11,6 @@ const cameraRight = new THREE.Vector3();
 
 /**
  * The player update loop, called every frame during test mode.
- * @param {number} deltaTime - Time since last frame.
  */
 function updatePlayer(deltaTime) {
     if (!App.player.isActive) return;
@@ -59,29 +58,27 @@ export function initPlayer(app) {
     playerObject.name = "Player";
     playerObject.position.set(0, 0, 0); // Start at 0,0 (ground level)
     
-    // --- NEW: Add a visible mesh to represent the player in the editor ---
-    const capsuleGeo = new THREE.CapsuleGeometry(0.3, 1.2, 4, 8); // (radius, height, segments)
+    const capsuleGeo = new THREE.CapsuleGeometry(0.3, 1.2, 4, 8); 
     const capsuleMat = new THREE.MeshStandardMaterial({ 
         color: 0x007aff, 
         transparent: true, 
         opacity: 0.5 
     });
     const playerMesh = new THREE.Mesh(capsuleGeo, capsuleMat);
-    playerMesh.position.set(0, (1.2 / 2) + 0.3, 0); // Stand capsule on the ground (height/2 + radius)
+    playerMesh.position.set(0, (1.2 / 2) + 0.3, 0); 
     playerMesh.name = "PlayerRepresentation";
     playerObject.add(playerMesh);
     
-    // --- NEW: Add to scene immediately, but hide it ---
     playerObject.visible = false;
     App.scene.add(playerObject);
 
     // 2. Create the main App.player namespace
     App.player = {
         object: playerObject,
-        camera: null,      // Will be set by firstpersonview.js
-        input: { x: 0, y: 0 }, // Will be set by joystick.js
+        camera: null,      
+        input: { x: 0, y: 0 },
         
-        movementSpeed: 4.0, // Meters per second
+        movementSpeed: 4.0, 
         jumpHeight: 1.0,
         health: 100,
         isActive: false,
@@ -89,23 +86,23 @@ export function initPlayer(app) {
         update: updatePlayer,
         activate: () => {
             App.player.isActive = true;
-            App.player.object.position.set(0, 0, 0); // Reset position
-            App.player.object.visible = true; // --- Show player ---
+            // --- UPDATED: Start at player height, not 0 ---
+            App.player.object.position.set(0, PLAYER_HEIGHT, 0); 
+            App.player.object.visible = true;
             console.log('Player activated');
         },
         deactivate: () => {
             App.player.isActive = false;
-            App.player.object.visible = false; // --- Hide player ---
+            App.player.object.visible = false; 
             console.log('Player deactivated');
         }
     };
     
-    // --- NEW: Register Player with File Manager ---
     if (App.fileManager) {
         App.fileManager.registerFile({
-            id: playerObject.uuid, // Use the Group's UUID
+            id: playerObject.uuid, 
             name: 'Player',
-            icon: 'player', // We will add this icon in workspace.js
+            icon: 'player',
             parentId: 'default'
         });
     }
