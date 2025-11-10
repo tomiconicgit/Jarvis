@@ -27,21 +27,18 @@ function updatePlayer(deltaTime) {
     cameraForward.normalize();
     
     // Get camera's right vector
-    cameraRight.crossVectors(camera.up, cameraForward).normalize();
+    // --- FIX 1: Flipped cross product to get 'right' instead of 'left' ---
+    cameraRight.crossVectors(cameraForward, camera.up).normalize();
 
     // Calculate movement direction based on input
     moveDirection.set(0, 0, 0);
 
-    if (input.y > 0) {
-        moveDirection.addScaledVector(cameraForward, -input.y);
+    // --- FIX 2: Use input.y directly instead of -input.y ---
+    if (input.y !== 0) {
+        moveDirection.addScaledVector(cameraForward, input.y);
     }
-    if (input.y < 0) {
-        moveDirection.addScaledVector(cameraForward, -input.y);
-    }
-    if (input.x < 0) {
-        moveDirection.addScaledVector(cameraRight, input.x);
-    }
-    if (input.x > 0) {
+    // --- (X-axis logic was already correct *after* fixing cameraRight) ---
+    if (input.x !== 0) {
         moveDirection.addScaledVector(cameraRight, input.x);
     }
 
