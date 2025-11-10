@@ -67,25 +67,26 @@ function createMarkup() {
 }
 
 function onTouchStart(event) {
-    event.preventDefault();
+    // We no longer call preventDefault() here.
     if (touchId !== null) return; // Already tracking a touch
     
     const touch = event.changedTouches[0];
     
-    // Only track if the touch is on the joystick
+    // Check if the touch is on the joystick
     if (touch.target === joystickBase) {
+        event.preventDefault(); // <-- NOW we prevent default
         touchId = touch.identifier;
         updateStickPosition(touch.clientX, touch.clientY);
     }
 }
 
 function onTouchMove(event) {
-    event.preventDefault();
-    if (touchId === null) return;
+    if (touchId === null) return; // Not tracking
 
     for (let i = 0; i < event.changedTouches.length; i++) {
         const touch = event.changedTouches[i];
         if (touch.identifier === touchId) {
+            event.preventDefault(); // <-- Only prevent default for *our* touch
             updateStickPosition(touch.clientX, touch.clientY);
             break;
         }
@@ -93,12 +94,12 @@ function onTouchMove(event) {
 }
 
 function onTouchEnd(event) {
-    event.preventDefault();
-    if (touchId === null) return;
+    if (touchId === null) return; // Not tracking
 
     for (let i = 0; i < event.changedTouches.length; i++) {
         const touch = event.changedTouches[i];
         if (touch.identifier === touchId) {
+            event.preventDefault(); // <-- Only prevent default for *our* touch
             resetStick();
             break;
         }
@@ -162,8 +163,8 @@ export function initJoystick(app) {
     injectStyles();
     createMarkup();
 
-    // Attach listeners to the document to catch touches
-    // We filter for the joystick target in the event handler
+    // Attach listeners to the document
+    // The handlers themselves will now check if the target is correct
     document.addEventListener('touchstart', onTouchStart, { passive: false });
     document.addEventListener('touchmove', onTouchMove, { passive: false });
     document.addEventListener('touchend', onTouchEnd, { passive: false });
