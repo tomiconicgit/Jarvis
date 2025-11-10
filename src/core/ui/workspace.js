@@ -6,7 +6,7 @@ let App;
 // --- 2. Module-level elements ---
 let workspaceContainer;
 
-// --- ICONS and getIconSVG (unchanged) ---
+// --- ICONS (unchanged) ---
 const ICONS = {
     mesh: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 6.5-10 6.5-10-6.5L12 2zM2 15l10 6.5L22 15M2 8.5l10 6.5L22 8.5"></path></svg>`,
     folder: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
@@ -19,6 +19,9 @@ export function getIconSVG(iconName) {
     return ICONS[iconName] || '';
 }
 
+/**
+ * --- UPDATED: Styles rewritten to match properties panel ---
+ */
 function injectStyles() {
     const styleId = 'workspace-ui-styles';
     if (document.getElementById(styleId)) return;
@@ -28,22 +31,21 @@ function injectStyles() {
             --ui-blue: #007aff;
             --ui-grey: #3a3a3c;
             --ui-light-grey: #4a4a4c;
-            --ui-dark-grey: #1c1c1c; /* <-- ADDED */
+            --ui-dark-grey: #1c1c1c; 
             --ui-border: rgba(255, 255, 255, 0.15);
             --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            --ui-corner-radius: 12px;
             --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            --bottom-bar-height: calc(60px + env(safe-area-inset-bottom));
+            --total-bar-height: calc(110px + env(safe-area-inset-bottom));
         }
 
         #workspace-container {
             position: fixed;
-            bottom: var(--bottom-bar-height); 
+            /* --- UPDATED: Sits above all bars --- */
+            bottom: var(--total-bar-height); 
             left: 0;
             width: 100%;
             height: 40vh;
             background: transparent;
-            border-top: none;
             z-index: 5;
             display: flex;
             flex-direction: column;
@@ -64,15 +66,11 @@ function injectStyles() {
             flex-shrink: 0;
             background: var(--ui-blue);
             color: #fff;
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border-bottom: 1px solid rgba(0,0,0,0.2);
         }
 
         .workspace-title {
             font-size: 16px;
             font-weight: 600;
-            color: #fff;
             margin: 0;
             padding: 0;
         }
@@ -101,9 +99,9 @@ function injectStyles() {
             flex-grow: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            background: var(--ui-dark-grey); /* <-- UPDATED */
-            color: var(--workspace-text-color, #f5f5f7);
-            padding: 8px;
+            background: var(--ui-dark-grey);
+            color: #f5f5f7;
+            /* --- REMOVED: padding: 8px --- */
         }
         
         /* --- STYLES FOR FOLDERS/FILES --- */
@@ -111,8 +109,9 @@ function injectStyles() {
         .ws-folder-header {
             display: flex;
             align-items: center;
-            padding: 10px 8px;
+            padding: 12px 10px;
             cursor: pointer;
+            border-bottom: 1px solid var(--ui-border);
         }
         .ws-folder-header:active {
              background: var(--ui-light-grey);
@@ -132,6 +131,9 @@ function injectStyles() {
             transition: transform 0.2s ease;
             padding: 4px;
             margin-left: -4px;
+            
+            /* --- UPDATED: Open state (down) --- */
+            transform: rotate(90deg); 
         }
         
         .ws-folder-header .folder-icon {
@@ -154,26 +156,27 @@ function injectStyles() {
             overflow: hidden;
             max-height: 500px;
             transition: max-height 0.3s ease-out;
-            padding-left: 12px;
+            /* --- REMOVED: padding-left --- */
         }
         .ws-folder.is-closed .ws-folder-items {
             max-height: 0;
         }
         .ws-folder.is-closed .folder-arrow {
-            transform: rotate(-90deg);
+            /* --- UPDATED: Closed state (right) --- */
+            transform: rotate(0deg); 
         }
 
         .ws-file-item {
             display: flex;
             align-items: center;
-            padding: 12px 16px;
-            color: var(--workspace-text-color, #f5f5f7);
             font-size: 14px;
             border-bottom: 1px solid var(--ui-border);
             cursor: pointer;
-        }
-        .ws-file-item:last-child {
-            border-bottom: none;
+            
+            /* --- UPDATED: New styles --- */
+            background: var(--ui-grey);
+            color: #f5f5f7;
+            padding: 12px 16px 12px 28px; /* Indented */
         }
         .ws-file-item:active {
             background: var(--ui-light-grey);
@@ -238,7 +241,6 @@ function createMarkup() {
  * Renders the dynamic content of the workspace.
  */
 export function renderWorkspaceUI() {
-    // ... (This function is unchanged) ...
     const content = document.querySelector('.workspace-content');
     if (!content) return;
 
@@ -274,6 +276,7 @@ export function renderWorkspaceUI() {
                 <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
             `;
             
+            // File click listener
             itemDiv.addEventListener('click', () => {
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
@@ -308,12 +311,16 @@ export function renderWorkspaceUI() {
         folderDiv.appendChild(itemsDiv);
         content.appendChild(folderDiv);
         
+        // --- This logic is what makes the folder selectable as a parent ---
         header.addEventListener('click', (event) => {
+            // Check if the click was on the arrow itself
             const folderArrow = event.target.closest('.folder-arrow');
 
             if (folderArrow) {
+                // If so, just toggle the folder open/closed
                 folderDiv.classList.toggle('is-closed');
             } else {
+                // Otherwise, select the whole folder/object
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
                     return;
