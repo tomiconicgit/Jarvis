@@ -49,15 +49,15 @@ const coreServices = [
 ];
 
 // Pluggable UI modules
-// --- UPDATED: Removed tools.js, added new modules ---
 const uiModules = [
     './core/ui/workspace.js',
     './core/ui/menu.js',
-    './core/ui/editorbar.js',
-    './core/ui/gizmo.js',
-    './core/ui/gizmotools.js',
+    './core/ui/editorbar.js', 
+    './core/ui/gizmo.js', 
+    './core/ui/gizmotools.js', 
     './core/ui/propertiespanel.js',
-    './core/ui/transformpanel.js'
+    './core/ui/transformpanel.js',
+    './core/ui/addpanel.js' // <-- ADDED THIS LINE
 ];
 
 // Default assets that make up a "New Project"
