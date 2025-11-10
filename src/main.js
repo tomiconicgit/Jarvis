@@ -1,9 +1,10 @@
 // src/main.js
 
-import { checkForErrors, initDebugger } from '../debugger.js'; // <-- Import initDebugger
-import * as THREE from 'three'; // <-- Import THREE.js for the Clock
+import { checkForErrors, initDebugger } from '../debugger.js';
+import * as THREE from 'three'; 
 
 // --- Core modules (load these first) ---
+import { initEventBus } from './core/events.js'; // <-- ADDED
 import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
 import { initFileManagement } from './core/filemanagement.js';
@@ -30,7 +31,7 @@ import { initTestPlay } from './core/engine/testplay.js';
 
 // Core services that provide an API
 const coreServices = [
-    // initDebugger is now called manually first
+    initEventBus, // <-- ADDED (Must be first)
     initFileManagement,
     initSelectionContext,
     initModal,
@@ -41,11 +42,10 @@ const coreServices = [
     initExportEngine,
 
     // --- NEW PLAY MODE MODULES ---
-    // Player must be init'd before views/controls that use it
     initPlayer, 
     initFirstPersonView,
     initJoystick,
-    initTestPlay // Init this last as it may hook into other modules
+    initTestPlay 
 ];
 
 // Pluggable UI modules
@@ -53,14 +53,14 @@ const uiModules = [
     './core/ui/workspace.js',
     './core/ui/tools.js',
     './core/ui/menu.js',
-    './core/ui/propertiespanel.js' // <-- ADDED THIS LINE
+    './core/ui/propertiespanel.js'
 ];
 
 // Default assets that make up a "New Project"
 const defaultSceneModules = [
     './core/default/terrain.js',
     './core/default/environment.js',
-    './core/default/lighting.js' // <-- Includes shadow light
+    './core/default/lighting.js'
 ];
 
 
@@ -97,9 +97,7 @@ async function loadModuleInit(path) {
     // 1. Create the central App object
     const App = {};
 
-    // 2. --- UPDATED: Init Debugger FIRST ---
-    // Pass the *real* App object so the debugger can attach to it.
-    // This replaces the temporary one from launcher.js
+    // 2. Init Debugger FIRST
     initDebugger(App);
 
     // 3. Initialize Core Systems
@@ -112,12 +110,15 @@ async function loadModuleInit(path) {
 
     // 4. Initialize Core Services
     console.log('[Main] Initializing core services...');
-    coreServices.forEach(initFunc => initFunc(App));
+    // --- UPDATED: Run in sequence to respect dependencies ---
+    for (const initFunc of coreServices) {
+        initFunc(App);
+    }
 
     // 5. Load and initialize all UI modules
     console.log('[Main] Initializing UI modules...');
     const uiInits = (await Promise.all(uiModules.map(loadModuleInit))).filter(Boolean);
-    // --- UPDATED: Run init functions sequentially to respect dependencies ---
+    // --- UPDATED: Run in sequence to respect dependencies ---
     for (const initFunc of uiInits) {
         initFunc(App);
     }
@@ -137,22 +138,20 @@ async function loadModuleInit(path) {
     }
 
     // 9. Start Render Loop
-    const clock = new THREE.Clock(); // <-- ADDED
+    const clock = new THREE.Clock(); 
 
     App.renderer.setAnimationLoop(() => {
-        const deltaTime = clock.getDelta(); // <-- ADDED
+        const deltaTime = clock.getDelta(); 
         
         if (App.engine && App.engine.isTesting) {
             // --- IN TEST MODE ---
-            App.player.update(deltaTime); // <-- ADDED
-            // Render from the player's camera
-            App.renderer.render(App.scene, App.player.camera); // <-- UPDATED
+            App.player.update(deltaTime); 
+            App.renderer.render(App.scene, App.player.camera); 
             
         } else {
             // --- IN EDITOR MODE ---
             App.controls.update();
-            // Render from the editor camera
-            App.renderer.render(App.scene, App.camera); // <-- Original line
+            App.renderer.render(App.scene, App.camera);
         }
     });
 
@@ -160,19 +159,16 @@ async function loadModuleInit(path) {
     window.addEventListener('resize', () => {
         const canvas = App.renderer.domElement;
         const width = canvas.clientWidth;
-        const height = canvas.clientHeight || 1; // Use 1 to avoid divide by zero
+        const height = canvas.clientHeight || 1; 
         
-        // Update Editor Camera
         App.camera.aspect = width / height;
         App.camera.updateProjectionMatrix();
 
-        // Update Player Camera (if it exists)
         if (App.player && App.player.camera) {
             App.player.camera.aspect = width / height;
             App.player.camera.updateProjectionMatrix();
         }
 
-        // Update Renderer
         App.renderer.setSize(width, height);
     });
 
