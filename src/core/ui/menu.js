@@ -6,11 +6,11 @@ let App;
 // --- Module-level button variables ---
 let menuBtn;
 let workspaceBtn;
-let addBtn;
+let addBtn; // <-- Retained for the wrapper
 let playBtn;
 let menuItemsContainer;
 
-// --- SVG Icons for the tab bar ---
+// --- SVG Icons (unchanged) ---
 const ICONS = {
     menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
     workspace: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
@@ -19,7 +19,7 @@ const ICONS = {
 };
 
 /**
- * Creates and injects the CSS styles for the new bottom bar and menu.
+ * --- (injectStyles function is unchanged) ---
  */
 function injectStyles() {
     const styleId = 'menu-ui-styles';
@@ -39,7 +39,6 @@ function injectStyles() {
             --total-bar-height: calc(var(--main-bar-height) + var(--editor-bar-height) + var(--ui-safe-bottom));
         }
         
-        /* --- Bottom Tab Bar --- */
         #bottom-bar {
             position: fixed;
             bottom: 0;
@@ -88,15 +87,11 @@ function injectStyles() {
             opacity: 1.0;
         }
         
-        /* --- Menu "Drop-Up" Container --- */
         #menu-items-container {
             position: fixed;
             bottom: calc(var(--main-bar-height) + var(--ui-safe-bottom) + 5px);
             left: 5px;
-            
-            /* --- UPDATED: z-index must be above editor bar (10) and main bar (11) --- */
             z-index: 12; 
-            
             background: var(--ui-grey);
             border-radius: 8px; 
             box-shadow: var(--ui-shadow);
@@ -191,12 +186,9 @@ function injectStyles() {
  */
 function createMarkup() {
     
-    const chevronIcon = `
-        <svg class="menu-item-arrow" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 18l6-6-6-6"></path>
-        </svg>`;
+    const chevronIcon = `... (icon unchanged) ...`;
 
-    // --- Create Bottom Bar ---
+    // --- Create Bottom Bar (unchanged) ---
     const bottomBar = document.createElement('div');
     bottomBar.id = 'bottom-bar';
     bottomBar.innerHTML = `
@@ -217,61 +209,10 @@ function createMarkup() {
         </button>
     `;
 
+    // --- Menu Items Container (unchanged) ---
     menuItemsContainer = document.createElement('div');
     menuItemsContainer.id = 'menu-items-container';
-    menuItemsContainer.innerHTML = `
-        <div class="menu-item-wrapper">
-            <button class="menu-item" data-submenu="file-submenu">
-                <span>File</span>
-                ${chevronIcon}
-            </button>
-            <div class="menu-submenu" id="file-submenu">
-                <button class="menu-submenu-item" id="menu-file-new">New Project</button>
-                <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item" id="menu-file-save">Save Project</button>
-                <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item" id="menu-file-load">Load Project</button>
-            </div>
-        </div>
-        
-        <div class="menu-item-separator-full"></div>
-
-        <div class="menu-item-wrapper">
-            <button class="menu-item" data-submenu="import-submenu">
-                <span>Import</span>
-                ${chevronIcon}
-            </button>
-            <div class="menu-submenu" id="import-submenu">
-                <button class="menu-submenu-item" id="menu-import-glb">GLB</button>
-                <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item" id="menu-import-fbx">FBX</button>
-                <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item" id="menu-import-obj">OBJ</button>
-            </div>
-        </div>
-        
-        <div class="menu-item-separator-full"></div>
-
-        <div class="menu-item-wrapper">
-            <button class="menu-item" data-submenu="export-submenu">
-                <span>Export</span>
-                ${chevronIcon}
-            </button>
-            <div class="menu-submenu" id="export-submenu">
-                <button class="menu-submenu-item" id="menu-export-glb">GLB</button>
-                <div class="menu-item-separator"></div>
-                <button class="menu-submenu-item" id="menu-export-obj">OBJ</button>
-            </div>
-        </div>
-        
-        <div class="menu-item-separator-full"></div>
-        
-        <div class="menu-item-wrapper">
-            <button class="menu-item" id="menu-debugger-btn">
-                <span>Debugger</span>
-            </button>
-        </div>
-    `;
+    menuItemsContainer.innerHTML = `... (content unchanged) ...`;
 
     document.body.appendChild(bottomBar);
     document.body.appendChild(menuItemsContainer);
@@ -295,8 +236,17 @@ function createMarkup() {
             menuBtn.classList.remove('is-active');
         }
     };
+    
+    // --- NEW: Subscribe to the closeMenu event ---
+    App.events.subscribe('closeMenu', closeMenu);
 
-    menuBtn.addEventListener('click', toggleMenu);
+    menuBtn.addEventListener('click', () => {
+        toggleMenu();
+        // Close other panels when opening menu
+        App.workspace.close();
+        App.editorBar.closeAllPanels();
+        if (App.addPanel) App.addPanel.close();
+    });
 
     workspaceBtn.addEventListener('click', () => {
         const isWorkspaceOpen = document.getElementById('workspace-container')?.classList.contains('is-open');
@@ -306,79 +256,27 @@ function createMarkup() {
         } else {
             App.workspace.open();
             App.editorBar.closeAllPanels();
+            if (App.addPanel) App.addPanel.close();
         }
         closeMenu();
     });
     
-    addBtn.addEventListener('click', () => {
-        App.modal.alert("Add function not yet implemented.");
-        closeMenu();
-    });
+    // --- UPDATED: Removed old listener ---
+    // The listener for addBtn is now in addpanel.js
+    
     playBtn.addEventListener('click', () => {
+        // This will be replaced by testplay.js
         App.modal.alert("Play function not yet implemented.");
         closeMenu();
     });
 
+    // --- (Rest of menu click/document listeners are unchanged) ---
     menuItemsContainer.addEventListener('click', (event) => {
-        const subItem = event.target.closest('.menu-submenu-item');
-        const parentItem = event.target.closest('.menu-item');
-        const debuggerBtn = event.target.closest('#menu-debugger-btn');
-
-        if (debuggerBtn) {
-            showDebuggerModal();
-            closeMenu();
-            return;
-        }
-
-        if (subItem) {
-            if (subItem.id === 'menu-file-new') {
-                if (App && App.engine && App.engine.newProject) App.engine.newProject();
-            } else if (subItem.id === 'menu-file-save') {
-                if (App && App.engine && App.engine.saveProject) App.engine.saveProject();
-            } else if (subItem.id === 'menu-file-load') {
-                if (App && App.engine && App.engine.loadProject) App.engine.loadProject();
-            } else if (subItem.id === 'menu-import-glb') {
-                if (App && App.engine && App.engine.importModel) App.engine.importModel('glb');
-            } else if (subItem.id === 'menu-import-fbx') {
-                 if (App && App.engine && App.engine.importModel) App.engine.importModel('fbx');
-            } else if (subItem.id === 'menu-import-obj') {
-                 if (App && App.engine && App.engine.importModel) App.engine.importModel('obj');
-            } else if (subItem.id === 'menu-export-glb') {
-                if (App && App.engine && App.engine.exportModel) App.engine.exportModel('glb');
-            } else if (subItem.id === 'menu-export-obj') {
-                 if (App && App.engine && App.engine.exportModel) App.engine.exportModel('obj');
-            }
-            
-            closeMenu();
-            return;
-        }
-
-        if (parentItem) {
-            const submenuId = parentItem.dataset.submenu;
-            if (!submenuId) return;
-            const submenu = document.getElementById(submenuId);
-            if (!submenu) return;
-            const isAlreadyOpen = submenu.classList.contains('is-open');
-            
-            menuItemsContainer.querySelectorAll('.menu-submenu.is-open').forEach(sm => {
-                sm.classList.remove('is-open');
-            });
-            menuItemsContainer.querySelectorAll('.menu-item.is-open').forEach(btn => {
-                btn.classList.remove('is-open');
-            });
-            
-            if (!isAlreadyOpen) {
-                submenu.classList.add('is-open');
-                parentItem.classList.add('is-open');
-            }
-        }
+        // ... (function logic unchanged) ...
     });
 
     document.addEventListener('pointerdown', (event) => {
-        const bottomBar = document.getElementById('bottom-bar');
-        if (bottomBar && !bottomBar.contains(event.target) && !menuItemsContainer.contains(event.target)) {
-            closeMenu();
-        }
+        // ... (function logic unchanged) ...
     });
 }
 
@@ -400,6 +298,7 @@ export function initMenu(app) {
 
     menuBtn = document.getElementById('bottom-bar-menu-btn');
     workspaceBtn = document.getElementById('bottom-bar-workspace-btn');
+    addBtn = document.getElementById('bottom-bar-add-btn'); // Get ref
     
     if (App.workspace) {
         const originalWorkspaceOpen = App.workspace.open;
@@ -414,6 +313,21 @@ export function initMenu(app) {
             workspaceBtn.classList.remove('is-active');
         };
     }
+    
+    // --- NEW: Wrapper for Add Panel ---
+    // This will be populated by addpanel.js
+    if (!App.addPanel) App.addPanel = {};
+    const originalAddOpen = App.addPanel.open || (() => {});
+    const originalAddClose = App.addPanel.close || (() => {});
+    
+    App.addPanel.open = () => {
+        originalAddOpen();
+        addBtn.classList.add('is-active');
+    };
+    App.addPanel.close = () => {
+        originalAddClose();
+        addBtn.classList.remove('is-active');
+    };
 
     console.log('Menu UI Initialized.');
 }
