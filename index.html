@@ -49,7 +49,8 @@
 
         #viewport {
             width: 100vw;
-            height: calc(100vh - (60px + env(safe-area-inset-bottom))); 
+            /* --- UPDATED: Account for main bar (60px) + editor bar (50px) --- */
+            height: calc(100vh - (110px + env(safe-area-inset-bottom))); 
             display: block;
         }
 
