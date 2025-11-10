@@ -69,6 +69,7 @@ function startTestMode() {
     const editorBar = document.getElementById('editor-bar');
     const stopButton = document.getElementById('testplay-stop-btn');
     const viewport = document.getElementById('viewport');
+    const addPanel = document.getElementById('add-panel'); // <-- ADDED
     
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
@@ -82,6 +83,7 @@ function startTestMode() {
     // 2. Hide Editor UI (with safety checks)
     if (bottomBar) bottomBar.style.display = 'none';
     if (editorBar) editorBar.style.display = 'none'; 
+    if (addPanel) addPanel.style.display = 'none'; // <-- ADDED
     if (App.workspace) App.workspace.close();
     if (App.editorBar) App.editorBar.closeAllPanels(); 
     if (App.gizmo) App.gizmo.detach(); 
@@ -94,7 +96,7 @@ function startTestMode() {
     if (App.player) App.player.activate();
     if (App.firstPersonControls) App.firstPersonControls.activate();
     
-    // --- 5. NEW: Resize Viewport to Fullscreen ---
+    // 5. Resize Viewport to Fullscreen
     if (viewport) {
         viewport.style.height = '100vh';
     }
@@ -111,6 +113,7 @@ function stopTestMode() {
     const editorBar = document.getElementById('editor-bar');
     const stopButton = document.getElementById('testplay-stop-btn');
     const viewport = document.getElementById('viewport');
+    const addPanel = document.getElementById('add-panel'); // <-- ADDED
 
     console.log('[Engine] Stopping Test Mode...');
     App.engine.isTesting = false;
@@ -126,8 +129,9 @@ function stopTestMode() {
     // 3. Show Editor UI
     if (bottomBar) bottomBar.style.display = 'flex';
     if (editorBar) editorBar.style.display = 'flex'; 
+    if (addPanel) addPanel.style.display = 'flex'; // <-- ADDED
     
-    // --- 4. NEW: Resize Viewport back to Editor size ---
+    // 4. Resize Viewport back to Editor size
     if (viewport) {
         viewport.style.height = 'calc(100vh - (110px + env(safe-area-inset-bottom)))';
     }
@@ -166,15 +170,6 @@ export function initTestPlay(app) {
     App.engine.startTestMode = startTestMode;
     App.engine.stopTestMode = stopTestMode;
     
-    setTimeout(() => {
-        const playBtn = document.getElementById('bottom-bar-play-btn');
-        if (playBtn) {
-            playBtn.replaceWith(playBtn.cloneNode(true));
-            document.getElementById('bottom-bar-play-btn').addEventListener('click', startTestMode);
-        } else {
-            console.warn('TestPlay: Could not find play button to attach event.');
-        }
-    }, 1000); 
-
+    // --- GONE: Removed setTimeout and replaceWith logic ---
     console.log('Test Play Engine Initialized.');
 }
