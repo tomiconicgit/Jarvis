@@ -3,7 +3,7 @@
 let App;
 let panelContainer;
 
-const ARROW_ICON = `<svg class="prop-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>`;
+// --- REMOVED: Arrow icon is no longer needed ---
 
 /**
  * Creates and injects the CSS styles for the properties panel.
@@ -18,7 +18,6 @@ function injectStyles() {
             height: 100%;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 8px; /* Add padding to match workspace */
         }
         
         #properties-panel-content.is-active {
@@ -31,82 +30,59 @@ function injectStyles() {
             color: rgba(255,255,255,0.4);
             font-style: italic;
             text-align: center;
-            padding-top: 20px;
+            padding: 20px; /* Added full padding */
         }
 
-        .prop-group {
+        /* --- NEW: Simplified list styles --- */
+        .prop-list {
+            padding: 0;
+        }
+
+        .prop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; /* Center items vertically */
+            padding: 10px 12px;
+            font-size: 14px;
             border-bottom: 1px solid var(--ui-border);
         }
-        .prop-group:last-child {
+        
+        .prop-list:last-child {
             border-bottom: none;
         }
 
-        .prop-header {
-            display: flex;
-            align-items: center;
-            padding: 12px 8px;
-            cursor: pointer;
-        }
-        .prop-header:active {
-             background: var(--ui-light-grey);
-        }
-        
-        .prop-header .prop-arrow {
-            width: 16px;
-            height: 16px;
-            stroke: #fff;
-            opacity: 0.7;
-            margin-right: 6px;
-            transition: transform 0.2s ease;
-            padding: 4px;
-            margin-left: -4px;
+        .prop-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            flex-shrink: 0;
+            padding-right: 10px;
         }
 
-        .prop-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #fff;
-            pointer-events: none;
+        .prop-value-container {
+            flex-grow: 1;
+            text-align: right;
         }
         
-        .prop-content {
-            overflow: hidden;
-            max-height: 500px;
-            transition: max-height 0.3s ease-out;
-            padding-left: 12px;
-            
-            font-size: 13px;
-            color: rgba(255,255,255,0.8); 
-            font-style: normal; 
-            padding: 10px 10px 16px 28px;
-        }
-
-        /* Toggling logic */
-        .prop-group.is-closed .prop-content {
-            max-height: 0;
-            min-height: 0;
-            padding-top: 0;
-            padding-bottom: 0;
-        }
-        .prop-group.is-closed .prop-arrow {
-            transform: rotate(-90deg);
-        }
-        
-        /* Styles for parameter inputs */
+        /* --- Styles for parameter inputs/text --- */
         .prop-input {
             width: 90%;
+            max-width: 150px; /* Stop it from getting too wide */
             background: var(--ui-dark-grey);
             color: #fff;
             border: 1px solid var(--ui-border);
             border-radius: 4px;
             padding: 6px 8px;
             font-size: 13px;
+            text-align: right;
         }
         
         .prop-text-value {
             font-weight: 400;
+            color: rgba(255,255,255,0.8);
             word-break: break-all; /* For long UUIDs */
         }
+
+        /* --- REMOVED: All accordion styles (.prop-group, .prop-header, etc.) --- */
     `;
 
     const styleEl = document.createElement('style');
@@ -144,12 +120,7 @@ function updatePanelData(object) {
     const name = object.name || '(Unnamed)';
     const uuid = object.uuid;
     
-    let vertices = 'N/A';
-    let polygons = 'N/A';
-    if (object.geometry) {
-        vertices = object.geometry.attributes.position.count.toLocaleString();
-        polygons = (object.geometry.index ? object.geometry.index.count / 3 : object.geometry.attributes.position.count / 3).toLocaleString();
-    }
+    // --- REMOVED: Vertices and Polygons ---
     
     const posX = object.position.x.toFixed(2);
     const posY = object.position.y.toFixed(2);
@@ -160,63 +131,52 @@ function updatePanelData(object) {
     const parent = object.parent ? object.parent.name || object.parent.type : 'Scene';
 
     // --- 2. Build HTML ---
-    const createProp = (title, content, startOpen = false) => {
+    // This function creates a single property row
+    const createProp = (label, valueContent) => {
         return `
-            <div class="prop-group ${startOpen ? '' : 'is-closed'}">
-                <div class="prop-header">
-                    ${ARROW_ICON}
-                    <span class="prop-name">${title}</span>
-                </div>
-                <div class="prop-content">
-                    ${content}
+            <div class="prop-item">
+                <span class="prop-label">${label}</span>
+                <div class="prop-value-container">
+                    ${valueContent}
                 </div>
             </div>
         `;
     };
 
-    let html = '';
+    let html = '<div class="prop-list">';
     
     html += createProp('Object Name', `
         <input type="text" class="prop-input" value="${name}">
-    `, true); // Start open
+    `);
 
     html += createProp('Unique ID', `
-        <div class="prop-text-value">${uuid}</div>
+        <span class="prop-text-value">${uuid}</span>
     `);
+    
+    // --- REMOVED: Vertices and Polygons ---
 
-    html += createProp('Vertices', `
-        <div class="prop-text-value">${vertices}</div>
-    `);
-    
-    html += createProp('Polygons', `
-        <div class="prop-text-value">${polygons}</div>
-    `);
-    
     html += createProp('Object Position', `
-        <div>X: <span class="prop-text-value">${posX}</span></div>
-        <div>Y: <span class="prop-text-value">${posY}</span></div>
-        <div>Z: <span class="prop-text-value">${posZ}</span></div>
+        <span class="prop-text-value">X: ${posX}, Y: ${posY}, Z: ${posZ}</span>
     `);
     
     html += createProp('Uniform Scale', `
-        <div class="prop-text-value">${scaleX}</div>
+        <span class="prop-text-value">${scaleX}</span>
     `);
     
     html += createProp('Parent', `
-        <div class="prop-text-value">${parent}</div>
+        <span class="prop-text-value">${parent}</span>
     `);
+
+    html += '</div>'; // Close .prop-list
 
     panelContainer.innerHTML = html;
 
-    // --- 3. Re-attach Listeners ---
-    panelContainer.querySelectorAll('.prop-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const group = header.closest('.prop-group');
-            if (group) {
-                group.classList.toggle('is-closed');
-            }
-        });
-    });
+    // --- 3. Re-attach Listeners (if any) ---
+    // (Future) Add listeners for the inputs, e.g.:
+    // panelContainer.querySelector('.prop-input').addEventListener('change', (e) => {
+    //     object.name = e.target.value;
+    //     App.workspace.render(); // Update workspace UI
+    // });
 }
 
 /**
@@ -245,8 +205,10 @@ export function initPropertiesPanel(app) {
     App = app;
 
     injectStyles();
+    // We delay createMarkup to ensure .tools-content exists
     setTimeout(createMarkup, 100); 
 
+    // Attach the public API to the App object
     if (!App.propertiesPanel) App.propertiesPanel = {};
     App.propertiesPanel.show = showPanel;
     App.propertiesPanel.hide = hidePanel;
