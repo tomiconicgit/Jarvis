@@ -69,7 +69,7 @@ function startTestMode() {
     const editorBar = document.getElementById('editor-bar');
     const stopButton = document.getElementById('testplay-stop-btn');
     const viewport = document.getElementById('viewport');
-    const addPanel = document.getElementById('add-panel'); // <-- ADDED
+    const addPanel = document.getElementById('add-panel'); 
     
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
@@ -83,7 +83,7 @@ function startTestMode() {
     // 2. Hide Editor UI (with safety checks)
     if (bottomBar) bottomBar.style.display = 'none';
     if (editorBar) editorBar.style.display = 'none'; 
-    if (addPanel) addPanel.style.display = 'none'; // <-- ADDED
+    if (addPanel) addPanel.style.display = 'none'; 
     if (App.workspace) App.workspace.close();
     if (App.editorBar) App.editorBar.closeAllPanels(); 
     if (App.gizmo) App.gizmo.detach(); 
@@ -113,7 +113,7 @@ function stopTestMode() {
     const editorBar = document.getElementById('editor-bar');
     const stopButton = document.getElementById('testplay-stop-btn');
     const viewport = document.getElementById('viewport');
-    const addPanel = document.getElementById('add-panel'); // <-- ADDED
+    const addPanel = document.getElementById('add-panel'); 
 
     console.log('[Engine] Stopping Test Mode...');
     App.engine.isTesting = false;
@@ -129,7 +129,6 @@ function stopTestMode() {
     // 3. Show Editor UI
     if (bottomBar) bottomBar.style.display = 'flex';
     if (editorBar) editorBar.style.display = 'flex'; 
-    // --- UPDATED: Use display 'flex' for add-panel ---
     if (addPanel) addPanel.style.display = 'flex'; 
     
     // 4. Resize Viewport back to Editor size
@@ -170,8 +169,6 @@ export function initTestPlay(app) {
 
     App.engine.startTestMode = startTestMode;
     App.engine.stopTestMode = stopTestMode;
-    
-    // --- GONE: Removed setTimeout and replaceWith logic ---
 
     console.log('Test Play Engine Initialized.');
 }
