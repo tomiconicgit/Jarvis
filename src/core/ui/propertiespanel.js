@@ -1,7 +1,7 @@
 // src/core/ui/propertiespanel.js
 
 let App;
-let panelContainer; // This is now the main slide-up panel
+let panelContainer;
 
 /**
  * Creates and injects the CSS styles for the properties panel.
@@ -10,13 +10,10 @@ function injectStyles() {
     const styleId = 'properties-panel-ui-styles';
     if (document.getElementById(styleId)) return;
 
-    // --- UPDATED: Styles are now for the panel itself ---
     const css = `
-        /* The #properties-panel-container is created by editorbar.js */
-        
         #properties-panel-content {
-            height: 100%;
-            overflow-y: auto;
+            /* --- UPDATED: height: 100% removed --- */
+            overflow-y: auto; /* Panel will scroll if content exceeds max-height */
             -webkit-overflow-scrolling: touch;
         }
         
@@ -82,22 +79,18 @@ function injectStyles() {
  * Creates the HTML markup for the properties panel.
  */
 function createMarkup() {
-    // --- UPDATED: Find the container created by editorbar.js ---
     panelContainer = document.getElementById('properties-panel-container');
     if (!panelContainer) {
         console.error('PropertiesPanel: #properties-panel-container not found!');
         return;
     }
     
-    // Create the inner content wrapper
     const content = document.createElement('div');
     content.id = 'properties-panel-content';
     panelContainer.appendChild(content);
 
-    // Start with the "empty" state
     clearPanelData();
     
-    // Use the *content* div for clicks
     content.addEventListener('click', (event) => {
         const target = event.target.closest('.prop-value-container');
         if (!target) return;
@@ -133,7 +126,6 @@ function updatePanelData(object) {
     const content = panelContainer.querySelector('#properties-panel-content');
     if (!content) return;
     
-    // ... (rest of data-gathering logic is unchanged) ...
     const name = object.name || '(Unnamed)';
     const uuid = object.uuid;
     const posX = object.position.x.toFixed(2);
@@ -172,8 +164,8 @@ function updatePanelData(object) {
 function clearPanelData() {
     const content = panelContainer.querySelector('#properties-panel-content');
     if (!content) {
-        // If content div doesn't exist yet, create it
-        createMarkup();
+        // If content div doesn't exist yet, try again
+        setTimeout(clearPanelData, 50);
         return;
     }
     content.innerHTML = `
@@ -184,14 +176,91 @@ function clearPanelData() {
 }
 
 // --- (All handler functions: handleEditName, handleCopyUuid, etc. are UNCHANGED) ---
-function handleEditName(object) { /* ... */ }
-function handleCopyUuid(object) { /* ... */ }
-function handleEditPosition(object) { /* ... */ }
-function handleEditScale(object) { /* ... */ }
-function handleEditParent(object) { /* ... */ }
-// ... (omitted for brevity, they are identical to before)
-
-// --- GONE: showPanel and hidePanel are now controlled by editorbar.js ---
+function handleEditName(object) {
+    const newName = window.prompt("Enter new object name:", object.name);
+    if (newName !== null && newName.trim() !== "") {
+        object.name = newName.trim();
+        App.workspace.render();
+        updatePanelData(object);
+    }
+}
+function handleCopyUuid(object) {
+    navigator.clipboard.writeText(object.uuid).then(() => {
+        App.modal.alert("Unique ID copied to clipboard.");
+    }).catch(err => {
+        console.warn("Failed to copy UUID:", err);
+        App.modal.alert("Failed to copy. See console for details.");
+    });
+}
+function handleEditPosition(object) {
+    const modalHtml = `... (modal html unchanged) ...`;
+    App.modal.custom({
+        title: "Set Object Position",
+        html: modalHtml,
+        onConfirm: (modalBody) => {
+            const x = parseFloat(modalBody.querySelector('#prop-pos-x').value);
+            const y = parseFloat(modalBody.querySelector('#prop-pos-y').value);
+            const z = parseFloat(modalBody.querySelector('#prop-pos-z').value);
+            if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                object.position.set(x, y, z);
+                updatePanelData(object);
+                App.modal.hide();
+            } else {
+                App.modal.alert("Invalid input. Please enter numbers only.");
+            }
+        },
+        cancelText: "Cancel"
+    });
+}
+function handleEditScale(object) {
+    const newScaleStr = window.prompt("Enter new uniform scale:", object.scale.x.toFixed(2));
+    if (newScaleStr !== null) {
+        const newScale = parseFloat(newScaleStr);
+        if (!isNaN(newScale) && newScale > 0) {
+            object.scale.set(newScale, newScale, newScale);
+            updatePanelData(object);
+        } else {
+            App.modal.alert("Invalid input. Please enter a positive number.");
+        }
+    }
+}
+function handleEditParent(object) {
+    // ... (function logic is unchanged) ...
+    const file = App.fileManager.findFileById(object.uuid);
+    const currentParentId = file ? file.parentId : (object.parent ? object.parent.uuid : 'scene');
+    const folders = App.fileManager.getFolders();
+    const optionsHtml = folders.map(f => {
+        const folderSceneObject = App.scene.getObjectByName(f.name);
+        if (!folderSceneObject || object.uuid === folderSceneObject.uuid || object.parent === folderSceneObject) {
+            return '';
+        }
+        return `<option value="${f.id}" ${f.id === currentParentId ? 'selected' : ''}>${f.name}</option>`;
+    }).join('');
+    const modalHtml = `... (modal html unchanged) ...`;
+    App.modal.custom({
+        title: "Set Parent",
+        html: modalHtml,
+        onConfirm: (modalBody) => {
+            const newParentFolderId = modalBody.querySelector('#prop-parent-select').value;
+            const newParentFolder = folders.find(f => f.id === newParentFolderId);
+            if (!newParentFolder) {
+                App.modal.alert("Could not find selected parent folder.");
+                return;
+            }
+            const newParentSceneObject = App.scene.getObjectByName(newParentFolder.name);
+            if (!newParentSceneObject) {
+                App.modal.alert("Scene object for parent not found.");
+                return;
+            }
+            newParentSceneObject.add(object);
+            App.fileManager.moveFile(object.uuid, newParentFolderId);
+            App.workspace.render();
+            updatePanelData(object);
+            App.modal.hide();
+        },
+        cancelText: "Cancel"
+    });
+}
 
 /**
  * Initializes the Properties Panel module.
@@ -200,12 +269,8 @@ export function initPropertiesPanel(app) {
     App = app;
 
     injectStyles();
-    // Wait for editorbar to create the container
     setTimeout(createMarkup, 100); 
 
-    // --- GONE: No public API needed for show/hide ---
-    
-    // Subscribe to the events
     App.events.subscribe('selectionChanged', updatePanelData);
     App.events.subscribe('selectionCleared', clearPanelData);
 
