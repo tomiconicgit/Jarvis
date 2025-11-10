@@ -6,13 +6,10 @@ let App;
 let selectedObject = null;
 let outlineMesh = null;
 
-// --- GONE: Callback arrays are removed ---
-
 /**
  * Creates the visual outline mesh and adds it to the scene.
  */
 function createOutlineHelper() {
-    // ... (this function is unchanged)
     const outlineMaterial = new THREE.LineBasicMaterial({ 
         color: 0x007aff,
         linewidth: 3
@@ -26,7 +23,6 @@ function createOutlineHelper() {
  * Focuses the camera on a given 3D object.
  */
 function focusOnObject(object) {
-    // ... (this function is unchanged)
     if (!object || !App.camera || !App.controls) return;
     const box = new THREE.Box3().setFromObject(object);
     const center = box.getCenter(new THREE.Vector3());
@@ -78,7 +74,8 @@ function select(object) {
     
     console.log(`Selection Context: Selected '${object.name}'`);
     
-    // --- 3. GONE: Callback logic removed ---
+    // --- ADDED: Publish the selection change event ---
+    App.events.publish('selectionChanged', selectedObject);
 }
 
 /**
@@ -97,7 +94,8 @@ function clear() {
     
     console.log('Selection Context: Cleared');
     
-    // --- GONE: Callback logic removed ---
+    // --- ADDED: Publish the selection cleared event ---
+    App.events.publish('selectionCleared');
 }
 
 /**
@@ -108,14 +106,12 @@ function getSelected() {
     return selectedObject;
 }
 
-// --- GONE: onSelect() and onClear() are removed ---
-
 /**
  * Initializes the Selection Context module.
  * @param {object} app - The main App object.
  */
 export function initSelectionContext(app) {
-    if (!app || !app.scene || !app.camera || !app.controls) {
+    if (!app || !app.scene || !app.camera || !app.controls || !app.events) { // Added app.events check
         throw new Error('SelectionContext init failed: App object is incomplete.');
     }
     
@@ -128,7 +124,6 @@ export function initSelectionContext(app) {
         select: select,
         clear: clear,
         getSelected: getSelected
-        // --- GONE: onSelect and onClear removed from here ---
     };
     
     console.log('Selection Context Initialized.');
