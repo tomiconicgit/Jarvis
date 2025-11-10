@@ -180,9 +180,10 @@ async function loadModuleInit(path) {
             App.player.camera.updateProjectionMatrix();
         }
 
+        // --- THIS WAS THE MISSING LINE ---
         App.renderer.setSize(width, height);
     });
 
     console.log('[Main] Orchestration complete.');
 
-})();
+})(); // <-- THIS WAS THE MISSING CLOSER
