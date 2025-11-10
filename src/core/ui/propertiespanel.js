@@ -23,7 +23,7 @@ function injectStyles() {
         }
 
         .prop-list {
-            padding: 4px 0;
+            padding: 0; /* Remove vertical padding from the list itself */
         }
 
         .prop-item {
@@ -32,34 +32,56 @@ function injectStyles() {
             align-items: center;
             padding: 10px 12px;
             font-size: 14px;
-            border-bottom: 1px solid var(--ui-border);
+            /* No border-bottom here, it will be handled by .prop-list borders */
+            position: relative; /* Needed for the vertical divider */
         }
-        .prop-list:last-child .prop-item:last-child {
-            border-bottom: none;
+
+        /* Add a vertical divider */
+        .prop-item::after {
+            content: '';
+            position: absolute;
+            left: 50%; /* Position in the middle */
+            top: 0;
+            bottom: 0;
+            width: 1px; /* Divider thickness */
+            background: var(--ui-border); /* Use UI border color */
+            transform: translateX(-50%); /* Center the divider */
         }
 
         .prop-label {
             color: rgba(255, 255, 255, 0.7);
             font-weight: 500;
+            flex: 1; /* Allow label to take up space */
+            padding-right: 8px; /* Space between label and divider */
+            text-align: left;
         }
 
         .prop-value {
             color: #fff;
             font-weight: 600;
-            
-            /* --- Placeholder Style --- */
             /* Using '...' as a placeholder for now */
             min-width: 50px;
             text-align: right;
             opacity: 0.5;
             font-style: italic;
+            flex: 1; /* Allow value to take up space */
+            padding-left: 8px; /* Space between divider and value */
         }
         
         .prop-divider {
-            height: 8px;
-            background: rgba(0,0,0,0.2);
+            height: 12px; /* Increased height for better visual separation */
+            background: rgba(0,0,0,0.3); /* Slightly darker background */
             border-top: 1px solid var(--ui-border);
             border-bottom: 1px solid var(--ui-border);
+        }
+        
+        /* Apply border-bottom to the entire .prop-list */
+        .prop-list {
+            border-bottom: 1px solid var(--ui-border);
+        }
+        /* Remove border-bottom from the last prop-list to avoid double border with panel bottom */
+        .prop-list:last-child {
+            border-bottom: none;
         }
     `;
 
@@ -99,8 +121,7 @@ function createMarkup() {
                 <span class="prop-value">...</span>
             </div>
             <div class="prop-item">
-                <span class="prop-label">Polygon</span>
-                <span class="prop-value">...</span>
+                <span class="prop-label">Polygons</span> <span class="prop-value">...</span>
             </div>
         </div>
 
@@ -145,17 +166,11 @@ export function initPropertiesPanel(app) {
     App = app;
 
     injectStyles();
-    // We delay createMarkup to ensure .tools-content exists
-    // This is safer than relying on initialization order in main.js
     setTimeout(createMarkup, 100); 
 
-    // Attach the public API to the App object
     if (!App.propertiesPanel) App.propertiesPanel = {};
     App.propertiesPanel.show = showPanel;
     App.propertiesPanel.hide = hidePanel;
     
-    // Future:
-    // App.propertiesPanel.update = (selectedObject) => { ... }
-
     console.log('Properties Panel Initialized.');
 }
