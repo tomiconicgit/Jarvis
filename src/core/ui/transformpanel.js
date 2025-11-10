@@ -4,8 +4,6 @@ import * as THREE from 'three';
 let App;
 let panelContainer;
 
-const ARROW_ICON = `<svg class-="prop-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>`;
-
 /**
  * Creates and injects the CSS styles for the transform panel.
  */
@@ -26,7 +24,6 @@ function injectStyles() {
             display: block;
         }
 
-        /* Empty state style */
         .transform-empty-state {
             font-size: 14px;
             color: rgba(255,255,255,0.4);
@@ -35,54 +32,20 @@ function injectStyles() {
             padding-top: 20px;
         }
 
-        /* Using the same accordion style as properties */
-        .prop-group {
-            border-bottom: 1px solid var(--ui-border);
-        }
-        .prop-group:last-child {
-            border-bottom: none;
-        }
-        .prop-header {
-            display: flex;
-            align-items: center;
-            padding: 12px 8px;
-            cursor: pointer;
-        }
-        .prop-header:active {
-             background: var(--ui-light-grey);
-        }
-        .prop-header .prop-arrow {
-            width: 16px;
-            height: 16px;
-            stroke: #fff;
-            opacity: 0.7;
-            margin-right: 6px;
-            transition: transform 0.2s ease;
-            padding: 4px;
-            margin-left: -4px;
-        }
-        .prop-name {
-            font-size: 14px;
+        /* --- NEW: Category Header Style --- */
+        .transform-header {
+            font-size: 16px;
             font-weight: 600;
             color: #fff;
-            pointer-events: none;
+            padding: 10px 4px 8px;
+            border-bottom: 1px solid var(--ui-border);
+            margin-bottom: 12px;
         }
-        .prop-content {
-            overflow: hidden;
-            max-height: 500px;
-            transition: max-height 0.3s ease-out;
-            padding: 10px 10px 16px 28px;
-        }
-        .prop-group.is-closed .prop-content {
-            max-height: 0;
-            padding-top: 0;
-            padding-bottom: 0;
-        }
-        .prop-group.is-closed .prop-arrow {
-            transform: rotate(-90deg);
+        .transform-header:not(:first-child) {
+            margin-top: 12px;
         }
 
-        /* --- NEW: Styles for slider rows --- */
+        /* Styles for slider rows */
         .slider-row {
             display: flex;
             align-items: center;
@@ -146,120 +109,142 @@ function createMarkup() {
 
     panelContainer = document.createElement('div');
     panelContainer.id = 'transform-panel-content';
-    // 'is-active' is NOT set by default
 
-    clearPanelData("Select a Mesh object to transform."); // Set initial empty state
+    clearPanelData("Select a Mesh object to transform.");
     toolsContent.appendChild(panelContainer);
     
-    // --- ADDED: Event listener for all sliders and inputs ---
+    // Event listener for all sliders and inputs
     panelContainer.addEventListener('input', (event) => {
         const target = event.target;
         if (target.classList.contains('slider-input') || target.classList.contains('slider-number')) {
             const row = target.closest('.slider-row');
-            const prop = row.dataset.prop; // e.g., 'position'
-            const axis = row.dataset.axis; // 'x', 'y', 'z'
+            const prop = row.dataset.prop;
+            const axis = row.dataset.axis;
             let value = parseFloat(target.value);
 
             if (isNaN(value)) return;
 
-            // Sync slider and number input
-            row.querySelector('.slider-input').value = value;
-            row.querySelector('.slider-number').value = value;
-
-            // Update the 3D object
+            // Update the object
             const object = App.selectionContext.getSelected();
             if (object && object[prop]) {
                 if (prop === 'rotation') {
-                    // Convert degrees to radians for Three.js
-                    object[prop][axis] = THREE.MathUtils.degToRad(value);
-                } else {
-                    object[prop][axis] = value;
+                    value = THREE.MathUtils.degToRad(value);
                 }
+                
+                object[prop][axis] = value;
+                
+                // If this was a number input, we need to update the slider's range
+                if (target.classList.contains('slider-number')) {
+                    updateSliders(object);
+                } else {
+                    // If it was a slider, just sync the number input
+                    row.querySelector('.slider-number').value = value.toFixed(prop === 'rotation' ? 1 : 3);
+                }
+                
+                // Tell the gizmo its object moved
+                App.gizmo.update();
             }
         }
     });
 }
 
 /**
- * Helper to create one slider row
+ * --- NEW: DYNAMIC SLIDER LOGIC ---
+ * Calculates the min/max/value for a slider based on the "repeating" logic
  */
-function createSlider(label, prop, axis, value, min, max, step) {
-    return `
-        <div class="slider-row" data-prop="${prop}" data-axis="${axis}">
-            <span class="slider-label">${label}</span>
-            <input type="range" class="slider-input" min="${min}" max="${max}" step="${step}" value="${value}">
-            <input type="number" class="slider-number" min="${min}" max="${max}" step="${step}" value="${value}">
-        </div>
-    `;
+function getSliderRange(value, minStep, maxStep, isRotation = false) {
+    if (isRotation) {
+        // Rotation is simple, always -180 to 180
+        return { min: -180, max: 180, val: THREE.MathUtils.radToDeg(value).toFixed(1) };
+    }
+    
+    // Logic for Position and Scale
+    const baseStep = (minStep + maxStep); // e.g., 100
+    const base = Math.floor(value / baseStep) * baseStep;
+    
+    return {
+        min: base + minStep,
+        max: base + maxStep,
+        val: value.toFixed(3)
+    };
 }
 
 /**
- * Helper to create one accordion group
+ * --- NEW: Updates all sliders from the object's current state ---
+ * This is called by the gizmo event
  */
-function createAccordion(title, content, startOpen = false) {
-    return `
-        <div class="prop-group ${startOpen ? '' : 'is-closed'}">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">${title}</span>
-            </div>
-            <div class="prop-content">
-                ${content}
-            </div>
-        </div>
-    `;
+function updateSliders(object) {
+    if (!object || !panelContainer) return;
+    
+    // Loop through all slider rows in the panel
+    panelContainer.querySelectorAll('.slider-row').forEach(row => {
+        const prop = row.dataset.prop; // 'position'
+        const axis = row.dataset.axis; // 'x'
+        const isRotation = (prop === 'rotation');
+        
+        const currentValue = object[prop][axis];
+        
+        let range;
+        if (isRotation) {
+            range = getSliderRange(currentValue, 0, 0, true);
+        } else if (prop === 'scale') {
+            range = getSliderRange(currentValue, 0.01, 100.0, false);
+        } else {
+            range = getSliderRange(currentValue, -100.0, 100.0, false);
+        }
+        
+        // Update the slider and number input
+        const slider = row.querySelector('.slider-input');
+        slider.min = range.min;
+        slider.max = range.max;
+        slider.value = range.val;
+        
+        row.querySelector('.slider-number').value = range.val;
+    });
 }
 
 /**
  * Fills the panel with data from the selected object
  */
 function updatePanelData(object) {
-    // --- This panel ONLY works for Mesh objects ---
     if (!object || !object.isMesh) {
         clearPanelData("Select a Mesh object to transform.");
         return;
     }
 
-    // Get data
-    const pos = object.position;
-    const rot = object.rotation; // Euler (radians)
-    const scl = object.scale;
+    // Helper to create one slider row
+    const createSlider = (label, prop, axis, min, max, step) => {
+        // Note: Value is set by updateSliders
+        return `
+            <div class="slider-row" data-prop="${prop}" data-axis="${axis}">
+                <span class="slider-label">${label}</span>
+                <input type="range" class="slider-input" min="${min}" max="${max}" step="${step}" value="0">
+                <input type="number" class="slider-number" min="${min}" max="${max}" step="${step}" value="0">
+            </div>
+        `;
+    };
 
-    let html = '';
+    let html = `
+        <div class="transform-header">Position</div>
+        ${createSlider('X', 'position', 'x', -100, 100, 0.01)}
+        ${createSlider('Y', 'position', 'y', -100, 100, 0.01)}
+        ${createSlider('Z', 'position', 'z', -100, 100, 0.01)}
 
-    // --- Position ---
-    let posContent = '';
-    posContent += createSlider('X', 'position', 'x', pos.x.toFixed(3), -50, 50, 0.01);
-    posContent += createSlider('Y', 'position', 'y', pos.y.toFixed(3), -50, 50, 0.01);
-    posContent += createSlider('Z', 'position', 'z', pos.z.toFixed(3), -50, 50, 0.01);
-    html += createAccordion('Position', posContent, true); // Start open
+        <div class="transform-header">Rotation</div>
+        ${createSlider('X', 'rotation', 'x', -180, 180, 1)}
+        ${createSlider('Y', 'rotation', 'y', -180, 180, 1)}
+        ${createSlider('Z', 'rotation', 'z', -180, 180, 1)}
 
-    // --- Rotation ---
-    let rotContent = '';
-    rotContent += createSlider('X', 'rotation', 'x', THREE.MathUtils.radToDeg(rot.x).toFixed(1), -180, 180, 1);
-    rotContent += createSlider('Y', 'rotation', 'y', THREE.MathUtils.radToDeg(rot.y).toFixed(1), -180, 180, 1);
-    rotContent += createSlider('Z', 'rotation', 'z', THREE.MathUtils.radToDeg(rot.z).toFixed(1), -180, 180, 1);
-    html += createAccordion('Rotation', rotContent);
-
-    // --- Scale ---
-    let sclContent = '';
-    // Note: Your request for 0.000 min is problematic for sliders. Using 0.01
-    sclContent += createSlider('X', 'scale', 'x', scl.x.toFixed(3), 0.010, 10.000, 0.010);
-    sclContent += createSlider('Y', 'scale', 'y', scl.y.toFixed(3), 0.010, 10.000, 0.010);
-    sclContent += createSlider('Z', 'scale', 'z', scl.z.toFixed(3), 0.010, 10.000, 0.010);
-    html += createAccordion('Scale', sclContent);
+        <div class="transform-header">Scale</div>
+        ${createSlider('X', 'scale', 'x', 0.01, 100, 0.01)}
+        ${createSlider('Y', 'scale', 'y', 0.01, 100, 0.01)}
+        ${createSlider('Z', 'scale', 'z', 0.01, 100, 0.01)}
+    `;
     
     panelContainer.innerHTML = html;
-
-    // Re-attach accordion listeners
-    panelContainer.querySelectorAll('.prop-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const group = header.closest('.prop-group');
-            if (group) {
-                group.classList.toggle('is-closed');
-            }
-        });
-    });
+    
+    // Now that HTML is built, update sliders to object's current values
+    updateSliders(object);
 }
 
 /**
@@ -294,8 +279,12 @@ export function initTransformPanel(app) {
     App.transformPanel.show = showPanel;
     App.transformPanel.hide = hidePanel;
     
+    // Subscribe to events
     App.events.subscribe('selectionChanged', updatePanelData);
     App.events.subscribe('selectionCleared', () => clearPanelData("No object selected."));
+    
+    // --- NEW: Listen for gizmo changes ---
+    App.events.subscribe('objectTransformed', updateSliders);
 
     console.log('Transform Panel Initialized.');
 }
