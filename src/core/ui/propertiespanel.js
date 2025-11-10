@@ -23,66 +23,49 @@ function injectStyles() {
         }
 
         .prop-list {
-            padding: 0; /* Remove vertical padding from the list itself */
+            padding: 0; 
         }
 
         .prop-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 12px;
+            padding: 0; /* Remove padding from item itself */
             font-size: 14px;
-            /* No border-bottom here, it will be handled by .prop-list borders */
-            position: relative; /* Needed for the vertical divider */
+            
+            /* --- FIX 1: Add border-bottom to every item --- */
+            border-bottom: 1px solid var(--ui-border);
         }
-
-        /* Add a vertical divider */
-        .prop-item::after {
-            content: '';
-            position: absolute;
-            left: 50%; /* Position in the middle */
-            top: 0;
-            bottom: 0;
-            width: 1px; /* Divider thickness */
-            background: var(--ui-border); /* Use UI border color */
-            transform: translateX(-50%); /* Center the divider */
+        
+        /* Remove border from the very last item in the panel */
+        .prop-list .prop-item:last-child {
+            border-bottom: none;
         }
 
         .prop-label {
             color: rgba(255, 255, 255, 0.7);
             font-weight: 500;
-            flex: 1; /* Allow label to take up space */
-            padding-right: 8px; /* Space between label and divider */
+            flex: 1; 
             text-align: left;
+            padding: 12px; /* Add padding here */
+            
+            /* --- FIX 2: Add vertical border --- */
+            border-right: 1px solid var(--ui-border);
         }
 
         .prop-value {
             color: #fff;
             font-weight: 600;
-            /* Using '...' as a placeholder for now */
             min-width: 50px;
             text-align: right;
             opacity: 0.5;
             font-style: italic;
-            flex: 1; /* Allow value to take up space */
-            padding-left: 8px; /* Space between divider and value */
+            flex: 1; 
+            padding: 12px; /* Add padding here */
         }
         
-        .prop-divider {
-            height: 12px; /* Increased height for better visual separation */
-            background: rgba(0,0,0,0.3); /* Slightly darker background */
-            border-top: 1px solid var(--ui-border);
-            border-bottom: 1px solid var(--ui-border);
-        }
-        
-        /* Apply border-bottom to the entire .prop-list */
-        .prop-list {
-            border-bottom: 1px solid var(--ui-border);
-        }
-        /* Remove border-bottom from the last prop-list to avoid double border with panel bottom */
-        .prop-list:last-child {
-            border-bottom: none;
-        }
+        /* --- FIX 3: Remove divider style, it's no longer used --- */
+        /* .prop-divider style GONE */
     `;
 
     const styleEl = document.createElement('style');
@@ -103,9 +86,9 @@ function createMarkup() {
 
     panelContainer = document.createElement('div');
     panelContainer.id = 'properties-panel-content';
-    // The "Properties" tab is active by default in tools.js
     panelContainer.className = 'is-active'; 
 
+    // --- FIX 4: Removed all .prop-divider divs and put items in one list ---
     panelContainer.innerHTML = `
         <div class="prop-list">
             <div class="prop-item">
@@ -121,13 +104,9 @@ function createMarkup() {
                 <span class="prop-value">...</span>
             </div>
             <div class="prop-item">
-                <span class="prop-label">Polygons</span> <span class="prop-value">...</span>
+                <span class="prop-label">Polygons</span>
+                <span class="prop-value">...</span>
             </div>
-        </div>
-
-        <div class="prop-divider"></div>
-
-        <div class="prop-list">
             <div class="prop-item">
                 <span class="prop-label">Object Position</span>
                 <span class="prop-value">...</span>
@@ -136,11 +115,6 @@ function createMarkup() {
                 <span class="prop-label">Uniform Scale</span>
                 <span class="prop-value">...</span>
             </div>
-        </div>
-
-        <div class="prop-divider"></div>
-
-        <div class="prop-list">
             <div class="prop-item">
                 <span class="prop-label">Parent</span>
                 <span class="prop-value">...</span>
@@ -166,11 +140,16 @@ export function initPropertiesPanel(app) {
     App = app;
 
     injectStyles();
+    // We delay createMarkup to ensure .tools-content exists
     setTimeout(createMarkup, 100); 
 
+    // Attach the public API to the App object
     if (!App.propertiesPanel) App.propertiesPanel = {};
     App.propertiesPanel.show = showPanel;
     App.propertiesPanel.hide = hidePanel;
     
+    // Future:
+    // App.propertiesPanel.update = (selectedObject) => { ... }
+
     console.log('Properties Panel Initialized.');
 }
