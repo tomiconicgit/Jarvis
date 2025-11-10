@@ -3,9 +3,6 @@
 // Module-level App object
 let App;
 
-// --- GONE: Removed all module-level UI element variables ---
-// let stopButton;
-
 /**
  * Injects the CSS for the stop button.
  */
@@ -52,7 +49,6 @@ function injectStyles() {
  * Creates the HTML for the stop button.
  */
 function createMarkup() {
-    // --- UPDATED: No longer assigns to module-level var ---
     const stopButton = document.createElement('button');
     stopButton.id = 'testplay-stop-btn';
     stopButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>`;
@@ -82,20 +78,20 @@ function startTestMode() {
         target: App.controls.target.clone(),
     };
 
-    // 2. Hide Editor UI
+    // 2. Hide Editor UI (with safety checks)
     if (bottomBar) bottomBar.style.display = 'none';
-    if (editorBar) editorBar.style.display = 'none'; // Hide the bar directly
-    App.workspace.close();
-    App.editorBar.closeAllPanels(); // Still call this to close any open panels
-    App.gizmo.detach();
+    if (editorBar) editorBar.style.display = 'none'; 
+    if (App.workspace) App.workspace.close();
+    if (App.editorBar) App.editorBar.closeAllPanels(); 
+    if (App.gizmo) App.gizmo.detach(); 
 
     // 3. Show Test Mode UI
-    if (stopButton) stopButton.style.display = 'flex'; // Show the button
-    App.joystick.show();
+    if (stopButton) stopButton.style.display = 'flex'; 
+    if (App.joystick) App.joystick.show();
 
     // 4. Activate Player/First Person View
-    App.player.activate();
-    App.firstPersonControls.activate();
+    if (App.player) App.player.activate();
+    if (App.firstPersonControls) App.firstPersonControls.activate();
 }
 
 /**
@@ -113,16 +109,16 @@ function stopTestMode() {
     App.engine.isTesting = false;
 
     // 1. Deactivate Player/First Person View
-    App.player.deactivate();
-    App.firstPersonControls.deactivate();
+    if (App.player) App.player.deactivate();
+    if (App.firstPersonControls) App.firstPersonControls.deactivate();
 
     // 2. Hide Test Mode UI
-    if (stopButton) stopButton.style.display = 'none'; // Hide the button
-    App.joystick.hide();
+    if (stopButton) stopButton.style.display = 'none'; 
+    if (App.joystick) App.joystick.hide();
     
     // 3. Show Editor UI
     if (bottomBar) bottomBar.style.display = 'flex';
-    if (editorBar) editorBar.style.display = 'flex'; // Show the bar directly
+    if (editorBar) editorBar.style.display = 'flex'; 
     
     // 4. Restore editor camera
     if (App.editorCameraState) {
