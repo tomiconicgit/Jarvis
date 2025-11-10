@@ -1,6 +1,7 @@
 // src/main.js
 
 import { checkForErrors, initDebugger } from '../debugger.js'; // <-- Import initDebugger
+import * as THREE from 'three'; // <-- Import THREE.js for the Clock
 
 // --- Core modules (load these first) ---
 import { initViewport } from './core/viewport.js';
@@ -13,6 +14,13 @@ import { initSaveProject } from './core/engine/saveproject.js';
 import { initLoadProject } from './core/engine/loadproject.js';
 import { initImportEngine } from './core/engine/importengine.js';
 import { initExportEngine } from './core/engine/exportengine.js';
+
+// --- NEW PLAY MODE IMPORTS ---
+import { initPlayer } from './core/engine/player.js';
+import { initFirstPersonView } from './core/firstpersonview.js';
+import { initJoystick } from './core/joystick.js';
+import { initTestPlay } from './core/engine/testplay.js';
+
 
 /**
  * -------------------------------------------------------------------
@@ -30,7 +38,14 @@ const coreServices = [
     initSaveProject,
     initLoadProject,
     initImportEngine,
-    initExportEngine
+    initExportEngine,
+
+    // --- NEW PLAY MODE MODULES ---
+    // Player must be init'd before views/controls that use it
+    initPlayer, 
+    initFirstPersonView,
+    initJoystick,
+    initTestPlay // Init this last as it may hook into other modules
 ];
 
 // Pluggable UI modules
@@ -118,19 +133,43 @@ async function loadModuleInit(path) {
     }
 
     // 9. Start Render Loop
+    const clock = new THREE.Clock(); // <-- ADDED
+
     App.renderer.setAnimationLoop(() => {
-        App.controls.update();
-        App.renderer.render(App.scene, App.camera);
+        const deltaTime = clock.getDelta(); // <-- ADDED
+        
+        if (App.engine && App.engine.isTesting) {
+            // --- IN TEST MODE ---
+            App.player.update(deltaTime); // <-- ADDED
+            // Render from the player's camera
+            App.renderer.render(App.scene, App.player.camera); // <-- UPDATED
+            
+        } else {
+            // --- IN EDITOR MODE ---
+            App.controls.update();
+            // Render from the editor camera
+            App.renderer.render(App.scene, App.camera); // <-- Original line
+        }
     });
 
     // 10. Add Resize Listener
     window.addEventListener('resize', () => {
         const canvas = App.renderer.domElement;
         const width = canvas.clientWidth;
-        const height = canvas.clientHeight || 1;
-        App.renderer.setSize(width, height);
+        const height = canvas.clientHeight || 1; // Use 1 to avoid divide by zero
+        
+        // Update Editor Camera
         App.camera.aspect = width / height;
         App.camera.updateProjectionMatrix();
+
+        // Update Player Camera (if it exists)
+        if (App.player && App.player.camera) {
+            App.player.camera.aspect = width / height;
+            App.player.camera.updateProjectionMatrix();
+        }
+
+        // Update Renderer
+        App.renderer.setSize(width, height);
     });
 
     console.log('[Main] Orchestration complete.');
