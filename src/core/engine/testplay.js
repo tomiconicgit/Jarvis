@@ -1,47 +1,17 @@
 // src/core/engine/testplay.js
 
-// Module-level App object
 let App;
-
-// UI elements
 let stopButton;
+// --- GONE: UI elements are found just-in-time ---
 
 /**
  * Injects the CSS for the stop button.
  */
 function injectStyles() {
+    // ... (css is unchanged) ...
     const styleId = 'testplay-ui-styles';
     if (document.getElementById(styleId)) return;
-
-    const css = `
-        #testplay-stop-btn {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 101; /* Above loading, below modal */
-            background: rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            width: 44px;
-            height: 44px;
-            display: none; /* Hidden by default */
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
-        }
-        #testplay-stop-btn svg {
-            width: 24px;
-            height: 24px;
-            stroke: #fff;
-            stroke-width: 2.5;
-            stroke-linecap: round;
-        }
-        #testplay-stop-btn:active {
-            background: rgba(0,0,0,0.7);
-        }
-    `;
+    const css = `...`;
     const styleEl = document.createElement('style');
     styleEl.id = styleId;
     styleEl.textContent = css;
@@ -52,12 +22,11 @@ function injectStyles() {
  * Creates the HTML for the stop button.
  */
 function createMarkup() {
+    // ... (markup is unchanged) ...
     stopButton = document.createElement('button');
     stopButton.id = 'testplay-stop-btn';
     stopButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>`;
-    
     document.body.appendChild(stopButton);
-    
     stopButton.addEventListener('click', stopTestMode);
 }
 
@@ -72,18 +41,17 @@ function startTestMode() {
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
 
-    // 1. Store editor camera state
     App.editorCameraState = {
         position: App.camera.position.clone(),
         target: App.controls.target.clone(),
     };
 
-    // 2. Hide Editor UI
+    // --- UPDATED: Hide all editor UI ---
     if (bottomBar) bottomBar.style.display = 'none';
     App.workspace.close();
-    App.tools.close();
-    App.gizmo.hideUI(); // <-- HIDE GIZMO UI
-    App.gizmo.detach(); // <-- HIDE GIZMO
+    App.editorBar.hide(); // Hide the new bar
+    App.editorBar.closeAllPanels(); // Close its panels
+    App.gizmo.detach(); // Detach gizmo
 
     // 3. Show Test Mode UI
     stopButton.style.display = 'flex';
@@ -115,7 +83,7 @@ function stopTestMode() {
     
     // 3. Show Editor UI
     if (bottomBar) bottomBar.style.display = 'flex';
-    App.gizmo.showUI(); // <-- SHOW GIZMO UI
+    App.editorBar.show(); // Show the new bar
     
     // 4. Restore editor camera
     if (App.editorCameraState) {
