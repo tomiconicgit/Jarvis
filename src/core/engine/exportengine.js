@@ -1,3 +1,6 @@
+--------------------------------------------------------------------------------
+File: src/core/engine/exportengine.js
+--------------------------------------------------------------------------------
 // src/core/engine/exportengine.js
 import * as THREE from 'three';
 
@@ -356,7 +359,7 @@ async function executeObjExport(modalBody) {
         
         if (options.includeMaterials && mtlString) {
             // --- THIS IS THE FIX ---
-            zip.file(`${options.filename}.mtl`, mTLString); // <-- CORRECTED
+            zip.file(`${options.filename}.mtl`, mtlString); // <-- CORRECTED
             // --- END FIX ---
             
             // Add all textures
