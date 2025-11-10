@@ -1,3 +1,6 @@
+--------------------------------------------------------------------------------
+File: src/core/ui/addpanel.js
+--------------------------------------------------------------------------------
 // src/core/ui/addpanel.js
 
 let App;
@@ -115,7 +118,20 @@ function createMarkup() {
         if (!target) return;
 
         const action = target.dataset.action;
-        App.modal.alert(`Selected: ${action}`);
+        
+        // --- UPDATED ---
+        if (action === 'add-script') {
+            if (App.scriptEngine && App.scriptEngine.showAddScriptModal) {
+                App.scriptEngine.showAddScriptModal();
+            } else {
+                console.error('ScriptEngine not initialized.');
+                App.modal.alert('Error: Script engine is not available.');
+            }
+        } else {
+            // Placeholder for other buttons
+            App.modal.alert(`Selected: ${action}`);
+        }
+        // --- END UPDATED ---
         
         closePanel();
     });
