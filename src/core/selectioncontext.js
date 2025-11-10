@@ -5,7 +5,7 @@ import * as THREE from 'three';
 let App;
 let selectedObject = null;
 let outlineMesh = null;
-let isHighlightEnabled = true; // <-- NEW
+let isHighlightEnabled = true;
 
 /**
  * Creates the visual outline mesh and adds it to the scene.
@@ -45,8 +45,7 @@ function focusOnObject(object) {
 }
 
 /**
- * --- NEW: Toggles the highlight visibility ---
- * @param {boolean} [forceState] - Force on (true) or off (false)
+ * Toggles the highlight visibility
  */
 function toggleHighlight(forceState) {
     if (forceState !== undefined) {
@@ -55,9 +54,10 @@ function toggleHighlight(forceState) {
         isHighlightEnabled = !isHighlightEnabled;
     }
 
-    // Update visibility based on state
     if (isHighlightEnabled && selectedObject) {
-        if (selectedObject.isMesh) {
+        // --- UPDATED: Check for Player ---
+        let objectToHighlight = getHighlightableObject(selectedObject);
+        if (objectToHighlight) {
             outlineMesh.visible = true;
         }
     } else {
@@ -65,6 +65,21 @@ function toggleHighlight(forceState) {
     }
     
     return isHighlightEnabled;
+}
+
+/**
+ * --- NEW: Helper to find the mesh to highlight ---
+ * (e.g., gets the capsule mesh from the Player group)
+ */
+function getHighlightableObject(object) {
+    if (!object) return null;
+    if (object.name === "Player" && object.isGroup) {
+        return object.getObjectByName("PlayerRepresentation");
+    }
+    if (object.isMesh) {
+        return object;
+    }
+    return null;
 }
 
 
@@ -79,17 +94,21 @@ function select(object) {
 
     selectedObject = object;
 
-    // --- 1. Update Visual Outline (IF IT'S A MESH) ---
-    if (object.isMesh) {
+    // --- 1. Update Visual Outline ---
+    let objectToHighlight = getHighlightableObject(selectedObject);
+    
+    if (objectToHighlight) {
         if (outlineMesh.geometry) {
             outlineMesh.geometry.dispose();
         }
-        outlineMesh.geometry = new THREE.EdgesGeometry(object.geometry, 1);
-        outlineMesh.position.copy(object.position);
-        outlineMesh.rotation.copy(object.rotation);
-        outlineMesh.scale.copy(object.scale);
+        // Apply geometry from the child mesh
+        outlineMesh.geometry = new THREE.EdgesGeometry(objectToHighlight.geometry, 1);
         
-        // --- UPDATED: Use toggle function ---
+        // Apply transforms from the parent group
+        outlineMesh.position.copy(selectedObject.position);
+        outlineMesh.rotation.copy(selectedObject.rotation);
+        outlineMesh.scale.copy(selectedObject.scale);
+        
         if (isHighlightEnabled) {
             outlineMesh.visible = true;
         }
@@ -97,8 +116,12 @@ function select(object) {
         outlineMesh.visible = false;
     }
 
-    // --- 2. Focus Camera (Works for all objects) ---
-    focusOnObject(object);
+    // --- 2. Focus Camera ---
+    if (objectToHighlight) {
+        focusOnObject(objectToHighlight);
+    } else {
+        focusOnObject(object);
+    }
     
     console.log(`Selection Context: Selected '${object.name}'`);
     
@@ -112,7 +135,7 @@ function clear() {
     if (!selectedObject) return;
     
     selectedObject = null;
-    outlineMesh.visible = false; // --- Always hide on clear
+    outlineMesh.visible = false; 
     
     if (outlineMesh.geometry) {
         outlineMesh.geometry.dispose();
@@ -143,12 +166,11 @@ export function initSelectionContext(app) {
     
     createOutlineHelper();
 
-    // Attach the public API to the App object
     app.selectionContext = {
         select: select,
         clear: clear,
         getSelected: getSelected,
-        toggleHighlight: toggleHighlight // <-- NEW
+        toggleHighlight: toggleHighlight
     };
     
     console.log('Selection Context Initialized.');
