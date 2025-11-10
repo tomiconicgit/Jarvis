@@ -5,9 +5,9 @@ let App;
 
 // --- 2. Module-level elements ---
 let toolsContainer;
-let toolsContent; // <-- ADDED
+let toolsContent; 
 
-// --- ADDED: Placeholders for tab content ---
+// --- UPDATED: References for tab content ---
 let propertiesPanelContent;
 let transformPanelContent;
 
@@ -30,7 +30,6 @@ function injectStyles() {
             --bottom-bar-height: calc(60px + env(safe-area-inset-bottom));
         }
 
-        /* --- Styles for the slide-out panel --- */
         #tools-container {
             position: fixed;
             bottom: var(--bottom-bar-height);
@@ -92,7 +91,6 @@ function injectStyles() {
             stroke-width: 2;
         }
         
-        /* --- Tab Bar Styles --- */
         .tools-tab-bar {
             display: flex;
             flex-shrink: 0;
@@ -124,24 +122,13 @@ function injectStyles() {
 
         .tools-content {
             flex-grow: 1;
-            overflow-y: hidden; /* <-- CHANGED: Panel content will scroll */
+            overflow-y: hidden; /* Panels inside will scroll */
             -webkit-overflow-scrolling: touch;
             background: var(--ui-dark-grey); 
             color: var(--workspace-text-color, #f5f5f7);
-            /* --- REMOVED: Padding is now on the panel content --- */
         }
         
-        /* --- ADDED: Placeholder for transform panel --- */
-        #transform-panel-content {
-            display: none;
-            padding: 12px;
-            color: rgba(255,255,255,0.5);
-            text-align: center;
-            font-style: italic;
-        }
-        #transform-panel-content.is-active {
-            display: block;
-        }
+        /* --- REMOVED: Old transform placeholder style --- */
     `;
 
     const styleEl = document.createElement('style');
@@ -154,10 +141,8 @@ function injectStyles() {
  * Creates the HTML markup for the tools UI.
  */
 function createMarkup() {
-    // 'X' icon for close
     const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
     
-    // 1. Main Container
     toolsContainer = document.createElement('div');
     toolsContainer.id = 'tools-container';
     toolsContainer.innerHTML = `
@@ -172,19 +157,13 @@ function createMarkup() {
             <button class="tools-tab-btn" data-tab="transform">Transform</button>
         </div>
         <div class="tools-content">
-            <div id="transform-panel-content">
-                Transform controls (e.g., Position, Rotation, Scale) will go here.
             </div>
-        </div>
     `;
 
-    // 2. Append to body
     document.body.appendChild(toolsContainer);
 
-    // 3. --- ADDED: Get references to content panels ---
+    // Get reference to content area
     toolsContent = toolsContainer.querySelector('.tools-content');
-    propertiesPanelContent = toolsContent.querySelector('#properties-panel-content'); // Will be found by propertiespanel.js
-    transformPanelContent = toolsContent.querySelector('#transform-panel-content');
 }
 
 // --- 3. UI Interaction Functions ---
@@ -198,10 +177,10 @@ function closeToolsPanel() {
 }
 
 /**
- * --- ADDED: Handles switching tab content ---
+ * --- UPDATED: Handles switching tab content ---
  */
 function switchTab(tabName) {
-    // 1. Get panel elements. Properties panel is added by its own module.
+    // 1. Get panel elements (they are added by their own modules)
     propertiesPanelContent = document.getElementById('properties-panel-content');
     transformPanelContent = document.getElementById('transform-panel-content');
 
@@ -233,11 +212,9 @@ export function initTools(app) {
     injectStyles();
     createMarkup();
 
-    // --- 4. Add Event Listeners ---
     const closeBtn = toolsContainer.querySelector('.tools-close-btn');
     closeBtn.addEventListener('click', closeToolsPanel);
     
-    // Tab switching logic
     const tabBar = toolsContainer.querySelector('.tools-tab-bar');
     tabBar.addEventListener('click', (e) => {
         const target = e.target.closest('.tools-tab-btn');
@@ -252,8 +229,7 @@ export function initTools(app) {
         const tabName = target.dataset.tab;
         console.log(`Switched to tab: ${tabName}`);
         
-        // --- ADDED: Call the tab switcher ---
-        switchTab(tabName);
+        switchTab(tabName); // <-- Call the tab switcher
     });
 
     console.log('Tools UI Initialized.');
