@@ -31,8 +31,9 @@ function injectStyles() {
         }
         
         .editor-bar-btn {
-            background: var(--ui-grey);
-            border: 1px solid var(--ui-border);
+            /* --- UPDATED: Background removed --- */
+            background: none;
+            border: none;
             color: #fff;
             opacity: 0.7;
             border-radius: 8px;
@@ -51,7 +52,7 @@ function injectStyles() {
         .editor-bar-btn.is-active {
             color: var(--ui-blue);
             opacity: 1.0;
-            border-color: var(--ui-blue);
+            /* --- UPDATED: Border removed --- */
         }
 
         /* --- Container for all slide-up panels --- */
@@ -60,18 +61,30 @@ function injectStyles() {
             bottom: var(--total-bar-height);
             left: 0;
             width: 100%;
-            height: 40vh;
             background: var(--ui-dark-grey);
+            border-top: 1px solid var(--ui-border); /* Add border to top of panel */
             z-index: 5;
             
             transform: translateY(100%);
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             will-change: transform;
-            overflow: hidden; /* Ensures content slides */
+            overflow: hidden;
         }
         
         .editor-panel.is-open {
             transform: translateY(0);
+        }
+
+        /* --- NEW: Specific panel heights --- */
+        #tools-panel-container {
+            height: var(--editor-bar-height); /* Same height as bar */
+        }
+        #transform-panel-container {
+            height: 25vh; /* 25% of viewport height */
+        }
+        #properties-panel-container {
+            height: auto; /* Size to content */
+            max-height: 40vh; /* Max scroll height */
         }
     `;
     const styleEl = document.createElement('style');
@@ -103,7 +116,6 @@ function createMarkup() {
         panel.className = 'editor-panel';
         document.body.appendChild(panel);
         
-        // Store references
         panels[name] = {
             btn: editorBar.querySelector(`[data-panel="${name}"]`),
             panel: panel
@@ -123,16 +135,12 @@ function createMarkup() {
 function togglePanel(panelName) {
     const wasOpen = panels[panelName].panel.classList.contains('is-open');
     
-    // Close all panels
     closeAllPanels();
     
-    // If it wasn't already open, open it
     if (!wasOpen) {
         panels[panelName].panel.classList.add('is-open');
         panels[panelName].btn.classList.add('is-active');
         currentOpenPanel = panelName;
-        
-        // Also close the workspace
         App.workspace.close();
     }
 }
@@ -162,7 +170,6 @@ export function initEditorBar(app) {
     injectStyles();
     createMarkup();
 
-    // Attach public API
     if (!App.editorBar) App.editorBar = {};
     App.editorBar.openPanel = openPanel;
     App.editorBar.closeAllPanels = closeAllPanels;
@@ -170,11 +177,10 @@ export function initEditorBar(app) {
     App.editorBar.hide = () => { if (editorBar) editorBar.style.display = 'none'; };
     App.editorBar.show = () => { if (editorBar) editorBar.style.display = 'flex'; };
     
-    // --- Add wrapper for workspace ---
     const originalWorkspaceOpen = App.workspace.open;
     App.workspace.open = () => {
         originalWorkspaceOpen();
-        closeAllPanels(); // Close editor panels when workspace opens
+        closeAllPanels(); 
     };
 
     console.log('Editor Bar UI Initialized.');
