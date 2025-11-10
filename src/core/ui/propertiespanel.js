@@ -3,7 +3,6 @@
 let App;
 let panelContainer;
 
-// --- ADDED: Arrow icon, same as workspace ---
 const ARROW_ICON = `<svg class="prop-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>`;
 
 /**
@@ -25,11 +24,17 @@ function injectStyles() {
         #properties-panel-content.is-active {
             display: block;
         }
-
-        /* --- NEW: Styles based on workspace.js --- */
         
+        /* Style for empty state */
+        .prop-empty-state {
+            font-size: 14px;
+            color: rgba(255,255,255,0.4);
+            font-style: italic;
+            text-align: center;
+            padding-top: 20px;
+        }
+
         .prop-group {
-            /* This is the main container for a property and its content */
             border-bottom: 1px solid var(--ui-border);
         }
         .prop-group:last-child {
@@ -70,23 +75,37 @@ function injectStyles() {
             transition: max-height 0.3s ease-out;
             padding-left: 12px;
             
-            /* --- This is the empty space for parameters --- */
-            min-height: 50px; /* Placeholder height */
             font-size: 13px;
-            color: rgba(255,255,255,0.4);
-            font-style: italic;
+            color: rgba(255,255,255,0.8); 
+            font-style: normal; 
             padding: 10px 10px 16px 28px;
         }
 
-        /* --- Toggling logic --- */
+        /* Toggling logic */
         .prop-group.is-closed .prop-content {
             max-height: 0;
-            min-height: 0; /* Collapse min-height */
+            min-height: 0;
             padding-top: 0;
             padding-bottom: 0;
         }
         .prop-group.is-closed .prop-arrow {
             transform: rotate(-90deg);
+        }
+        
+        /* Styles for parameter inputs */
+        .prop-input {
+            width: 90%;
+            background: var(--ui-dark-grey);
+            color: #fff;
+            border: 1px solid var(--ui-border);
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+        
+        .prop-text-value {
+            font-weight: 400;
+            word-break: break-all; /* For long UUIDs */
         }
     `;
 
@@ -95,6 +114,7 @@ function injectStyles() {
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 }
+
 
 /**
  * Creates the HTML markup for the properties panel.
@@ -110,81 +130,85 @@ function createMarkup() {
     panelContainer.id = 'properties-panel-content';
     panelContainer.className = 'is-active'; 
 
-    panelContainer.innerHTML = `
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Object Name</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Object Name)
-            </div>
-        </div>
-
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Unique ID</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Unique ID)
-            </div>
-        </div>
-        
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Vertices</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Vertices)
-            </div>
-        </div>
-
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Polygons</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Polygons)
-            </div>
-        </div>
-
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Object Position</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Object Position)
-            </div>
-        </div>
-        
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Uniform Scale</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Uniform Scale)
-            </div>
-        </div>
-        
-        <div class="prop-group is-closed">
-            <div class="prop-header">
-                ${ARROW_ICON}
-                <span class="prop-name">Parent</span>
-            </div>
-            <div class="prop-content">
-                (Parameters for Parent)
-            </div>
-        </div>
-    `;
+    // Start with the "empty" state
+    clearPanelData();
 
     toolsContent.appendChild(panelContainer);
+}
 
-    // --- ADDED: Toggle logic ---
+/**
+ * Fills the panel with data from the selected object
+ */
+function updatePanelData(object) {
+    // --- 1. Get Data (with safety checks) ---
+    const name = object.name || '(Unnamed)';
+    const uuid = object.uuid;
+    
+    let vertices = 'N/A';
+    let polygons = 'N/A';
+    if (object.geometry) {
+        vertices = object.geometry.attributes.position.count.toLocaleString();
+        polygons = (object.geometry.index ? object.geometry.index.count / 3 : object.geometry.attributes.position.count / 3).toLocaleString();
+    }
+    
+    const posX = object.position.x.toFixed(2);
+    const posY = object.position.y.toFixed(2);
+    const posZ = object.position.z.toFixed(2);
+    
+    const scaleX = object.scale.x.toFixed(2);
+    
+    const parent = object.parent ? object.parent.name || object.parent.type : 'Scene';
+
+    // --- 2. Build HTML ---
+    const createProp = (title, content, startOpen = false) => {
+        return `
+            <div class="prop-group ${startOpen ? '' : 'is-closed'}">
+                <div class="prop-header">
+                    ${ARROW_ICON}
+                    <span class="prop-name">${title}</span>
+                </div>
+                <div class="prop-content">
+                    ${content}
+                </div>
+            </div>
+        `;
+    };
+
+    let html = '';
+    
+    html += createProp('Object Name', `
+        <input type="text" class="prop-input" value="${name}">
+    `, true); // Start open
+
+    html += createProp('Unique ID', `
+        <div class="prop-text-value">${uuid}</div>
+    `);
+
+    html += createProp('Vertices', `
+        <div class="prop-text-value">${vertices}</div>
+    `);
+    
+    html += createProp('Polygons', `
+        <div class="prop-text-value">${polygons}</div>
+    `);
+    
+    html += createProp('Object Position', `
+        <div>X: <span class="prop-text-value">${posX}</span></div>
+        <div>Y: <span class="prop-text-value">${posY}</span></div>
+        <div>Z: <span class="prop-text-value">${posZ}</span></div>
+    `);
+    
+    html += createProp('Uniform Scale', `
+        <div class="prop-text-value">${scaleX}</div>
+    `);
+    
+    html += createProp('Parent', `
+        <div class="prop-text-value">${parent}</div>
+    `);
+
+    panelContainer.innerHTML = html;
+
+    // --- 3. Re-attach Listeners ---
     panelContainer.querySelectorAll('.prop-header').forEach(header => {
         header.addEventListener('click', () => {
             const group = header.closest('.prop-group');
@@ -193,6 +217,17 @@ function createMarkup() {
             }
         });
     });
+}
+
+/**
+ * Clears the panel and shows an empty state
+ */
+function clearPanelData() {
+    panelContainer.innerHTML = `
+        <div class="prop-empty-state">
+            No object selected
+        </div>
+    `;
 }
 
 function showPanel() {
@@ -210,16 +245,15 @@ export function initPropertiesPanel(app) {
     App = app;
 
     injectStyles();
-    // We delay createMarkup to ensure .tools-content exists
     setTimeout(createMarkup, 100); 
 
-    // Attach the public API to the App object
     if (!App.propertiesPanel) App.propertiesPanel = {};
     App.propertiesPanel.show = showPanel;
     App.propertiesPanel.hide = hidePanel;
     
-    // Future:
-    // App.propertiesPanel.update = (selectedObject) => { ... }
+    // Subscribe to the events
+    App.events.subscribe('selectionChanged', updatePanelData);
+    App.events.subscribe('selectionCleared', clearPanelData);
 
     console.log('Properties Panel Initialized.');
 }
