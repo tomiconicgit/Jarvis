@@ -13,7 +13,8 @@
     
     <link rel="manifest" href="manifest.json">
 
-    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <!-- Removed es-module-shims to fix Safari resolution conflict -->
+    <!-- <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script> -->
     <script type="importmap">
     {
       "imports": {
@@ -21,113 +22,4 @@
         "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
         
         /* --- Standard OrbitControls for the editor camera --- */
-        "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js",
-        
-        /* --- Loader for HDRI environment maps --- */
-        "three/examples/jsm/loaders/RGBELoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/RGBELoader.js",
-        
-        /* --- Model Loaders --- */
-        "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/GLTFLoader.js",
-        "three/examples/jsm/loaders/FBXLoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/FBXLoader.js",
-        "three/examples/jsm/loaders/OBJLoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/OBJLoader.js",
-        
-        /* --- FBX Loader Dependency (for compressed FBX files) --- */
-        "three/examples/jsm/libs/fflate.module.min.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/libs/fflate.module.js",
-
-        /* --- Model Exporters --- */
-        "three/examples/jsm/exporters/GLTFExporter.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/GLTFExporter.js",
-        "three/examples/jsm/exporters/OBJExporter.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/OBJExporter.js",
-        
-        /* --- Transform Controls (the move/rotate/scale gizmo) --- */
-        "three/examples/jsm/controls/TransformControls.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/TransformControls.js",
-
-        /* --- Zip Library (for exporting OBJ with materials/textures) --- */
-        "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.js"
-      }
-    }
-    </script>
-
-    <style>
-        /* Basic reset for the entire page */
-        html, body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevents scrollbars, as the app is full-screen */
-            font-family: Arial, sans-serif; /* Default fallback font */
-            background: #1e1e1e; /* Dark background color */
-            color: #fff; /* Light text color */
-            width: 100%;
-            height: 100%;
-            
-            /* --- ADDED: Prevents double-tap to zoom --- */
-            /* This is crucial for a mobile app feel. 'manipulation' allows
-               pinch-zoom (if enabled) but disables double-tap to zoom, which
-               would interfere with UI interactions. */
-            touch-action: manipulation;
-        }
-
-        /* The main <canvas> element where Three.js will draw the 3D scene. */
-        #viewport {
-            width: 100vw; /* 100% of the viewport width */
-            
-            /* --- UPDATED: --- */
-            /* This 'calc()' function makes the canvas fill the remaining space.
-               It takes the full viewport height (100vh) and subtracts:
-               - 110px (the combined height of the main bar (60px) and editor bar (50px))
-               - env(safe-area-inset-bottom) (the space for the "home bar" on new iPhones)
-               This ensures the canvas stops exactly above the UI bars. */
-            height: calc(100vh - (110px + env(safe-area-inset-bottom))); 
-            
-            display: block; /* Removes any default inline spacing */
-        }
-
-        /* The loading screen overlay */
-        #loading-screen {
-            position: fixed; /* Makes it cover the entire screen */
-            inset: 0; /* Shortcut for top:0, right:0, bottom:0, left:0 */
-            background: #000; /* Solid black background */
-            display: flex; /* Use flexbox for easy centering */
-            flex-direction: column; /* Stack children vertically */
-            align-items: center; /* Center horizontally */
-            justify-content: center; /* Center vertically */
-            z-index: 100; /* Ensures it's on top of all other content (except modals) */
-        }
-
-        /* The container for the loading bar */
-        #loading-bar {
-            width: 80%;
-            height: 20px;
-            background: #333; /* Dark grey track */
-            border-radius: 10px;
-            overflow: hidden; /* Ensures the progress bar stays inside the rounded corners */
-        }
-
-        /* The moving "progress" part of the bar */
-        #loading-progress {
-            height: 100%;
-            background: #0f0; /* Bright green */
-            width: 0; /* Starts at 0 width */
-            transition: width 0.3s; /* Smoothly animates the width when it changes */
-        }
-
-        /* The text label below the bar (e.g., "Loading modules...") */
-        #loading-info {
-            margin-top: 10px;
-            font-size: 14px;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <div id="loading-screen">
-        <div id="loading-bar">
-            <div id="loading-progress" id="loading-progress"></div>
-        </div>
-        <div id="loading-info" id="loading-info">Loading modules...</div>
-    </div>
-
-    <canvas id="viewport"></canvas>
-
-    <script type="module" src="launcher.js"></script>
-</body>
-</html>
+        "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/th
