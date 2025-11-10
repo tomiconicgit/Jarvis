@@ -49,13 +49,13 @@ const coreServices = [
 ];
 
 // Pluggable UI modules
+// --- UPDATED: Removed tools.js, added new modules ---
 const uiModules = [
     './core/ui/workspace.js',
-    // --- GONE: './core/ui/tools.js'
     './core/ui/menu.js',
-    './core/ui/editorbar.js', // <-- ADDED
-    './core/ui/gizmo.js', // Gizmo logic (no UI)
-    './core/ui/gizmotools.js', // <-- ADDED (Gizmo UI)
+    './core/ui/editorbar.js',
+    './core/ui/gizmo.js',
+    './core/ui/gizmotools.js',
     './core/ui/propertiespanel.js',
     './core/ui/transformpanel.js'
 ];
