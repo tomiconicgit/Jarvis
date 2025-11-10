@@ -4,7 +4,6 @@
 let App;
 
 // UI elements
-// --- REMOVED from here ---
 let stopButton;
 
 /**
@@ -55,7 +54,6 @@ function injectStyles() {
 function createMarkup() {
     stopButton = document.createElement('button');
     stopButton.id = 'testplay-stop-btn';
-    // Simple "Stop" icon (a square)
     stopButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>`;
     
     document.body.appendChild(stopButton);
@@ -68,10 +66,8 @@ function createMarkup() {
  */
 function startTestMode() {
     if (!App) return;
-
-    // --- FIX: Find UI elements just-in-time ---
+    
     const bottomBar = document.getElementById('bottom-bar');
-    // --- END FIX ---
     
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
@@ -83,9 +79,11 @@ function startTestMode() {
     };
 
     // 2. Hide Editor UI
-    if (bottomBar) bottomBar.style.display = 'none'; // <-- Added safety check
+    if (bottomBar) bottomBar.style.display = 'none';
     App.workspace.close();
     App.tools.close();
+    App.gizmo.hideUI(); // <-- HIDE GIZMO UI
+    App.gizmo.detach(); // <-- HIDE GIZMO
 
     // 3. Show Test Mode UI
     stopButton.style.display = 'flex';
@@ -94,9 +92,6 @@ function startTestMode() {
     // 4. Activate Player/First Person View
     App.player.activate();
     App.firstPersonControls.activate();
-
-    // 5. (Future) Activate scripts
-    // App.scriptEngine.runAll();
 }
 
 /**
@@ -105,36 +100,37 @@ function startTestMode() {
 function stopTestMode() {
     if (!App) return;
 
-    // --- FIX: Find UI elements just-in-time ---
     const bottomBar = document.getElementById('bottom-bar');
-    // --- END FIX ---
 
     console.log('[Engine] Stopping Test Mode...');
     App.engine.isTesting = false;
 
-    // 1. (Future) Stop scripts
-    // App.scriptEngine.stopAll();
-
-    // 2. Deactivate Player/First Person View
+    // 1. Deactivate Player/First Person View
     App.player.deactivate();
     App.firstPersonControls.deactivate();
 
-    // 3. Hide Test Mode UI
+    // 2. Hide Test Mode UI
     stopButton.style.display = 'none';
     App.joystick.hide();
     
-    // 4. Show Editor UI
-    if (bottomBar) bottomBar.style.display = 'flex'; // <-- Added safety check
+    // 3. Show Editor UI
+    if (bottomBar) bottomBar.style.display = 'flex';
+    App.gizmo.showUI(); // <-- SHOW GIZMO UI
     
-    // 5. Restore editor camera
+    // 4. Restore editor camera
     if (App.editorCameraState) {
         App.camera.position.copy(App.editorCameraState.position);
         App.controls.target.copy(App.editorCameraState.target);
         App.controls.update();
     }
     
-    // Ensure OrbitControls are re-enabled
     App.controls.enabled = true;
+    
+    // 5. Re-select object to show gizmo
+    const selected = App.selectionContext.getSelected();
+    if (selected) {
+        App.events.publish('selectionChanged', selected);
+    }
 }
 
 /**
@@ -148,31 +144,22 @@ export function initTestPlay(app) {
     App = app;
     App.engine.isTesting = false;
     App.editorCameraState = null;
-    
-    // --- REMOVED: Don't find UI elements here ---
-    // bottomBar = document.getElementById('bottom-bar');
-    // workspaceContainer = document.getElementById('workspace-container');
-    // toolsContainer = document.getElementById('tools-container');
 
     injectStyles();
     createMarkup();
 
-    // Attach to the App.engine
     App.engine.startTestMode = startTestMode;
     App.engine.stopTestMode = stopTestMode;
     
-    // Find the play button in the menu and hook it up
-    // We must wait for the menu to be created, so we use a small delay.
     setTimeout(() => {
         const playBtn = document.getElementById('bottom-bar-play-btn');
         if (playBtn) {
-            // Remove the old 'alert' listener and add the real one
             playBtn.replaceWith(playBtn.cloneNode(true));
             document.getElementById('bottom-bar-play-btn').addEventListener('click', startTestMode);
         } else {
             console.warn('TestPlay: Could not find play button to attach event.');
         }
-    }, 1000); // Wait 1s for menu.js to be fully initialized
+    }, 1000); 
 
     console.log('Test Play Engine Initialized.');
 }
