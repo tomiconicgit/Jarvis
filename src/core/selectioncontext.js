@@ -5,6 +5,7 @@ import * as THREE from 'three';
 let App;
 let selectedObject = null;
 let outlineMesh = null;
+let isHighlightEnabled = true; // <-- NEW
 
 /**
  * Creates the visual outline mesh and adds it to the scene.
@@ -44,8 +45,31 @@ function focusOnObject(object) {
 }
 
 /**
+ * --- NEW: Toggles the highlight visibility ---
+ * @param {boolean} [forceState] - Force on (true) or off (false)
+ */
+function toggleHighlight(forceState) {
+    if (forceState !== undefined) {
+        isHighlightEnabled = forceState;
+    } else {
+        isHighlightEnabled = !isHighlightEnabled;
+    }
+
+    // Update visibility based on state
+    if (isHighlightEnabled && selectedObject) {
+        if (selectedObject.isMesh) {
+            outlineMesh.visible = true;
+        }
+    } else {
+        outlineMesh.visible = false;
+    }
+    
+    return isHighlightEnabled;
+}
+
+
+/**
  * Selects an object, showing its outline and focusing the camera.
- * @param {THREE.Object3D} object - The object to select.
  */
 function select(object) {
     if (!object || object === selectedObject) {
@@ -64,7 +88,11 @@ function select(object) {
         outlineMesh.position.copy(object.position);
         outlineMesh.rotation.copy(object.rotation);
         outlineMesh.scale.copy(object.scale);
-        outlineMesh.visible = true;
+        
+        // --- UPDATED: Use toggle function ---
+        if (isHighlightEnabled) {
+            outlineMesh.visible = true;
+        }
     } else {
         outlineMesh.visible = false;
     }
@@ -74,7 +102,6 @@ function select(object) {
     
     console.log(`Selection Context: Selected '${object.name}'`);
     
-    // --- ADDED: Publish the selection change event ---
     App.events.publish('selectionChanged', selectedObject);
 }
 
@@ -85,7 +112,7 @@ function clear() {
     if (!selectedObject) return;
     
     selectedObject = null;
-    outlineMesh.visible = false;
+    outlineMesh.visible = false; // --- Always hide on clear
     
     if (outlineMesh.geometry) {
         outlineMesh.geometry.dispose();
@@ -94,13 +121,11 @@ function clear() {
     
     console.log('Selection Context: Cleared');
     
-    // --- ADDED: Publish the selection cleared event ---
     App.events.publish('selectionCleared');
 }
 
 /**
  * Returns the currently selected object.
- * @returns {THREE.Object3D | null}
  */
 function getSelected() {
     return selectedObject;
@@ -108,10 +133,9 @@ function getSelected() {
 
 /**
  * Initializes the Selection Context module.
- * @param {object} app - The main App object.
  */
 export function initSelectionContext(app) {
-    if (!app || !app.scene || !app.camera || !app.controls || !app.events) { // Added app.events check
+    if (!app || !app.scene || !app.camera || !app.controls || !app.events) {
         throw new Error('SelectionContext init failed: App object is incomplete.');
     }
     
@@ -123,7 +147,8 @@ export function initSelectionContext(app) {
     app.selectionContext = {
         select: select,
         clear: clear,
-        getSelected: getSelected
+        getSelected: getSelected,
+        toggleHighlight: toggleHighlight // <-- NEW
     };
     
     console.log('Selection Context Initialized.');
