@@ -4,7 +4,7 @@ import { checkForErrors, initDebugger } from '../debugger.js';
 import * as THREE from 'three'; 
 
 // --- Core modules (load these first) ---
-import { initEventBus } from './core/events.js'; // <-- ADDED
+import { initEventBus } from './core/events.js'; 
 import { initViewport } from './core/viewport.js';
 import { initCamera } from './core/camera.js';
 import { initFileManagement } from './core/filemanagement.js';
@@ -31,7 +31,7 @@ import { initTestPlay } from './core/engine/testplay.js';
 
 // Core services that provide an API
 const coreServices = [
-    initEventBus, // <-- ADDED (Must be first)
+    initEventBus, 
     initFileManagement,
     initSelectionContext,
     initModal,
@@ -53,7 +53,8 @@ const uiModules = [
     './core/ui/workspace.js',
     './core/ui/tools.js',
     './core/ui/menu.js',
-    './core/ui/propertiespanel.js'
+    './core/ui/propertiespanel.js',
+    './core/ui/transformpanel.js' // <-- ADDED THIS LINE
 ];
 
 // Default assets that make up a "New Project"
@@ -110,7 +111,6 @@ async function loadModuleInit(path) {
 
     // 4. Initialize Core Services
     console.log('[Main] Initializing core services...');
-    // --- UPDATED: Run in sequence to respect dependencies ---
     for (const initFunc of coreServices) {
         initFunc(App);
     }
@@ -118,7 +118,6 @@ async function loadModuleInit(path) {
     // 5. Load and initialize all UI modules
     console.log('[Main] Initializing UI modules...');
     const uiInits = (await Promise.all(uiModules.map(loadModuleInit))).filter(Boolean);
-    // --- UPDATED: Run in sequence to respect dependencies ---
     for (const initFunc of uiInits) {
         initFunc(App);
     }
