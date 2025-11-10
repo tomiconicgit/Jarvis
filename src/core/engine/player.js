@@ -27,17 +27,14 @@ function updatePlayer(deltaTime) {
     cameraForward.normalize();
     
     // Get camera's right vector
-    // --- FIX 1: Flipped cross product to get 'right' instead of 'left' ---
     cameraRight.crossVectors(cameraForward, camera.up).normalize();
 
     // Calculate movement direction based on input
     moveDirection.set(0, 0, 0);
 
-    // --- FIX 2: Use input.y directly instead of -input.y ---
     if (input.y !== 0) {
         moveDirection.addScaledVector(cameraForward, input.y);
     }
-    // --- (X-axis logic was already correct *after* fixing cameraRight) ---
     if (input.x !== 0) {
         moveDirection.addScaledVector(cameraRight, input.x);
     }
@@ -49,12 +46,6 @@ function updatePlayer(deltaTime) {
 
     // Apply movement
     playerObject.position.addScaledVector(moveDirection, speed);
-
-    // (Future) Apply gravity
-    // ...
-
-    // (Future) Check collisions
-    // ...
 }
 
 /**
@@ -63,39 +54,61 @@ function updatePlayer(deltaTime) {
 export function initPlayer(app) {
     App = app;
 
-    // 1. Create the player object
+    // 1. Create the player object (as a Group)
     const playerObject = new THREE.Group();
     playerObject.name = "Player";
     playerObject.position.set(0, 0, 0); // Start at 0,0 (ground level)
     
+    // --- NEW: Add a visible mesh to represent the player in the editor ---
+    const capsuleGeo = new THREE.CapsuleGeometry(0.3, 1.2, 4, 8); // (radius, height, segments)
+    const capsuleMat = new THREE.MeshStandardMaterial({ 
+        color: 0x007aff, 
+        transparent: true, 
+        opacity: 0.5 
+    });
+    const playerMesh = new THREE.Mesh(capsuleGeo, capsuleMat);
+    playerMesh.position.set(0, (1.2 / 2) + 0.3, 0); // Stand capsule on the ground (height/2 + radius)
+    playerMesh.name = "PlayerRepresentation";
+    playerObject.add(playerMesh);
+    
+    // --- NEW: Add to scene immediately, but hide it ---
+    playerObject.visible = false;
+    App.scene.add(playerObject);
+
     // 2. Create the main App.player namespace
     App.player = {
         object: playerObject,
         camera: null,      // Will be set by firstpersonview.js
         input: { x: 0, y: 0 }, // Will be set by joystick.js
         
-        // --- Player Stats ---
         movementSpeed: 4.0, // Meters per second
         jumpHeight: 1.0,
         health: 100,
-        
-        // --- State ---
         isActive: false,
         
-        // --- Methods ---
         update: updatePlayer,
         activate: () => {
             App.player.isActive = true;
-            App.player.object.position.set(0, PLAYER_HEIGHT, 0); // Reset position
-            App.scene.add(App.player.object);
+            App.player.object.position.set(0, 0, 0); // Reset position
+            App.player.object.visible = true; // --- Show player ---
             console.log('Player activated');
         },
         deactivate: () => {
             App.player.isActive = false;
-            App.scene.remove(App.player.object);
+            App.player.object.visible = false; // --- Hide player ---
             console.log('Player deactivated');
         }
     };
+    
+    // --- NEW: Register Player with File Manager ---
+    if (App.fileManager) {
+        App.fileManager.registerFile({
+            id: playerObject.uuid, // Use the Group's UUID
+            name: 'Player',
+            icon: 'player', // We will add this icon in workspace.js
+            parentId: 'default'
+        });
+    }
 
     console.log('Player Engine Initialized.');
 }
