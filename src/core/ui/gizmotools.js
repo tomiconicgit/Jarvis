@@ -77,7 +77,6 @@ function injectStyles() {
  * Creates the HTML markup for the gizmo tools.
  */
 function createMarkup() {
-    // --- Find the container created by editorbar.js ---
     panelContainer = document.getElementById('tools-panel-container');
     if (!panelContainer) {
         console.error('GizmoTools: #tools-panel-container not found!');
@@ -86,6 +85,8 @@ function createMarkup() {
     
     const content = document.createElement('div');
     content.id = 'gizmo-tools-content';
+    
+    // --- UPDATED: Removed Highlight button ---
     content.innerHTML = `
         <button class="gizmo-tool-toggle is-active" data-action="gizmo" data-mode="translate">
             <span class="toggle-label">Position</span>
@@ -103,7 +104,7 @@ function createMarkup() {
             <span class="toggle-label">Grid</span>
             <div class="toggle-box"></div>
         </button>
-        `;
+    `;
     
     panelContainer.appendChild(content);
     
@@ -125,6 +126,8 @@ function createMarkup() {
             target.classList.toggle('is-active');
             App.grid.visible = !App.grid.visible;
         }
+        
+        // --- GONE: Highlight listener removed ---
     });
 }
 
@@ -134,7 +137,6 @@ function createMarkup() {
 export function initGizmoTools(app) {
     App = app;
     injectStyles();
-    // Wait for editorbar to create the container
     setTimeout(createMarkup, 100); 
 
     console.log('Gizmo Tools UI Initialized.');
