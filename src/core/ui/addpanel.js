@@ -2,7 +2,7 @@
 
 let App;
 let addPanel;
-let addBtn;
+// --- GONE: addBtn variable removed ---
 
 // Placeholder SVGs for the new items
 const ICONS = {
@@ -23,15 +23,13 @@ function injectStyles() {
         /* This panel slides up from the main bottom bar */
         #add-panel {
             position: fixed;
-            /* Sit right on top of the main bar */
             bottom: calc(var(--main-bar-height) + var(--ui-safe-bottom)); 
             left: 0;
             width: 100%;
-            /* Make it one row high */
             height: var(--editor-bar-height); 
             background: var(--ui-dark-grey);
             border-top: 1px solid var(--ui-border);
-            z-index: 10; /* Same as editor bar */
+            z-index: 10;
             
             display: flex;
             align-items: center;
@@ -39,7 +37,6 @@ function injectStyles() {
             padding: 0 5px;
             box-sizing: border-box;
             
-            /* Hidden by default, slides up */
             transform: translateY(100%);
             transition: transform 0.3s ease-out;
         }
@@ -61,7 +58,6 @@ function injectStyles() {
             font-size: 13px;
             font-weight: 500;
             
-            /* Icon layout */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -114,23 +110,20 @@ function createMarkup() {
 
     document.body.appendChild(addPanel);
 
-    // Add listeners
     addPanel.addEventListener('click', (e) => {
         const target = e.target.closest('.add-panel-btn');
         if (!target) return;
 
         const action = target.dataset.action;
-        // Placeholder for now
         App.modal.alert(`Selected: ${action}`);
         
-        // Close the panel after clicking an item
         closePanel();
     });
 }
 
 function openPanel() {
     if (addPanel) addPanel.classList.add('is-open');
-    if (addBtn) addBtn.classList.add('is-active');
+    // --- GONE: No longer manages addBtn class ---
     
     // Close other panels
     App.workspace.close();
@@ -139,7 +132,7 @@ function openPanel() {
 
 function closePanel() {
     if (addPanel) addPanel.classList.remove('is-open');
-    if (addBtn) addBtn.classList.remove('is-active');
+    // --- GONE: No longer manages addBtn class ---
 }
 
 function togglePanel() {
@@ -159,27 +152,12 @@ export function initAddPanel(app) {
     injectStyles();
     createMarkup();
 
-    // Attach public API
     if (!App.addPanel) App.addPanel = {};
     App.addPanel.open = openPanel;
     App.addPanel.close = closePanel;
     App.addPanel.toggle = togglePanel;
 
-    // --- Add wrapper for the add button in menu.js ---
-    setTimeout(() => {
-        addBtn = document.getElementById('bottom-bar-add-btn');
-        if (addBtn) {
-            // Replace the old alert listener
-            addBtn.replaceWith(addBtn.cloneNode(true));
-            // Get new reference and add the real listener
-            addBtn = document.getElementById('bottom-bar-add-btn');
-            addBtn.addEventListener('click', () => {
-                togglePanel();
-                // Close the main menu if it's open
-                App.events.publish('closeMenu'); 
-            });
-        }
-    }, 1000); // Wait for menu.js to create the button
+    // --- GONE: Removed setTimeout and replaceWith logic ---
 
     console.log('Add Panel Initialized.');
 }
