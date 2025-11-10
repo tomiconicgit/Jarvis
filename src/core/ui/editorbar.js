@@ -25,13 +25,14 @@ function injectStyles() {
             z-index: 10;
             display: flex;
             align-items: center;
-            justify-content: space-around;
+            /* --- UPDATED: Use space-around for even spacing --- */
+            justify-content: space-around; 
             padding: 0 5px;
             box-sizing: border-box;
         }
         
         .editor-bar-btn {
-            /* --- UPDATED: Background removed --- */
+            /* --- UPDATED: Removed background/border --- */
             background: none;
             border: none;
             color: #fff;
@@ -39,7 +40,8 @@ function injectStyles() {
             border-radius: 8px;
             height: 40px;
             flex-grow: 1;
-            margin: 0 5px;
+            /* --- UPDATED: Use small margin for spacing --- */
+            margin: 0 2px;
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
@@ -52,7 +54,12 @@ function injectStyles() {
         .editor-bar-btn.is-active {
             color: var(--ui-blue);
             opacity: 1.0;
-            /* --- UPDATED: Border removed --- */
+            /* --- REMOVED: border-color --- */
+        }
+        
+        .editor-bar-btn[disabled] {
+            opacity: 0.3;
+            cursor: not-allowed;
         }
 
         /* --- Container for all slide-up panels --- */
@@ -62,7 +69,7 @@ function injectStyles() {
             left: 0;
             width: 100%;
             background: var(--ui-dark-grey);
-            border-top: 1px solid var(--ui-border); /* Add border to top of panel */
+            border-top: 1px solid var(--ui-border);
             z-index: 5;
             
             transform: translateY(100%);
@@ -75,7 +82,7 @@ function injectStyles() {
             transform: translateY(0);
         }
 
-        /* --- NEW: Specific panel heights --- */
+        /* --- UPDATED: Specific panel heights --- */
         #tools-panel-container {
             height: var(--editor-bar-height); /* Same height as bar */
         }
