@@ -92,7 +92,7 @@ function injectStyles() {
 }
 
 /**
- * --- NEW: Updates the 3D object from a stepper action ---
+ * Updates the 3D object from a stepper action
  */
 function updateObjectFromStepper(prop, axis, step) {
     const object = App.selectionContext.getSelected();
@@ -109,14 +109,12 @@ function updateObjectFromStepper(prop, axis, step) {
         object[prop][axis] = value;
     }
     
-    // Update the UI
     updateTransformPanel(object);
-    // Tell the gizmo to update
     App.gizmo.update();
 }
 
 /**
- * --- NEW: Updates the 3D object from a prompt ---
+ * Updates the 3D object from a prompt
  */
 function updateObjectFromPrompt(prop, axis) {
     const object = App.selectionContext.getSelected();
@@ -128,7 +126,7 @@ function updateObjectFromPrompt(prop, axis) {
     }
     
     const newValueStr = window.prompt(`Enter new value for ${prop} ${axis.toUpperCase()}:`, currentValue.toFixed(3));
-    if (newValueStr === null) return; // User cancelled
+    if (newValueStr === null) return;
 
     let newValue = parseFloat(newValueStr);
     if (isNaN(newValue)) {
@@ -142,9 +140,7 @@ function updateObjectFromPrompt(prop, axis) {
     
     object[prop][axis] = newValue;
     
-    // Update the UI
     updateTransformPanel(object);
-    // Tell the gizmo to update
     App.gizmo.update();
 }
 
@@ -165,11 +161,9 @@ function createMarkup() {
     clearPanelData("Select a Mesh object to transform.");
     toolsContent.appendChild(panelContainer);
     
-    // --- UPDATED: Event delegation for steppers ---
     panelContainer.addEventListener('click', (event) => {
         const target = event.target;
         
-        // Handle +/- button clicks
         if (target.classList.contains('stepper-btn')) {
             const row = target.closest('.stepper-row');
             const prop = row.dataset.prop;
@@ -178,7 +172,6 @@ function createMarkup() {
             updateObjectFromStepper(prop, axis, step);
         }
         
-        // Handle value box click
         if (target.classList.contains('stepper-value')) {
             const row = target.closest('.stepper-row');
             const prop = row.dataset.prop;
@@ -222,7 +215,6 @@ function updatePanelData(object) {
         return;
     }
 
-    // --- NEW: Helper to create one stepper row ---
     const createStepper = (label, prop, axis, step) => {
         return `
             <div class="stepper-row" data-prop="${prop}" data-axis="${axis}">
@@ -236,9 +228,9 @@ function updatePanelData(object) {
 
     let html = `
         <div class="transform-header">Position</div>
-        ${createStepper('X', 'position', 'x', 0.01)}
-        ${createStepper('Y', 'position', 'y', 0.01)}
-        ${createStepper('Z', 'position', 'z', 0.01)}
+        ${createStepper('X', 'position', 'x', 0.1)}
+        ${createStepper('Y', 'position', 'y', 0.1)}
+        ${createStepper('Z', 'position', 'z', 0.1)}
 
         <div class="transform-header">Rotation</div>
         ${createStepper('X', 'rotation', 'x', 1.0)}
@@ -253,7 +245,6 @@ function updatePanelData(object) {
     
     panelContainer.innerHTML = html;
     
-    // Now that HTML is built, update steppers to object's current values
     updateTransformPanel(object);
 }
 
@@ -289,11 +280,8 @@ export function initTransformPanel(app) {
     App.transformPanel.show = showPanel;
     App.transformPanel.hide = hidePanel;
     
-    // Subscribe to events
     App.events.subscribe('selectionChanged', updatePanelData);
     App.events.subscribe('selectionCleared', () => clearPanelData("No object selected."));
-    
-    // Listen for gizmo changes
     App.events.subscribe('objectTransformed', updateTransformPanel);
 
     console.log('Transform Panel Initialized.');
