@@ -129,7 +129,8 @@ function stopTestMode() {
     // 3. Show Editor UI
     if (bottomBar) bottomBar.style.display = 'flex';
     if (editorBar) editorBar.style.display = 'flex'; 
-    if (addPanel) addPanel.style.display = 'flex'; // <-- ADDED
+    // --- UPDATED: Use display 'flex' for add-panel ---
+    if (addPanel) addPanel.style.display = 'flex'; 
     
     // 4. Resize Viewport back to Editor size
     if (viewport) {
@@ -171,5 +172,6 @@ export function initTestPlay(app) {
     App.engine.stopTestMode = stopTestMode;
     
     // --- GONE: Removed setTimeout and replaceWith logic ---
+
     console.log('Test Play Engine Initialized.');
 }
