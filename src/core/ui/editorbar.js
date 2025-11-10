@@ -25,14 +25,12 @@ function injectStyles() {
             z-index: 10;
             display: flex;
             align-items: center;
-            /* --- UPDATED: Use space-around for even spacing --- */
             justify-content: space-around; 
             padding: 0 5px;
             box-sizing: border-box;
         }
         
         .editor-bar-btn {
-            /* --- UPDATED: Removed background/border --- */
             background: none;
             border: none;
             color: #fff;
@@ -40,7 +38,6 @@ function injectStyles() {
             border-radius: 8px;
             height: 40px;
             flex-grow: 1;
-            /* --- UPDATED: Use small margin for spacing --- */
             margin: 0 2px;
             cursor: pointer;
             font-size: 13px;
@@ -54,7 +51,6 @@ function injectStyles() {
         .editor-bar-btn.is-active {
             color: var(--ui-blue);
             opacity: 1.0;
-            /* --- REMOVED: border-color --- */
         }
         
         .editor-bar-btn[disabled] {
@@ -82,16 +78,15 @@ function injectStyles() {
             transform: translateY(0);
         }
 
-        /* --- UPDATED: Specific panel heights --- */
         #tools-panel-container {
-            height: var(--editor-bar-height); /* Same height as bar */
+            height: var(--editor-bar-height);
         }
         #transform-panel-container {
-            height: 25vh; /* 25% of viewport height */
+            height: 25vh;
         }
         #properties-panel-container {
-            height: auto; /* Size to content */
-            max-height: 40vh; /* Max scroll height */
+            height: auto;
+            max-height: 40vh;
         }
     `;
     const styleEl = document.createElement('style');
@@ -149,6 +144,7 @@ function togglePanel(panelName) {
         panels[panelName].btn.classList.add('is-active');
         currentOpenPanel = panelName;
         App.workspace.close();
+        if (App.addPanel) App.addPanel.close(); // <-- ADDED
     }
 }
 
@@ -158,6 +154,7 @@ function openPanel(panelName) {
     panels[panelName].panel.classList.add('is-open');
     panels[panelName].btn.classList.add('is-active');
     currentOpenPanel = panelName;
+    if (App.addPanel) App.addPanel.close(); // <-- ADDED
 }
 
 function closeAllPanels() {
@@ -188,6 +185,7 @@ export function initEditorBar(app) {
     App.workspace.open = () => {
         originalWorkspaceOpen();
         closeAllPanels(); 
+        if (App.addPanel) App.addPanel.close(); // <-- ADDED
     };
 
     console.log('Editor Bar UI Initialized.');
