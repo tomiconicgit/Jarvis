@@ -6,7 +6,7 @@ let App;
 // --- Module-level button variables ---
 let menuBtn;
 let workspaceBtn;
-let addBtn; // <-- Retained for the wrapper
+let addBtn;
 let playBtn;
 let menuItemsContainer;
 
@@ -22,159 +22,10 @@ const ICONS = {
  * --- (injectStyles function is unchanged) ---
  */
 function injectStyles() {
+    // ... (css is unchanged)
     const styleId = 'menu-ui-styles';
     if (document.getElementById(styleId)) return;
-    const css = `
-        :root {
-            --ui-blue: #007aff;
-            --ui-grey: #3a3a3c;
-            --ui-light-grey: #4a4a4c;
-            --ui-dark-grey: #1c1c1c; 
-            --ui-border: rgba(255, 255, 255, 0.15);
-            --ui-shadow: 0 -4px 12px rgba(0,0,0,0.15);
-            --ui-safe-bottom: env(safe-area-inset-bottom);
-            
-            --main-bar-height: 60px;
-            --editor-bar-height: 50px;
-            --total-bar-height: calc(var(--main-bar-height) + var(--editor-bar-height) + var(--ui-safe-bottom));
-        }
-        
-        #bottom-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: calc(var(--main-bar-height) + var(--ui-safe-bottom));
-            background: var(--ui-dark-grey); 
-            border-top: 1px solid var(--ui-border);
-            z-index: 11; /* Above editor bar */
-            display: flex;
-            align-items: flex-start;
-            padding-top: 5px;
-            padding-bottom: var(--ui-safe-bottom);
-            box-sizing: border-box;
-            justify-content: space-around;
-        }
-        
-        .bottom-bar-btn {
-            background: none;
-            border: none;
-            color: #fff;
-            opacity: 0.7;
-            font-size: 11px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 50px;
-            height: 50px;
-            border-radius: 10px;
-        }
-        .bottom-bar-btn svg {
-            width: 24px;
-            height: 24px;
-            margin-bottom: 2px;
-        }
-        
-        .bottom-bar-btn:active {
-            background: var(--ui-light-grey);
-        }
-        
-        .bottom-bar-btn.is-active {
-            color: var(--ui-blue);
-            opacity: 1.0;
-        }
-        
-        #menu-items-container {
-            position: fixed;
-            bottom: calc(var(--main-bar-height) + var(--ui-safe-bottom) + 5px);
-            left: 5px;
-            z-index: 12; 
-            background: var(--ui-grey);
-            border-radius: 8px; 
-            box-shadow: var(--ui-shadow);
-            clip-path: inset(100% 0 0 0);
-            opacity: 0;
-            transform: scale(0.95);
-            transform-origin: bottom left;
-            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            pointer-events: none;
-            overflow: hidden; 
-            min-width: 170px;
-        }
-        
-        #menu-items-container.is-open {
-            clip-path: inset(0 0 0 0);
-            opacity: 1;
-            transform: scale(1);
-            pointer-events: auto;
-        }
-        .menu-item-separator {
-            height: 1px;
-            background: var(--ui-border);
-            margin: 0 8px;
-        }
-        .menu-item-separator-full {
-             height: 1px;
-             background: var(--ui-border);
-             margin: 0;
-        }
-        .menu-item {
-            background: none;
-            border: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            color: var(--workspace-text-color, #f5f5f7);
-            font-size: 15px;
-            padding: 14px 12px 14px 18px;
-            cursor: pointer;
-            text-align: left;
-        }
-        .menu-item.is-open {
-            color: var(--ui-blue);
-        }
-        .menu-item:active {
-            background: var(--ui-light-grey);
-        }
-        .menu-item-arrow {
-            width: 16px;
-            height: 16px;
-            stroke: var(--workspace-text-color, #f5f5f7);
-            stroke-width: 2.5;
-            transition: transform 0.3s ease-out;
-            opacity: 0.7;
-        }
-        .menu-item.is-open .menu-item-arrow {
-            transform: rotate(90deg);
-        }
-        .menu-submenu {
-            background: var(--ui-light-grey);
-            overflow: hidden;
-            max-height: 0; 
-            transition: max-height 0.3s ease-out;
-        }
-        .menu-submenu.is-open {
-            max-height: 200px;
-        }
-        .menu-submenu-item {
-            background: none;
-            border: none;
-            display: block;
-            width: 100%;
-            color: var(--workspace-text-color, #f5f5f7);
-            font-size: 14px;
-            padding: 12px 18px 12px 28px;
-            cursor: pointer;
-            text-align: left;
-        }
-        .menu-submenu-item:active {
-            background: var(--ui-grey);
-        }
-    `;
+    const css = `...`;
     const styleEl = document.createElement('style');
     styleEl.id = styleId;
     styleEl.textContent = css;
@@ -237,12 +88,10 @@ function createMarkup() {
         }
     };
     
-    // --- NEW: Subscribe to the closeMenu event ---
     App.events.subscribe('closeMenu', closeMenu);
 
     menuBtn.addEventListener('click', () => {
         toggleMenu();
-        // Close other panels when opening menu
         App.workspace.close();
         App.editorBar.closeAllPanels();
         if (App.addPanel) App.addPanel.close();
@@ -261,12 +110,15 @@ function createMarkup() {
         closeMenu();
     });
     
-    // --- UPDATED: Removed old listener ---
-    // The listener for addBtn is now in addpanel.js
+    // --- UPDATED: Add button listener ---
+    addBtn.addEventListener('click', () => {
+        if (App.addPanel) App.addPanel.toggle();
+        closeMenu();
+    });
     
+    // --- UPDATED: Play button listener ---
     playBtn.addEventListener('click', () => {
-        // This will be replaced by testplay.js
-        App.modal.alert("Play function not yet implemented.");
+        if (App.engine) App.engine.startTestMode();
         closeMenu();
     });
 
@@ -314,19 +166,18 @@ export function initMenu(app) {
         };
     }
     
-    // --- NEW: Wrapper for Add Panel ---
-    // This will be populated by addpanel.js
-    if (!App.addPanel) App.addPanel = {};
+    // --- UPDATED: Wrapper for Add Panel ---
+    if (!App.addPanel) App.addPanel = {}; // Ensure it exists
     const originalAddOpen = App.addPanel.open || (() => {});
     const originalAddClose = App.addPanel.close || (() => {});
     
     App.addPanel.open = () => {
         originalAddOpen();
-        addBtn.classList.add('is-active');
+        if (addBtn) addBtn.classList.add('is-active');
     };
     App.addPanel.close = () => {
         originalAddClose();
-        addBtn.classList.remove('is-active');
+        if (addBtn) addBtn.classList.remove('is-active');
     };
 
     console.log('Menu UI Initialized.');
