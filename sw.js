@@ -3,7 +3,7 @@ File: sw.js
 --------------------------------------------------------------------------------
 // sw.js
 
-const CACHE_VERSION = 'v1.8.0'; // <-- BUMPED VERSION
+const CACHE_VERSION = 'v1.8.0'; 
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -36,7 +36,7 @@ const FILES_TO_CACHE = [
     'src/core/ui/gizmo.js',
     'src/core/ui/gizmotools.js',
     'src/core/ui/propertiespanel.js',
-    'src/core/ui/transformpanel.js',
+    'srcD/core/ui/transformpanel.js',
     'src/core/ui/addpanel.js',
     
     // --- NEW SCRIPTING MODULE ---
