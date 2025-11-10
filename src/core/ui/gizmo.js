@@ -15,7 +15,6 @@ function injectStyles() {
     const styleId = 'gizmo-ui-styles';
     if (document.getElementById(styleId)) return;
     const css = `
-        /* This is the new panel that slides up */
         #gizmo-tools-panel {
             position: fixed;
             bottom: var(--bottom-bar-height); /* Sits right on top of the main bar */
@@ -24,15 +23,14 @@ function injectStyles() {
             height: var(--bottom-bar-height); /* Same height as main bar */
             background: var(--ui-dark-grey);
             border-top: 1px solid var(--ui-border);
-            z-index: 10; /* Just below main bar (11) */
+            z-index: 10;
             
             display: flex;
-            align-items: flex-start;
-            padding: 5px 10px 0;
+            align-items: center; /* Center items vertically */
+            padding: 0 10px;
             box-sizing: border-box;
             justify-content: space-around;
             
-            /* Hidden by default, slides up */
             transform: translateY(100%);
             transition: transform 0.3s ease-out;
         }
@@ -41,10 +39,9 @@ function injectStyles() {
             transform: translateY(0);
         }
 
-        /* This is the "tab" that you click */
         #gizmo-tab-btn {
             position: absolute;
-            top: -24px; /* Sits on top of the panel */
+            top: -24px;
             left: 10px;
             height: 24px;
             width: 60px;
@@ -55,7 +52,6 @@ function injectStyles() {
             z-index: -1;
             cursor: pointer;
             
-            /* Icon for the tab */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -70,19 +66,25 @@ function injectStyles() {
             background: var(--ui-light-grey);
         }
 
-        /* --- New Text-Based Toggles --- */
+        /* --- NEW: [Text] [Box] Toggle Styles --- */
         .gizmo-tool-toggle {
-            background: var(--ui-grey);
-            border: 1px solid var(--ui-border);
+            background: none;
+            border: none;
             color: #fff;
             opacity: 0.7;
             border-radius: 8px;
             height: 40px;
             flex-grow: 1;
-            margin: 0 5px;
+            margin: 0 4px;
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
+            
+            /* Flex layout */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px;
         }
         
         .gizmo-tool-toggle:active {
@@ -90,8 +92,26 @@ function injectStyles() {
         }
         
         .gizmo-tool-toggle.is-active {
-            color: var(--ui-blue);
             opacity: 1.0;
+        }
+        
+        .toggle-label {
+            margin-right: 8px;
+            pointer-events: none; /* Clicks go to parent */
+        }
+        
+        .toggle-box {
+            width: 18px;
+            height: 18px;
+            background: var(--ui-grey);
+            border: 1px solid var(--ui-border);
+            border-radius: 4px;
+            pointer-events: none; /* Clicks go to parent */
+            transition: background 0.2s, border-color 0.2s;
+        }
+        
+        .gizmo-tool-toggle.is-active .toggle-box {
+            background: var(--ui-blue);
             border-color: var(--ui-blue);
         }
     `;
@@ -105,24 +125,39 @@ function injectStyles() {
  * Creates the HTML markup for the gizmo tools.
  */
 function createMarkup() {
-    // --- The new slide-up panel ---
     gizmoToolsPanel = document.createElement('div');
     gizmoToolsPanel.id = 'gizmo-tools-panel';
+    
+    // --- UPDATED: New HTML structure for toggles ---
     gizmoToolsPanel.innerHTML = `
         <div id="gizmo-tab-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L12 22M2 12L22 12M19 15L22 12 19 9M5 15L2 12 5 9M15 19L12 22 9 19M15 5L12 2 9 5"/></svg>
         </div>
         
-        <button class="gizmo-tool-toggle is-active" data-action="gizmo" data-mode="translate">Position</button>
-        <button class="gizmo-tool-toggle" data-action="gizmo" data-mode="rotate">Rotate</button>
-        <button class="gizmo-tool-toggle" data-action="gizmo" data-mode="scale">Scale</button>
-        <button class="gizmo-tool-toggle" data-action="grid">Grid</button>
-        <button class="gizmo-tool-toggle is-active" data-action="highlight">Highlight</button>
+        <button class="gizmo-tool-toggle is-active" data-action="gizmo" data-mode="translate">
+            <span class="toggle-label">Position</span>
+            <div class="toggle-box"></div>
+        </button>
+        <button class="gizmo-tool-toggle" data-action="gizmo" data-mode="rotate">
+            <span class="toggle-label">Rotate</span>
+            <div class="toggle-box"></div>
+        </button>
+        <button class="gizmo-tool-toggle" data-action="gizmo" data-mode="scale">
+            <span class="toggle-label">Scale</span>
+            <div class="toggle-box"></div>
+        </button>
+        <button class="gizmo-tool-toggle" data-action="grid">
+            <span class="toggle-label">Grid</span>
+            <div class="toggle-box"></div>
+        </button>
+        <button class="gizmo-tool-toggle is-active" data-action="highlight">
+            <span class="toggle-label">Highlight</span>
+            <div class="toggle-box"></div>
+        </button>
     `;
 
     document.body.appendChild(gizmoToolsPanel);
     
-    // Get a reference to the tab
     gizmoTabBtn = document.getElementById('gizmo-tab-btn');
 
     // --- Add Listeners ---
@@ -154,9 +189,7 @@ function createMarkup() {
         }
     });
 
-    // Close popup if clicking outside
     document.addEventListener('pointerdown', (event) => {
-        // Clicks on the main bottom bar should not close the gizmo panel
         const bottomBar = document.getElementById('bottom-bar');
         if (!gizmoTabBtn.contains(event.target) && !gizmoToolsPanel.contains(event.target) && !bottomBar.contains(event.target)) {
             gizmoToolsPanel.classList.remove('is-open');
@@ -194,7 +227,6 @@ export function initGizmo(app) {
 
     // 4. Subscribe to App events
     App.events.subscribe('selectionChanged', (object) => {
-        // --- UPDATED: Don't show gizmo in test mode ---
         if (object.isMesh && !App.engine.isTesting) {
             gizmo.attach(object);
             gizmo.enabled = true;
