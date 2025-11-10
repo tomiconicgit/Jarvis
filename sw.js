@@ -1,6 +1,9 @@
+--------------------------------------------------------------------------------
+File: sw.js
+--------------------------------------------------------------------------------
 // sw.js
 
-const CACHE_VERSION = 'v1.7.0'; // <-- BUMPED VERSION
+const CACHE_VERSION = 'v1.8.0'; // <-- BUMPED VERSION
 const CACHE_NAME = `terra-pwa-cache-${CACHE_VERSION}`;
 
 const FILES_TO_CACHE = [
@@ -34,11 +37,15 @@ const FILES_TO_CACHE = [
     'src/core/ui/gizmotools.js',
     'src/core/ui/propertiespanel.js',
     'src/core/ui/transformpanel.js',
+    'src/core/ui/addpanel.js', // <-- ADDED
+    
+    // --- NEW SCRIPTING MODULE ---
+    'src/core/engine/script.js',
     
     // --- DEFAULT ASSETS ---
     'src/core/default/terrain.js',
     'src/core/default/environment.js',
-    'src/core/default/environment.hdr',
+    'srcD/core/default/environment.hdr',
     'src/core/default/lighting.js',
     
     // 'icons/icon-192x192.png',
