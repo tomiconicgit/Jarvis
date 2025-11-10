@@ -5,6 +5,11 @@ let App;
 
 // --- 2. Module-level elements ---
 let toolsContainer;
+let toolsContent; // <-- ADDED
+
+// --- ADDED: Placeholders for tab content ---
+let propertiesPanelContent;
+let transformPanelContent;
 
 /**
  * Creates and injects the CSS styles for the tools UI.
@@ -18,7 +23,7 @@ function injectStyles() {
             --ui-blue: #007aff;
             --ui-grey: #3a3a3c;
             --ui-light-grey: #4a4a4c;
-            --ui-dark-grey: #1c1c1c; /* <-- ADDED */
+            --ui-dark-grey: #1c1c1c; 
             --ui-border: rgba(255, 255, 255, 0.15);
             --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
             --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -119,11 +124,23 @@ function injectStyles() {
 
         .tools-content {
             flex-grow: 1;
-            overflow-y: auto;
+            overflow-y: hidden; /* <-- CHANGED: Panel content will scroll */
             -webkit-overflow-scrolling: touch;
-            background: var(--ui-dark-grey); /* <-- UPDATED */
+            background: var(--ui-dark-grey); 
             color: var(--workspace-text-color, #f5f5f7);
-            padding: 8px;
+            /* --- REMOVED: Padding is now on the panel content --- */
+        }
+        
+        /* --- ADDED: Placeholder for transform panel --- */
+        #transform-panel-content {
+            display: none;
+            padding: 12px;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            font-style: italic;
+        }
+        #transform-panel-content.is-active {
+            display: block;
         }
     `;
 
@@ -155,11 +172,19 @@ function createMarkup() {
             <button class="tools-tab-btn" data-tab="transform">Transform</button>
         </div>
         <div class="tools-content">
+            <div id="transform-panel-content">
+                Transform controls (e.g., Position, Rotation, Scale) will go here.
             </div>
+        </div>
     `;
 
     // 2. Append to body
     document.body.appendChild(toolsContainer);
+
+    // 3. --- ADDED: Get references to content panels ---
+    toolsContent = toolsContainer.querySelector('.tools-content');
+    propertiesPanelContent = toolsContent.querySelector('#properties-panel-content'); // Will be found by propertiespanel.js
+    transformPanelContent = toolsContent.querySelector('#transform-panel-content');
 }
 
 // --- 3. UI Interaction Functions ---
@@ -170,6 +195,29 @@ function openToolsPanel() {
 
 function closeToolsPanel() {
     toolsContainer.classList.remove('is-open');
+}
+
+/**
+ * --- ADDED: Handles switching tab content ---
+ */
+function switchTab(tabName) {
+    // 1. Get panel elements. Properties panel is added by its own module.
+    propertiesPanelContent = document.getElementById('properties-panel-content');
+    transformPanelContent = document.getElementById('transform-panel-content');
+
+    // 2. Hide all panels
+    if (propertiesPanelContent) propertiesPanelContent.classList.remove('is-active');
+    if (transformPanelContent) transformPanelContent.classList.remove('is-active');
+    
+    // 3. Show the correct panel
+    switch (tabName) {
+        case 'properties':
+            if (propertiesPanelContent) propertiesPanelContent.classList.add('is-active');
+            break;
+        case 'transform':
+            if (transformPanelContent) transformPanelContent.classList.add('is-active');
+            break;
+    }
 }
 
 /**
@@ -203,6 +251,9 @@ export function initTools(app) {
         
         const tabName = target.dataset.tab;
         console.log(`Switched to tab: ${tabName}`);
+        
+        // --- ADDED: Call the tab switcher ---
+        switchTab(tabName);
     });
 
     console.log('Tools UI Initialized.');
