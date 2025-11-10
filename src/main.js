@@ -51,11 +51,13 @@ const coreServices = [
 // Pluggable UI modules
 const uiModules = [
     './core/ui/workspace.js',
-    './core/ui/tools.js',
+    // --- GONE: './core/ui/tools.js'
     './core/ui/menu.js',
+    './core/ui/editorbar.js', // <-- ADDED
+    './core/ui/gizmo.js', // Gizmo logic (no UI)
+    './core/ui/gizmotools.js', // <-- ADDED (Gizmo UI)
     './core/ui/propertiespanel.js',
-    './core/ui/transformpanel.js',
-    './core/ui/gizmo.js' // <-- ADDED THIS LINE
+    './core/ui/transformpanel.js'
 ];
 
 // Default assets that make up a "New Project"
