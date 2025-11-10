@@ -1,3 +1,6 @@
+--------------------------------------------------------------------------------
+File: src/main.js
+--------------------------------------------------------------------------------
 // src/main.js
 
 import { checkForErrors, initDebugger } from '../debugger.js';
@@ -22,6 +25,9 @@ import { initFirstPersonView } from './core/firstpersonview.js';
 import { initJoystick } from './core/joystick.js';
 import { initTestPlay } from './core/engine/testplay.js';
 
+// --- NEW SCRIPTING IMPORT ---
+import { initScriptEngine } from './core/engine/script.js';
+
 
 /**
  * -------------------------------------------------------------------
@@ -45,7 +51,10 @@ const coreServices = [
     initPlayer, 
     initFirstPersonView,
     initJoystick,
-    initTestPlay 
+    initTestPlay,
+    
+    // --- NEW SCRIPTING MODULE ---
+    initScriptEngine
 ];
 
 // Pluggable UI modules
