@@ -4,9 +4,7 @@
 let App;
 
 // UI elements
-let bottomBar;
-let workspaceContainer;
-let toolsContainer;
+// --- REMOVED from here ---
 let stopButton;
 
 /**
@@ -70,6 +68,10 @@ function createMarkup() {
  */
 function startTestMode() {
     if (!App) return;
+
+    // --- FIX: Find UI elements just-in-time ---
+    const bottomBar = document.getElementById('bottom-bar');
+    // --- END FIX ---
     
     console.log('[Engine] Starting Test Mode...');
     App.engine.isTesting = true;
@@ -81,7 +83,7 @@ function startTestMode() {
     };
 
     // 2. Hide Editor UI
-    bottomBar.style.display = 'none';
+    if (bottomBar) bottomBar.style.display = 'none'; // <-- Added safety check
     App.workspace.close();
     App.tools.close();
 
@@ -103,6 +105,10 @@ function startTestMode() {
 function stopTestMode() {
     if (!App) return;
 
+    // --- FIX: Find UI elements just-in-time ---
+    const bottomBar = document.getElementById('bottom-bar');
+    // --- END FIX ---
+
     console.log('[Engine] Stopping Test Mode...');
     App.engine.isTesting = false;
 
@@ -118,7 +124,7 @@ function stopTestMode() {
     App.joystick.hide();
     
     // 4. Show Editor UI
-    bottomBar.style.display = 'flex';
+    if (bottomBar) bottomBar.style.display = 'flex'; // <-- Added safety check
     
     // 5. Restore editor camera
     if (App.editorCameraState) {
@@ -143,10 +149,10 @@ export function initTestPlay(app) {
     App.engine.isTesting = false;
     App.editorCameraState = null;
     
-    // Find UI elements
-    bottomBar = document.getElementById('bottom-bar');
-    workspaceContainer = document.getElementById('workspace-container');
-    toolsContainer = document.getElementById('tools-container');
+    // --- REMOVED: Don't find UI elements here ---
+    // bottomBar = document.getElementById('bottom-bar');
+    // workspaceContainer = document.getElementById('workspace-container');
+    // toolsContainer = document.getElementById('tools-container');
 
     injectStyles();
     createMarkup();
