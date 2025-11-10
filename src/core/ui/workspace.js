@@ -1,15 +1,18 @@
---------------------------------------------------------------------------------
-File: src/core/ui/workspace.js
---------------------------------------------------------------------------------
 // src/core/ui/workspace.js
+// This module creates the slide-out "Workspace" panel.
+// This panel displays a hierarchical "file tree" of all the
+// manageable assets in the scene (lights, meshes, imported models, scripts).
+// It reads its data directly from the 'App.fileManager' module.
 
 // --- 1. App VARIABLE ---
-let App;
+let App; // Module-level reference to the main App object
 
 // --- 2. Module-level elements ---
-let workspaceContainer;
+let workspaceContainer; // The main HTML element for the slide-out panel
 
 // --- ICONS ---
+// An object to store all the SVG icon markup.
+// This keeps the HTML generation logic clean.
 const ICONS = {
     mesh: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 6.5-10 6.5-10-6.5L12 2zM2 15l10 6.5L22 15M2 8.5l10 6.5L22 8.5"></path></svg>`,
     folder: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
@@ -21,43 +24,58 @@ const ICONS = {
     script: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>`
 };
 
+/**
+ * A helper function to get the correct SVG markup for an icon name.
+ * @param {string} iconName - The name of the icon (e.g., 'mesh', 'light').
+ * @returns {string} The SVG string, or a fallback 'mesh' icon.
+ */
 export function getIconSVG(iconName) {
     return ICONS[iconName] || ICONS.mesh;
 }
 
+/**
+ * Creates and injects the CSS styles for the workspace panel.
+ */
 function injectStyles() {
     const styleId = 'workspace-ui-styles';
+    // Only inject if the styles don't already exist
     if (document.getElementById(styleId)) return;
 
+    // We use CSS variables (e.g., --total-bar-height) defined in 'menu.js'
     const css = `
+        /* NOTE: This :root block is a duplicate from menu.js and tools.js.
+           It should be defined in one place, like a 'global.css' or in 'menu.js'.
+        */
         :root {
-            --ui-blue: #007aff;
-            --ui-grey: #3a3a3c;
-            --ui-light-grey: #4a4a4c;
-            --ui-dark-grey: #1c1c1c; 
-            --ui-border: rgba(255, 255, 255, 0.15);
-            --ui-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            --workspace-transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            /* ... (variables) ... */
             --total-bar-height: calc(110px + env(safe-area-inset-bottom));
         }
 
         #workspace-container {
             position: fixed;
+            /* Positioned directly above all the bottom bars */
             bottom: var(--total-bar-height); 
             left: 0;
-            width: 100%;
-            height: 40vh;
+            width: 100%; /* Full screen width */
+            height: 40vh; /* 40% of the viewport height */
             background: transparent;
-            /* --- UPDATED: z-index must be highest of the panels --- */
+            
+            /* Highest z-index for panels so it slides *over* the editor bar */
             z-index: 12; 
+            
             display: flex;
             flex-direction: column;
+            
+            /* --- Animation: Start hidden --- */
+            /* Starts 100% to the *left* (off-screen) */
             transform: translateX(-100%);
             transition: var(--workspace-transition);
             will-change: transform;
         }
 
         #workspace-container.is-open {
+            /* --- Animation: Show --- */
+            /* Slides in to its final position */
             transform: translateX(0);
         }
 
@@ -67,7 +85,7 @@ function injectStyles() {
             padding: 0 16px;
             height: 48px;
             flex-shrink: 0;
-            background: var(--ui-blue);
+            background: var(--ui-blue); /* Blue header */
             color: #fff;
         }
 
@@ -78,6 +96,7 @@ function injectStyles() {
             padding: 0;
         }
 
+        /* The 'X' close button */
         .workspace-close-btn {
             width: 44px;
             height: 44px;
@@ -98,10 +117,11 @@ function injectStyles() {
             stroke-width: 2;
         }
 
+        /* The scrollable content area */
         .workspace-content {
-            flex-grow: 1;
+            flex-grow: 1; /* Take all remaining vertical space */
             overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
             background: var(--ui-dark-grey);
             color: #f5f5f7;
         }
@@ -116,11 +136,11 @@ function injectStyles() {
             border-bottom: 1px solid var(--ui-border);
         }
         .ws-folder-header:active {
-             background: var(--ui-light-grey);
+             background: var(--ui-light-grey); /* Click feedback */
         }
         
         .ws-folder-header.is-selected {
-            background: var(--ui-blue);
+            background: var(--ui-blue); /* Highlight when selected */
             color: #fff;
         }
         
@@ -133,7 +153,7 @@ function injectStyles() {
             transition: transform 0.2s ease;
             padding: 4px;
             margin-left: -4px;
-            transform: rotate(90deg); 
+            transform: rotate(90deg); /* Pointing down (open) by default */
         }
         
         .ws-folder-header .folder-icon {
@@ -142,44 +162,46 @@ function injectStyles() {
             stroke: #fff;
             margin-right: 8px;
             opacity: 0.8;
-            pointer-events: none;
+            pointer-events: none; /* Click passes through */
         }
 
         .ws-folder-name {
             font-size: 14px;
             font-weight: 600;
             color: #fff;
-            pointer-events: none;
+            pointer-events: none; /* Click passes through */
         }
         
+        /* The container for all the files in a folder */
         .ws-folder-items {
             overflow: hidden;
-            max-height: 500px;
-            transition: max-height 0.3s ease-out;
+            max-height: 500px; /* An arbitrary large height */
+            transition: max-height 0.3s ease-out; /* Animate open/close */
         }
         .ws-folder.is-closed .ws-folder-items {
-            max-height: 0;
+            max-height: 0; /* Animate to 0 height when closed */
         }
         .ws-folder.is-closed .folder-arrow {
-            transform: rotate(0deg); 
+            transform: rotate(0deg); /* Pointing right (closed) */
         }
 
+        /* A single file item */
         .ws-file-item {
             display: flex;
             align-items: center;
             font-size: 14px;
             border-bottom: 1px solid var(--ui-border);
             cursor: pointer;
-            background: var(--ui-grey);
+            background: var(--ui-grey); /* Slightly lighter than the main bg */
             color: #f5f5f7;
-            padding: 12px 16px 12px 28px; /* Indented */
+            padding: 12px 16px 12px 28px; /* Indented from the folder */
         }
         .ws-file-item:active {
             background: var(--ui-light-grey);
         }
         
         .ws-file-item.is-selected {
-            background: var(--ui-blue);
+            background: var(--ui-blue); /* Highlight when selected */
             color: #fff;
         }
         
@@ -198,24 +220,36 @@ function injectStyles() {
     document.head.appendChild(styleEl);
 }
 
-// --- (rest of file is unchanged) ---
+/**
+ * PUBLIC: Closes (hides) the workspace panel.
+ */
 function closeWorkspace() {
     if (workspaceContainer) {
         workspaceContainer.classList.remove('is-open');
     }
 }
 
+/**
+ * PUBLIC: Opens (shows) the workspace panel.
+ */
 function openWorkspace() {
     if (workspaceContainer) {
         workspaceContainer.classList.add('is-open');
     }
 }
 
+/**
+ * (Private) Creates the HTML markup for the panel shell.
+ */
 function createMarkup() {
+    // SVG for the 'X' close button
     const closeIcon = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>`;
 
+    // 1. Create the main container
     workspaceContainer = document.createElement('div');
     workspaceContainer.id = 'workspace-container';
+    
+    // 2. Set its inner HTML (header + empty content area)
     workspaceContainer.innerHTML = `
         <div class="workspace-header">
             <button class="workspace-close-btn" aria-label="Close Workspace">
@@ -227,28 +261,40 @@ function createMarkup() {
             </div>
     `;
 
+    // 3. Add to the document
     document.body.appendChild(workspaceContainer);
 
+    // 4. Add listener for the close button
     const closeBtn = workspaceContainer.querySelector('.workspace-close-btn');
     closeBtn.addEventListener('click', closeWorkspace);
 }
 
+/**
+ * PUBLIC: Re-renders the *content* of the workspace panel.
+ * This is the main function that reads from App.fileManager
+ * and builds the folder/file list HTML.
+ */
 function renderWorkspaceUI() {
     const content = document.querySelector('.workspace-content');
-    if (!content) return;
+    if (!content) return; // Exit if the content div isn't found
 
+    // 1. Get the data from the file manager
     if (!App || !App.fileManager) {
         console.error('Workspace: App.fileManager not ready for render.');
         return;
     }
     const folders = App.fileManager.getFolders();
 
+    // 2. Clear all existing content
     content.innerHTML = '';
 
+    // 3. Loop over each folder from the file manager
     for (const folder of folders) {
+        // 3a. Create the folder <div>
         const folderDiv = document.createElement('div');
         folderDiv.className = `ws-folder ${folder.isOpen ? '' : 'is-closed'}`;
         
+        // 3b. Create the folder header <button>
         const header = document.createElement('div');
         header.className = 'ws-folder-header';
         header.innerHTML = `
@@ -257,37 +303,47 @@ function renderWorkspaceUI() {
             <span class="ws-folder-name">${folder.name}</span>
         `;
         
+        // 3c. Create the <div> to hold the items
         const itemsDiv = document.createElement('div');
         itemsDiv.className = 'ws-folder-items';
         
+        // 3d. Loop over all *items* in this folder
         for (const item of folder.items) {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'ws-file-item';
+            // Store the item's ID and name on the element for
+            // the click listener to find.
             itemDiv.dataset.id = item.id;
             itemDiv.dataset.name = item.name;
             itemDiv.innerHTML = `
                 <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
             `;
             
+            // --- Add click listener for this *file item* ---
             itemDiv.addEventListener('click', () => {
-                // --- UPDATED: Handle script selection ---
+                
+                // --- Handle script selection ---
                 if (item.icon === 'script') {
-                    // TODO: Open script editor modal
+                    // TODO: Open the script editor modal
                     App.modal.alert(`Script selected: ${item.name}. (Editor not implemented)`);
-                    return;
+                    return; // Don't try to select it in the 3D view
                 }
-                // --- END UPDATED ---
-
+                
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
                     return;
                 }
                 
+                // Find the 3D object in the scene that has this item's ID
+                // (This ID is the object's UUID)
                 const objectInScene = App.scene.getObjectByProperty('uuid', item.id);
                 
                 if (objectInScene) {
+                    // Tell the selection context to select this object
                     App.selectionContext.select(objectInScene);
                     
+                    // --- Update UI selection state ---
+                    // Clear *all* other selected classes
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
                     });
@@ -295,6 +351,7 @@ function renderWorkspaceUI() {
                         el.classList.remove('is-selected');
                     });
                     
+                    // Add 'is-selected' to this item
                     itemDiv.classList.add('is-selected');
                     
                 } else {
@@ -306,27 +363,35 @@ function renderWorkspaceUI() {
             itemsDiv.appendChild(itemDiv);
         }
         
+        // 3e. Assemble the folder
         folderDiv.appendChild(header);
         folderDiv.appendChild(itemsDiv);
         content.appendChild(folderDiv);
         
+        // --- Add click listener for the *folder header* ---
         header.addEventListener('click', (event) => {
             const folderArrow = event.target.closest('.folder-arrow');
 
+            // Case 1: User clicked the little arrow
             if (folderArrow) {
+                // Toggle the folder open/closed
                 folderDiv.classList.toggle('is-closed');
             } else {
+            // Case 2: User clicked anywhere else on the header
                 if (!App || !App.selectionContext) {
                     console.warn('SelectionContext not available on App');
                     return;
                 }
                 
+                // Find the 3D object *by name* (e.g., the Group)
                 const objectName = folder.name;
                 const objectInScene = App.scene.getObjectByName(objectName);
                 
                 if (objectInScene) {
+                    // Select the object (e.g., the whole imported model Group)
                     App.selectionContext.select(objectInScene);
                     
+                    // --- Update UI selection state ---
                     document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
                         el.classList.remove('is-selected');
                     });
@@ -345,15 +410,22 @@ function renderWorkspaceUI() {
     }
 }
 
+/**
+ * Initializes the Workspace UI module.
+ * @param {object} app - The main App object.
+ */
 export function initWorkspace(app) {
     App = app;
     
+    // Create the public API on the App object
     if (!App.workspace) App.workspace = {};
-    App.workspace.render = renderWorkspaceUI;
-    App.workspace.open = openWorkspace;
-    App.workspace.close = closeWorkspace;
+    App.workspace.render = renderWorkspaceUI; // Function to rebuild the list
+    App.workspace.open = openWorkspace; // Function to show the panel
+    App.workspace.close = closeWorkspace; // Function to hide the panel
     
+    // Create the HTML and CSS
     injectStyles();
     createMarkup();
+    
     console.log('Workspace UI Initialized.');
 }
