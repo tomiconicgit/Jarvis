@@ -2,7 +2,7 @@
 // This module initializes the 3D "gizmo" (TransformControls)
 // and the editor grid.
 
-import ** as THREE from 'three';
+import * as THREE from 'three';
 // Import the TransformControls from Three.js examples
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 
