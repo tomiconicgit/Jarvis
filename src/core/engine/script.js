@@ -7,6 +7,7 @@ import * as THREE from 'three';
 
 // Module-level variable to store a reference to the main App object.
 let App;
+const compiledScripts = [];
 
 /**
  * Creates a script and attaches its data to the selected scene object.
@@ -64,14 +65,65 @@ function createScript(parentObjectId, scriptName, scriptContent) {
         id: scriptId,          // The script's unique ID
         name: scriptName,      // Its display name
         icon: 'script',        // This tells the UI to use the 'script' icon
-        parentId: parentFolderId // Place it in the same folder as its parent object
+        parentId: parentFolderId, // Place it in the same folder as its parent object
+        parentItemId: parentObjectId // Nest under the parent object's entry in the workspace
     });
 
     // 6. Update the UI.
     App.workspace.render(); // Re-render the workspace to show the new script file.
     App.modal.hide();       // Close the "Add New Script" modal.
-    
+
     console.log(`[ScriptEngine] Created script "${scriptName}" and attached to "${parentObject.name}"`);
+}
+
+function compileScriptsForObject(object3D) {
+    if (!object3D.userData || !Array.isArray(object3D.userData.scripts)) {
+        return;
+    }
+
+    for (const scriptData of object3D.userData.scripts) {
+        if (!scriptData || !scriptData.content || !scriptData.content.trim()) {
+            continue;
+        }
+
+        try {
+            const fn = new Function('App', 'deltaTime', `'use strict';\n${scriptData.content}`);
+            compiledScripts.push({
+                object: object3D,
+                script: scriptData,
+                fn,
+                didError: false
+            });
+        } catch (error) {
+            console.error(`[ScriptEngine] Failed to compile script "${scriptData.name}":`, error);
+        }
+    }
+}
+
+function startScripts() {
+    compiledScripts.length = 0;
+    App.scene.traverse(compileScriptsForObject);
+    console.log(`[ScriptEngine] Prepared ${compiledScripts.length} script(s) for play mode.`);
+}
+
+function stopScripts() {
+    compiledScripts.length = 0;
+}
+
+function updateScripts(deltaTime) {
+    for (const entry of compiledScripts) {
+        if (!entry || typeof entry.fn !== 'function') continue;
+
+        try {
+            entry.fn.call(entry.object, App, deltaTime);
+            entry.didError = false;
+        } catch (error) {
+            if (!entry.didError) {
+                console.error(`[ScriptEngine] Runtime error in script "${entry.script.name}":`, error);
+            }
+            entry.didError = true;
+        }
+    }
 }
 
 
@@ -162,7 +214,10 @@ export function initScriptEngine(app) {
     // Create the 'App.scriptEngine' namespace.
     App.scriptEngine = {
         showAddScriptModal: showAddScriptModal,
-        createScript: createScript
+        createScript: createScript,
+        start: startScripts,
+        stop: stopScripts,
+        update: updateScripts
         // In the future, this would also include:
         // - runScripts(deltaTime)
         // - compileScript(scriptContent)

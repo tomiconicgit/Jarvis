@@ -114,6 +114,7 @@ function startTestMode() {
     // This will take control of the camera and input
     if (App.player) App.player.activate();
     if (App.firstPersonControls) App.firstPersonControls.activate();
+    if (App.scriptEngine && App.scriptEngine.start) App.scriptEngine.start();
     
     // 5. Resize Viewport to Fullscreen
     // The canvas should take up the *entire* screen,
@@ -143,6 +144,7 @@ function stopTestMode() {
     // This gives camera/input control back to the editor
     if (App.player) App.player.deactivate();
     if (App.firstPersonControls) App.firstPersonControls.deactivate();
+    if (App.scriptEngine && App.scriptEngine.stop) App.scriptEngine.stop();
 
     // 2. Hide Test Mode UI
     if (stopButton) stopButton.style.display = 'none'; // Hide the stop button

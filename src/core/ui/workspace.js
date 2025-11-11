@@ -196,6 +196,13 @@ function injectStyles() {
             color: #f5f5f7;
             padding: 12px 16px 12px 28px; /* Indented from the folder */
         }
+        .ws-file-item[data-depth="1"] {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .ws-file-item[data-depth="1"] .file-icon {
+            opacity: 0.9;
+        }
         .ws-file-item:active {
             background: var(--ui-light-grey);
         }
@@ -307,62 +314,8 @@ function renderWorkspaceUI() {
         const itemsDiv = document.createElement('div');
         itemsDiv.className = 'ws-folder-items';
         
-        // 3d. Loop over all *items* in this folder
-        for (const item of folder.items) {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'ws-file-item';
-            // Store the item's ID and name on the element for
-            // the click listener to find.
-            itemDiv.dataset.id = item.id;
-            itemDiv.dataset.name = item.name;
-            itemDiv.innerHTML = `
-                <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
-            `;
-            
-            // --- Add click listener for this *file item* ---
-            itemDiv.addEventListener('click', () => {
-                
-                // --- Handle script selection ---
-                if (item.icon === 'script') {
-                    // TODO: Open the script editor modal
-                    App.modal.alert(`Script selected: ${item.name}. (Editor not implemented)`);
-                    return; // Don't try to select it in the 3D view
-                }
-                
-                if (!App || !App.selectionContext) {
-                    console.warn('SelectionContext not available on App');
-                    return;
-                }
-                
-                // Find the 3D object in the scene that has this item's ID
-                // (This ID is the object's UUID)
-                const objectInScene = App.scene.getObjectByProperty('uuid', item.id);
-                
-                if (objectInScene) {
-                    // Tell the selection context to select this object
-                    App.selectionContext.select(objectInScene);
-                    
-                    // --- Update UI selection state ---
-                    // Clear *all* other selected classes
-                    document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
-                        el.classList.remove('is-selected');
-                    });
-                    document.querySelectorAll('.ws-folder-header.is-selected').forEach(el => {
-                        el.classList.remove('is-selected');
-                    });
-                    
-                    // Add 'is-selected' to this item
-                    itemDiv.classList.add('is-selected');
-                    
-                } else {
-                    console.warn(`Could not find object in scene with uuid: "${item.id}"`);
-                    App.selectionContext.clear();
-                }
-            });
-            
-            itemsDiv.appendChild(itemDiv);
-        }
-        
+        renderFolderItems(folder.items, itemsDiv);
+
         // 3e. Assemble the folder
         folderDiv.appendChild(header);
         folderDiv.appendChild(itemsDiv);
@@ -408,6 +361,70 @@ function renderWorkspaceUI() {
             }
         });
     }
+}
+
+function renderFolderItems(items, container, depth = 0) {
+    for (const item of items) {
+        if (depth === 0 && item.parentItemId) {
+            // Skip nested items at the top level; they'll render with their parent.
+            continue;
+        }
+
+        const itemDiv = createFileItemElement(item, depth);
+        container.appendChild(itemDiv);
+
+        if (item.children && item.children.length) {
+            renderFolderItems(item.children, container, depth + 1);
+        }
+    }
+}
+
+function createFileItemElement(item, depth) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'ws-file-item';
+    itemDiv.dataset.id = item.id;
+    itemDiv.dataset.name = item.name;
+    itemDiv.dataset.depth = depth;
+    itemDiv.innerHTML = `
+        <span class="file-icon">${getIconSVG(item.icon)}</span> <span>${item.name}</span>
+    `;
+
+    if (depth > 0) {
+        itemDiv.style.paddingLeft = `${28 + depth * 20}px`;
+    }
+
+    itemDiv.addEventListener('click', () => {
+        if (item.icon === 'script') {
+            App.modal.alert(`Script selected: ${item.name}. (Editor not implemented)`);
+            return;
+        }
+
+        if (!App || !App.selectionContext) {
+            console.warn('SelectionContext not available on App');
+            return;
+        }
+
+        const objectInScene = App.scene.getObjectByProperty('uuid', item.id);
+
+        if (objectInScene) {
+            App.selectionContext.select(objectInScene);
+
+            document.querySelectorAll('.ws-file-item.is-selected').forEach(el => {
+                el.classList.remove('is-selected');
+            });
+            document.querySelectorAll('.ws-folder-header.is-selected').forEach(el => {
+                el.classList.remove('is-selected');
+            });
+
+            itemDiv.classList.add('is-selected');
+
+        } else {
+            console.warn(`Could not find object in scene with uuid: "${item.id}"`);
+            App.selectionContext.clear();
+        }
+    });
+
+    return itemDiv;
 }
 
 /**

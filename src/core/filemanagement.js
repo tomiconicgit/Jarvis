@@ -31,19 +31,36 @@ const state = {
 function registerFile(file) {
     // 1. Find the parent folder in our 'state' object.
     const parentFolder = state.folders.find(f => f.id === file.parentId);
-    
-    if (parentFolder) {
-        // 2. Add the file's data to the folder's 'items' array.
-        parentFolder.items.push({
-            id: file.id,
-            name: file.name,
-            icon: file.icon,
-            parentId: file.parentId // Store this for reference
-        });
-    } else {
-        // 3. Log a warning if the folder ID was invalid.
+
+    if (!parentFolder) {
+        // Log a warning if the folder ID was invalid.
         console.warn(`File Manager: Could not find parent folder with id "${file.parentId}"`);
+        return;
     }
+
+    const fileEntry = {
+        id: file.id,
+        name: file.name,
+        icon: file.icon,
+        parentId: file.parentId,
+        parentItemId: file.parentItemId || null,
+        children: []
+    };
+
+    if (file.parentItemId) {
+        const parentItem = findItemInItems(parentFolder.items, file.parentItemId);
+        if (parentItem) {
+            if (!Array.isArray(parentItem.children)) {
+                parentItem.children = [];
+            }
+            parentItem.children.push(fileEntry);
+            return;
+        }
+
+        console.warn(`File Manager: Could not find parent item with id "${file.parentItemId}" inside folder "${file.parentId}". Adding to folder root instead.`);
+    }
+
+    parentFolder.items.push(fileEntry);
 }
 
 /**
@@ -110,10 +127,9 @@ function reset() {
  * @returns {object | null} The file object or null if not found.
  */
 function findFileById(fileId) {
-    // Loop through each folder...
+    // Loop through each folder and search recursively.
     for (const folder of state.folders) {
-        // ...and search its 'items' array.
-        const file = folder.items.find(i => i.id === fileId);
+        const file = findItemInItems(folder.items, fileId);
         if (file) return file; // Found it!
     }
     return null; // Not found
@@ -126,43 +142,29 @@ function findFileById(fileId) {
  * @param {string} newParentFolderId - The ID of the folder to move it to.
  */
 function moveFile(fileId, newParentFolderId) {
-    let file, oldFolder, fileIndex = -1;
+    const context = findItemContext(fileId);
 
-    // 1. Find the file and its current folder
-    for (const folder of state.folders) {
-        // Find the *index* of the file in its current 'items' array.
-        fileIndex = folder.items.findIndex(i => i.id === fileId);
-        if (fileIndex > -1) {
-            // Found it. Store the file and its original folder.
-            file = folder.items[fileIndex];
-            oldFolder = folder;
-            break;
-        }
-    }
-
-    if (!file) {
+    if (!context) {
         console.error(`[File Manager] moveFile: Could not find file with id ${fileId}`);
         return;
     }
 
-    // 2. Find the new parent folder
     const newParentFolder = state.folders.find(f => f.id === newParentFolderId);
     if (!newParentFolder) {
         console.error(`[File Manager] moveFile: Could not find new parent folder with id ${newParentFolderId}`);
         return;
     }
-    
-    // 3. Perform the move
-    // 'splice' removes the file from the old folder's array and returns it.
-    const [movedFile] = oldFolder.items.splice(fileIndex, 1);
-    
-    // Update the file's internal parentId
-    movedFile.parentId = newParentFolderId; 
-    
-    // Add the file to the new folder's 'items' array.
-    newParentFolder.items.push(movedFile);
-    
-    console.log(`[File Manager] Moved ${movedFile.name} to ${newParentFolder.name}`);
+
+    // Remove from current collection (either folder root or parent's children)
+    context.collection.splice(context.index, 1);
+
+    // Reset parent references to reflect folder move
+    context.item.parentId = newParentFolderId;
+    context.item.parentItemId = null;
+
+    newParentFolder.items.push(context.item);
+
+    console.log(`[File Manager] Moved ${context.item.name} to ${newParentFolder.name}`);
 }
 
 /**
@@ -182,4 +184,61 @@ export function initFileManagement(App) {
     };
 
     console.log('File Management Initialized.');
+}
+
+/**
+ * Recursively searches a list of items (and their children) for a matching ID.
+ * @param {Array<object>} items - The items to search.
+ * @param {string} targetId - The ID to locate.
+ * @returns {object | null} The item if found, otherwise null.
+ */
+function findItemInItems(items, targetId) {
+    for (const item of items) {
+        if (item.id === targetId) {
+            return item;
+        }
+
+        if (item.children && item.children.length) {
+            const childResult = findItemInItems(item.children, targetId);
+            if (childResult) {
+                return childResult;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Finds an item and metadata about where it is stored (folder, parent item, index).
+ * @param {string} targetId - The item ID to search for.
+ * @returns {{ item: object, collection: Array<object>, index: number } | null}
+ */
+function findItemContext(targetId) {
+    for (const folder of state.folders) {
+        const result = findContextRecursive(folder.items, targetId);
+        if (result) {
+            return result;
+        }
+    }
+
+    return null;
+}
+
+function findContextRecursive(collection, targetId) {
+    for (let index = 0; index < collection.length; index++) {
+        const item = collection[index];
+        if (item.id === targetId) {
+            return { item, collection, index };
+        }
+
+        if (item.children && item.children.length) {
+            const result = findContextRecursive(item.children, targetId);
+            if (result) {
+                return result;
+            }
+        }
+    }
+
+    return null;
 }

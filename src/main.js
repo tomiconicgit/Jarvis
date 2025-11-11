@@ -207,10 +207,13 @@ async function loadModuleInit(path) {
         if (App.engine && App.engine.isTesting) {
             // --- IN TEST MODE ---
             // Update the player's movement logic
-            App.player.update(deltaTime); 
+            App.player.update(deltaTime);
+            if (App.scriptEngine && App.scriptEngine.update) {
+                App.scriptEngine.update(deltaTime);
+            }
             // Render the scene using the *player's* camera
-            App.renderer.render(App.scene, App.player.camera); 
-            
+            App.renderer.render(App.scene, App.player.camera);
+
         } else {
             // --- IN EDITOR MODE ---
             // Update the OrbitControls (for damping/inertia)
