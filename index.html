@@ -14,34 +14,21 @@
     <link rel="manifest" href="manifest.json">
 
     <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <!-- Import map that wires bare module specifiers to CDN URLs.
+         Note: the JSON inside must remain comment-free to stay valid. -->
     <script type="importmap">
     {
       "imports": {
-        /* --- Core Three.js --- */
         "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.min.js",
-        
-        /* --- Standard OrbitControls for the editor camera --- */
         "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js",
-        
-        /* --- Loader for HDRI environment maps --- */
         "three/examples/jsm/loaders/RGBELoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/RGBELoader.js",
-        
-        /* --- Model Loaders --- */
         "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/GLTFLoader.js",
         "three/examples/jsm/loaders/FBXLoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/FBXLoader.js",
         "three/examples/jsm/loaders/OBJLoader.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/OBJLoader.js",
-        
-        /* --- FBX Loader Dependency (for compressed FBX files) --- */
         "three/examples/jsm/libs/fflate.module.min.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/libs/fflate.module.min.js",
-
-        /* --- Model Exporters --- */
         "three/examples/jsm/exporters/GLTFExporter.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/GLTFExporter.js",
         "three/examples/jsm/exporters/OBJExporter.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/OBJExporter.js",
-        
-        /* --- Transform Controls (the move/rotate/scale gizmo) --- */
         "three/examples/jsm/controls/TransformControls.js": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/TransformControls.js",
-
-        /* --- Zip Library (for exporting OBJ with materials/textures) --- */
         "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
       }
     }
