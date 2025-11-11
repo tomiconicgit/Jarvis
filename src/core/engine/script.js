@@ -9,6 +9,108 @@ import * as THREE from 'three';
 let App;
 const compiledScripts = [];
 
+function createScriptHelpers(object3D) {
+    const helpers = {
+        state: {},
+        THREE,
+        once(fn) {
+            if (typeof fn !== 'function') return () => undefined;
+            let called = false;
+            return (...args) => {
+                if (called) return undefined;
+                called = true;
+                return fn.apply(this, args);
+            };
+        },
+        setLifecycle(lifecycle) {
+            if (lifecycle && typeof lifecycle === 'object') {
+                helpers.__lifecycle = lifecycle;
+            }
+        },
+        get object() {
+            return object3D;
+        }
+    };
+
+    return helpers;
+}
+
+function normaliseLifecycle(result, helpers) {
+    let lifecycle = result;
+    if (!lifecycle && helpers && helpers.__lifecycle) {
+        lifecycle = helpers.__lifecycle;
+    }
+
+    if (typeof lifecycle === 'function') {
+        return {
+            start: null,
+            update: lifecycle,
+            stop: null
+        };
+    }
+
+    if (lifecycle && typeof lifecycle === 'object') {
+        const normalised = {
+            start: typeof lifecycle.start === 'function' ? lifecycle.start : null,
+            update: null,
+            stop: typeof lifecycle.stop === 'function' ? lifecycle.stop : null
+        };
+
+        if (typeof lifecycle.update === 'function') {
+            normalised.update = lifecycle.update;
+        } else if (typeof lifecycle.tick === 'function') {
+            normalised.update = lifecycle.tick;
+        } else if (typeof lifecycle.run === 'function') {
+            normalised.update = lifecycle.run;
+        } else if (typeof lifecycle.default === 'function') {
+            normalised.update = lifecycle.default;
+        }
+
+        return normalised;
+    }
+
+    return null;
+}
+
+function buildInlineUpdate(scriptData, helpers) {
+    const inlineFn = new Function('App', 'deltaTime', 'helpers', 'THREE', `'use strict';\n${scriptData.content}`);
+    return function inlineUpdate(AppArg, deltaTimeArg) {
+        return inlineFn.call(this, AppArg, deltaTimeArg, helpers, THREE);
+    };
+}
+
+function buildObjectOptions(items, depth = 0) {
+    return items.map(item => {
+        if (!item) return '';
+
+        if (item.icon === 'script') {
+            return '';
+        }
+
+        const indent = depth > 0 ? `${'&nbsp;'.repeat(depth * 4)}↳ ` : '';
+        let option = `<option value="${item.id}">${indent}${item.name}</option>`;
+
+        if (item.children && item.children.length) {
+            option += buildObjectOptions(item.children, depth + 1);
+        }
+
+        return option;
+    }).join('');
+}
+
+function wrapLifecycle(fn, helpers, expectsDelta) {
+    if (typeof fn !== 'function') return null;
+    if (expectsDelta) {
+        return function wrappedUpdate(AppArg, deltaTimeArg) {
+            return fn.call(this, AppArg, deltaTimeArg, helpers, THREE);
+        };
+    }
+
+    return function wrappedHook(AppArg) {
+        return fn.call(this, AppArg, helpers, THREE);
+    };
+}
+
 /**
  * Creates a script and attaches its data to the selected scene object.
  * This is the function called by the modal's "OK" button.
@@ -86,13 +188,30 @@ function compileScriptsForObject(object3D) {
             continue;
         }
 
+        const helpers = createScriptHelpers(object3D);
+
         try {
-            const fn = new Function('App', 'deltaTime', `'use strict';\n${scriptData.content}`);
+            const factory = new Function('App', 'THREE', 'helpers', `'use strict';\nconst module = { exports: {} };\nconst exports = module.exports;\n${scriptData.content}\nif (helpers && helpers.__lifecycle) { return helpers.__lifecycle; }\nif (typeof module.exports !== 'undefined') { return module.exports; }\nif (typeof exports !== 'undefined') { return exports; }\nconst candidate = {};\nif (typeof start === 'function') candidate.start = start;\nif (typeof update === 'function') candidate.update = update;\nif (typeof stop === 'function') candidate.stop = stop;\nreturn Object.keys(candidate).length ? candidate : undefined;`);
+
+            const result = factory(App, THREE, helpers);
+            const lifecycle = normaliseLifecycle(result, helpers);
+
+            let updateFn = lifecycle && lifecycle.update ? wrapLifecycle(lifecycle.update, helpers, true) : null;
+            const startFn = lifecycle ? wrapLifecycle(lifecycle.start, helpers, false) : null;
+            const stopFn = lifecycle ? wrapLifecycle(lifecycle.stop, helpers, false) : null;
+
+            if (!updateFn) {
+                updateFn = buildInlineUpdate(scriptData, helpers);
+            }
+
             compiledScripts.push({
                 object: object3D,
                 script: scriptData,
-                fn,
-                didError: false
+                start: startFn,
+                update: updateFn,
+                stop: stopFn,
+                didError: false,
+                startFailed: false
             });
         } catch (error) {
             console.error(`[ScriptEngine] Failed to compile script "${scriptData.name}":`, error);
@@ -103,19 +222,42 @@ function compileScriptsForObject(object3D) {
 function startScripts() {
     compiledScripts.length = 0;
     App.scene.traverse(compileScriptsForObject);
+
+    for (const entry of compiledScripts) {
+        if (typeof entry.start !== 'function') continue;
+
+        try {
+            entry.start.call(entry.object, App);
+            entry.didError = false;
+        } catch (error) {
+            console.error(`[ScriptEngine] Runtime error in start of script "${entry.script.name}":`, error);
+            entry.startFailed = true;
+        }
+    }
+
     console.log(`[ScriptEngine] Prepared ${compiledScripts.length} script(s) for play mode.`);
 }
 
 function stopScripts() {
+    for (const entry of compiledScripts) {
+        if (entry.startFailed || typeof entry.stop !== 'function') continue;
+
+        try {
+            entry.stop.call(entry.object, App);
+        } catch (error) {
+            console.error(`[ScriptEngine] Runtime error in stop of script "${entry.script.name}":`, error);
+        }
+    }
+
     compiledScripts.length = 0;
 }
 
 function updateScripts(deltaTime) {
     for (const entry of compiledScripts) {
-        if (!entry || typeof entry.fn !== 'function') continue;
+        if (!entry || entry.startFailed || typeof entry.update !== 'function') continue;
 
         try {
-            entry.fn.call(entry.object, App, deltaTime);
+            entry.update.call(entry.object, App, deltaTime);
             entry.didError = false;
         } catch (error) {
             if (!entry.didError) {
@@ -143,17 +285,13 @@ function showAddScriptModal() {
         // We can't attach scripts to the "Default" folder itself,
         // especially if it's empty.
         if (folder.id === 'default' && folder.items.length === 0) return '';
-        
-        // Map all *items* inside this folder to <option> tags.
-        const items = folder.items.map(item => {
-            // We can't attach a script to another script.
-            if (item.icon === 'script') return '';
-            
-            // The 'value' is the item's ID (which is the scene object's UUID).
-            // The text is the item's display name.
-            return `<option value="${item.id}">${item.name}</option>`;
-        }).join('');
-        
+
+        // Map all *items* inside this folder (recursively) to <option> tags.
+        const items = buildObjectOptions(folder.items);
+        if (!items) {
+            return '';
+        }
+
         // Wrap the items in an <optgroup> labeled with the folder's name.
         return `<optgroup label="${folder.name}">${items}</optgroup>`;
     }).join('');

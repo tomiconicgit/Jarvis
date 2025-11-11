@@ -161,6 +161,7 @@ function moveFile(fileId, newParentFolderId) {
     // Reset parent references to reflect folder move
     context.item.parentId = newParentFolderId;
     context.item.parentItemId = null;
+    propagateFolderChangeToChildren(context.item, newParentFolderId);
 
     newParentFolder.items.push(context.item);
 
@@ -241,4 +242,13 @@ function findContextRecursive(collection, targetId) {
     }
 
     return null;
+}
+
+function propagateFolderChangeToChildren(item, newParentFolderId) {
+    if (!item || !Array.isArray(item.children)) return;
+
+    for (const child of item.children) {
+        child.parentId = newParentFolderId;
+        propagateFolderChangeToChildren(child, newParentFolderId);
+    }
 }
